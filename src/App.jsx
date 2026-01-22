@@ -68,9 +68,11 @@ export default function KorfbalApp() {
       const { error } = await supabase.from('teams').update({ players }).eq('id', teamId);
       if (error) throw error;
       await loadTeams();
+      return true;
     } catch (e) {
       console.error('Error saving players:', e);
       showFeedback('Fout bij opslaan spelers', 'error');
+      return false;
     }
   };
 
@@ -193,29 +195,45 @@ export default function KorfbalApp() {
               <h2 className="text-xl font-bold text-gray-800">Alle teams:</h2>
               {teams.length === 0 ? <p className="text-gray-600">Nog geen teams</p> : (
                 <div className="space-y-3">
-                  {teams.map((team) => (
-                    <div key={team.id} className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h3 className="font-bold text-lg">{team.team_name}</h3>
-                          <p className="text-sm text-gray-600">{team.players?.length || 0} spelers</p>
-                        </div>
-                        <button onClick={async () => {
-                          if (confirm(`Team "${team.team_name}" verwijderen?`)) {
-                            try {
-                              await supabase.from('teams').delete().eq('id', team.id);
-                              await loadTeams();
-                              showFeedback('Team verwijderd', 'success');
-                            } catch (e) {
-                              showFeedback('Fout bij verwijderen', 'error');
+                  {teams.map((team) => {
+                    const teamMatches = matches.filter(m => m.team_id === team.id);
+                    return (
+                      <div key={team.id} className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <h3 className="font-bold text-lg">{team.team_name}</h3>
+                            <div className="mt-2 space-y-1 text-sm text-gray-600">
+                              <p>ID: {team.id}</p>
+                              <p>Spelers: {team.players?.length || 0}</p>
+                              <p>Wedstrijden: {teamMatches.length}</p>
+                              {team.created_at && (
+                                <p>Aangemaakt: {new Date(team.created_at).toLocaleDateString('nl-NL', { 
+                                  year: 'numeric', 
+                                  month: 'long', 
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}</p>
+                              )}
+                            </div>
+                          </div>
+                          <button onClick={async () => {
+                            if (confirm(`Team "${team.team_name}" verwijderen?`)) {
+                              try {
+                                await supabase.from('teams').delete().eq('id', team.id);
+                                await loadTeams();
+                                showFeedback('Team verwijderd', 'success');
+                              } catch (e) {
+                                showFeedback('Fout bij verwijderen', 'error');
+                              }
                             }
-                          }
-                        }} className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">
-                          Verwijder
-                        </button>
+                          }} className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 ml-4">
+                            Verwijder
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -300,8 +318,18 @@ export default function KorfbalApp() {
 
   const ManagePlayersView = () => {
     const currentTeamData = teams.find(t => t.id === currentTeamId);
-    const [players, setPlayers] = useState(currentTeamData?.players || []);
+    const [players, setPlayers] = useState([]);
     const [newPlayerName, setNewPlayerName] = useState('');
+
+    // Sync players state when team data is loaded or when navigating to this view
+    useEffect(() => {
+      if (currentTeamData) {
+        setPlayers(currentTeamData.players || []);
+      } else {
+        // Team data not loaded yet, reset to empty
+        setPlayers([]);
+      }
+    }, [currentTeamId, currentTeamData]);
 
     const addPlayer = () => {
       if (!newPlayerName.trim()) { showFeedback('Vul een naam in', 'error'); return; }
@@ -309,10 +337,11 @@ export default function KorfbalApp() {
       if (players.find(p => p.name.toLowerCase() === newPlayerName.trim().toLowerCase())) {
         showFeedback('Deze speler bestaat al', 'error'); return;
       }
-      const updated = [...players, { id: Date.now(), name: newPlayerName.trim() }];
+      const trimmedName = newPlayerName.trim();
+      const updated = [...players, { id: Date.now(), name: trimmedName }];
       setPlayers(updated);
       setNewPlayerName('');
-      showFeedback(`${newPlayerName} toegevoegd`, 'success');
+      showFeedback(`${trimmedName} toegevoegd`, 'success');
     };
 
     const removePlayer = (id) => {
@@ -322,9 +351,11 @@ export default function KorfbalApp() {
     };
 
     const savePlayers = async () => {
-      await saveTeamPlayers(currentTeamId, players);
-      setView('home');
-      showFeedback('Spelers opgeslagen', 'success');
+      const success = await saveTeamPlayers(currentTeamId, players);
+      if (success) {
+        setView('home');
+        showFeedback('Spelers opgeslagen', 'success');
+      }
     };
 
     return (
@@ -367,6 +398,32 @@ export default function KorfbalApp() {
     const players = currentTeamData?.players || [];
     const [opponent, setOpponent] = useState('');
     const [selectedPlayers, setSelectedPlayers] = useState([]);
+    // Default to today's date, formatted for date input (YYYY-MM-DD)
+    const [matchDate, setMatchDate] = useState(() => {
+      const today = new Date();
+      return today.toISOString().split('T')[0];
+    });
+
+    // Show message if no players available
+    if (players.length === 0) {
+      return (
+        <div className="min-h-screen bg-gray-100">
+          <div className="bg-red-600 text-white p-4 shadow-lg flex items-center">
+            <button onClick={() => setView('home')} className="mr-3"><ArrowLeft className="w-6 h-6" /></button>
+            <h1 className="text-xl font-bold">Wedstrijd instellen</h1>
+          </div>
+          <div className="max-w-2xl mx-auto p-4">
+            <div className="bg-white rounded-lg shadow-lg p-6 text-center">
+              <p className="text-gray-600 mb-4">Je hebt nog geen spelers toegevoegd.</p>
+              <button onClick={() => setView('manage-players')}
+                className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+                Spelers toevoegen
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     const togglePlayer = (player) => {
       if (selectedPlayers.find(p => p.id === player.id)) {
@@ -387,8 +444,12 @@ export default function KorfbalApp() {
         stats: SHOT_TYPES.reduce((acc, type) => ({ ...acc, [type.id]: { goals: 0, attempts: 0 } }), {})
       }));
 
+      // Convert date to ISO string (set to noon to avoid timezone issues)
+      const dateObj = new Date(matchDate + 'T12:00:00');
+      const dateISO = dateObj.toISOString();
+
       setCurrentMatch({
-        team: currentTeam, opponent: opponent.trim(), date: new Date().toISOString(),
+        team: currentTeam, opponent: opponent.trim(), date: dateISO,
         players: allPlayers, score: 0, opponentScore: 0, opponentGoals: []
       });
       setView('match');
@@ -407,6 +468,12 @@ export default function KorfbalApp() {
             <input type="text" value={opponent} onChange={(e) => setOpponent(e.target.value)}
               className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none text-base"
               placeholder="Naam tegenstander" />
+          </div>
+          <div className="bg-white rounded-lg shadow-lg p-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Datum wedstrijd</label>
+            <input type="date" value={matchDate} onChange={(e) => setMatchDate(e.target.value)}
+              className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none text-base" />
+            <p className="text-xs text-gray-500 mt-1">Selecteer de datum waarop de wedstrijd is/was gespeeld</p>
           </div>
           <div className="bg-white rounded-lg shadow-lg p-4">
             <h2 className="text-base font-semibold text-gray-800 mb-3">
@@ -440,40 +507,58 @@ export default function KorfbalApp() {
     const [showOpponentModal, setShowOpponentModal] = useState(false);
     const [showOpponentPlayerModal, setShowOpponentPlayerModal] = useState(null);
 
+    // Sync match state when currentMatch changes
+    useEffect(() => {
+      if (currentMatch) {
+        setMatch(currentMatch);
+      }
+    }, [currentMatch]);
+
+    // Guard against null match
+    if (!match || !match.players) {
+      return <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <p className="text-gray-600">Geen wedstrijd gevonden</p>
+      </div>;
+    }
+
     const addGoal = (playerId, shotType) => {
-      const updatedPlayers = match.players.map(p => {
-        if (p.id === playerId) {
-          return {
-            ...p,
-            stats: {
-              ...p.stats,
-              [shotType]: { goals: p.stats[shotType].goals + 1, attempts: p.stats[shotType].attempts + 1 }
-            }
-          };
-        }
-        return p;
+      setMatch(prevMatch => {
+        const updatedPlayers = prevMatch.players.map(p => {
+          if (p.id === playerId) {
+            return {
+              ...p,
+              stats: {
+                ...p.stats,
+                [shotType]: { goals: p.stats[shotType].goals + 1, attempts: p.stats[shotType].attempts + 1 }
+              }
+            };
+          }
+          return p;
+        });
+        const player = prevMatch.players.find(p => p.id === playerId);
+        const shotTypeName = SHOT_TYPES.find(t => t.id === shotType)?.label || shotType;
+        showFeedback(`⚽ Goal voor ${player?.name || 'Onbekend'} (${shotTypeName})`, 'success');
+        return { ...prevMatch, players: updatedPlayers, score: prevMatch.score + 1 };
       });
-      setMatch({ ...match, players: updatedPlayers, score: match.score + 1 });
       setShowGoalModal(null);
-      const player = match.players.find(p => p.id === playerId);
-      const shotTypeName = SHOT_TYPES.find(t => t.id === shotType).label;
-      showFeedback(`⚽ Goal voor ${player.name} (${shotTypeName})`, 'success');
     };
 
     const addAttempt = (playerId, shotType) => {
-      const updatedPlayers = match.players.map(p => {
-        if (p.id === playerId) {
-          return {
-            ...p,
-            stats: { ...p.stats, [shotType]: { ...p.stats[shotType], attempts: p.stats[shotType].attempts + 1 } }
-          };
-        }
-        return p;
+      setMatch(prevMatch => {
+        const updatedPlayers = prevMatch.players.map(p => {
+          if (p.id === playerId) {
+            return {
+              ...p,
+              stats: { ...p.stats, [shotType]: { ...p.stats[shotType], attempts: p.stats[shotType].attempts + 1 } }
+            };
+          }
+          return p;
+        });
+        const player = prevMatch.players.find(p => p.id === playerId);
+        showFeedback(`Poging geregistreerd voor ${player?.name || 'Onbekend'}`, 'success');
+        return { ...prevMatch, players: updatedPlayers };
       });
-      setMatch({ ...match, players: updatedPlayers });
       setShowAttemptModal(null);
-      const player = match.players.find(p => p.id === playerId);
-      showFeedback(`Poging geregistreerd voor ${player.name}`, 'success');
     };
 
     const addOpponentGoal = (shotType) => {
@@ -482,17 +567,24 @@ export default function KorfbalApp() {
     };
 
     const addOpponentGoalWithPlayer = (playerId, shotType) => {
-      const player = match.players.find(p => p.id === playerId);
-      setMatch({
-        ...match, opponentScore: match.opponentScore + 1,
-        opponentGoals: [...match.opponentGoals, { type: shotType, time: new Date().toISOString(), concededBy: player.name }]
+      setMatch(prevMatch => {
+        const player = prevMatch.players.find(p => p.id === playerId);
+        showFeedback(`Tegendoelpunt tegen ${player?.name || 'Onbekend'}`, 'error');
+        return {
+          ...prevMatch,
+          opponentScore: prevMatch.opponentScore + 1,
+          opponentGoals: [...(prevMatch.opponentGoals || []), { type: shotType, time: new Date().toISOString(), concededBy: player?.name || 'Onbekend' }]
+        };
       });
       setShowOpponentPlayerModal(null);
-      showFeedback(`Tegendoelpunt tegen ${player.name}`, 'error');
     };
 
     const finishMatch = async () => {
       if (!confirm('Wedstrijd beëindigen? Dit kan niet ongedaan gemaakt worden.')) return;
+      if (!match) {
+        showFeedback('Geen wedstrijd gevonden', 'error');
+        return;
+      }
       await saveMatch(match);
       setCurrentMatch(match);
       setView('match-summary');
@@ -618,6 +710,13 @@ export default function KorfbalApp() {
   );
   const MatchSummaryView = () => {
     const match = currentMatch;
+    
+    if (!match || !match.players) {
+      return <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <p className="text-gray-600">Geen wedstrijd gevonden</p>
+      </div>;
+    }
+    
     const scoreTimeline = [];
     
     match.players.forEach(player => {
@@ -629,7 +728,7 @@ export default function KorfbalApp() {
       });
     });
 
-    match.opponentGoals.forEach(goal => {
+    (match.opponentGoals || []).forEach(goal => {
       const shotType = SHOT_TYPES.find(t => t.id === goal.type);
       scoreTimeline.push({ team: match.opponent, player: goal.concededBy, type: shotType?.label || 'Onbekend', isOwn: false });
     });
@@ -699,9 +798,9 @@ export default function KorfbalApp() {
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Tegendoelpunten overzicht</h2>
-            {match.opponentGoals.length > 0 ? (
+            {(match.opponentGoals || []).length > 0 ? (
               <div className="space-y-2">
-                {match.opponentGoals.map((goal, idx) => {
+                {(match.opponentGoals || []).map((goal, idx) => {
                   const shotType = SHOT_TYPES.find(t => t.id === goal.type);
                   return (
                     <div key={idx} className="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
@@ -728,7 +827,9 @@ export default function KorfbalApp() {
     const playerStats = {};
 
     teamMatches.forEach(match => {
+      if (!match.players || !Array.isArray(match.players)) return;
       match.players.forEach(player => {
+        if (!player || !player.name) return;
         if (!playerStats[player.name]) {
           playerStats[player.name] = {
             matches: 0, goals: 0, attempts: 0,
@@ -737,10 +838,11 @@ export default function KorfbalApp() {
         }
         playerStats[player.name].matches++;
         SHOT_TYPES.forEach(type => {
-          playerStats[player.name].goals += player.stats[type.id].goals;
-          playerStats[player.name].attempts += player.stats[type.id].attempts;
-          playerStats[player.name].byType[type.id].goals += player.stats[type.id].goals;
-          playerStats[player.name].byType[type.id].attempts += player.stats[type.id].attempts;
+          const stats = player.stats?.[type.id] || { goals: 0, attempts: 0 };
+          playerStats[player.name].goals += stats.goals || 0;
+          playerStats[player.name].attempts += stats.attempts || 0;
+          playerStats[player.name].byType[type.id].goals += stats.goals || 0;
+          playerStats[player.name].byType[type.id].attempts += stats.attempts || 0;
         });
       });
     });
@@ -861,16 +963,22 @@ export default function KorfbalApp() {
   };
 
   const MatchDetailView = ({ match, onBack, onDelete }) => {
+    if (!match || !match.players) {
+      return <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <p className="text-gray-600">Geen wedstrijd gevonden</p>
+      </div>;
+    }
+    
     const scoreTimeline = [];
     match.players.forEach(player => {
       SHOT_TYPES.forEach(type => {
-        const goals = player.stats[type.id].goals;
+        const goals = player.stats?.[type.id]?.goals || 0;
         for (let i = 0; i < goals; i++) {
           scoreTimeline.push({ team: match.team_name, player: player.name, type: type.label, isOwn: true });
         }
       });
     });
-    match.opponent_goals.forEach(goal => {
+    (match.opponent_goals || []).forEach(goal => {
       const shotType = SHOT_TYPES.find(t => t.id === goal.type);
       scoreTimeline.push({ team: match.opponent, player: goal.concededBy, type: shotType?.label || 'Onbekend', isOwn: false });
     });
