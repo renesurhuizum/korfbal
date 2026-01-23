@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Users, BarChart3, Plus, ArrowLeft, Save } from 'lucide-react';
+import { Trophy, Users, BarChart3, Plus, ArrowLeft } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const SHOT_TYPES = [
@@ -365,7 +365,6 @@ export default function KorfbalApp() {
     const [players, setPlayers] = useState([]);
     const [originalPlayers, setOriginalPlayers] = useState([]);
     const [newPlayerName, setNewPlayerName] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
     // Load players when component mounts or team changes
@@ -398,10 +397,8 @@ export default function KorfbalApp() {
       }
     }, [currentTeamId]);
 
-    const addPlayer = () => {
+    const addPlayer = async () => {
       try {
-        alert('addPlayer aangeroepen! Naam: ' + newPlayerName);
-
         if (!newPlayerName.trim()) {
           showFeedback('Vul een naam in', 'error');
           return;
@@ -418,48 +415,53 @@ export default function KorfbalApp() {
         }
 
         const trimmedName = newPlayerName.trim();
-        const updated = [...players, { id: Date.now(), name: trimmedName }];
+        const newPlayer = { id: Date.now(), name: trimmedName };
+        const updated = [...players, newPlayer];
 
-        alert('Speler toegevoegd! Totaal spelers nu: ' + updated.length);
+        // Direct opslaan naar database
+        const { error } = await supabase
+          .from('teams')
+          .update({ players: updated })
+          .eq('id', currentTeamId);
 
+        if (error) throw error;
+
+        // Update lokale state
         setPlayers(updated);
+        setOriginalPlayers(updated);
         setNewPlayerName('');
-        showFeedback(trimmedName + ' toegevoegd', 'success');
+        showFeedback(trimmedName + ' toegevoegd en opgeslagen!', 'success');
       } catch (error) {
-        alert('FOUT: ' + error.message);
-        showFeedback('Fout bij toevoegen speler', 'error');
+        console.error('Error adding player:', error);
+        showFeedback('Fout bij toevoegen: ' + error.message, 'error');
       }
     };
 
-    const removePlayer = (id) => {
-      const player = players.find(p => p.id === id);
-      setPlayers(players.filter(p => p.id !== id));
-      showFeedback(`${player.name} verwijderd`, 'success');
-    };
+    const removePlayer = async (id) => {
+      try {
+        const player = players.find(p => p.id === id);
+        const updated = players.filter(p => p.id !== id);
 
-    const savePlayers = async () => {
-      setIsSaving(true);
-      const success = await saveTeamPlayers(currentTeamId, players);
-      setIsSaving(false);
-      if (success) {
-        showFeedback('Spelers opgeslagen', 'success');
-        setView('home');
+        // Direct opslaan naar database
+        const { error } = await supabase
+          .from('teams')
+          .update({ players: updated })
+          .eq('id', currentTeamId);
+
+        if (error) throw error;
+
+        // Update lokale state
+        setPlayers(updated);
+        setOriginalPlayers(updated);
+        showFeedback(player.name + ' verwijderd', 'success');
+      } catch (error) {
+        console.error('Error removing player:', error);
+        showFeedback('Fout bij verwijderen: ' + error.message, 'error');
       }
-    };
-
-    // Check if there are unsaved changes
-    const hasUnsavedChanges = () => {
-      return JSON.stringify(players) !== JSON.stringify(originalPlayers);
     };
 
     const handleBack = () => {
-      if (hasUnsavedChanges()) {
-        if (confirm('Je hebt niet-opgeslagen wijzigingen. Weet je zeker dat je terug wilt zonder opslaan?')) {
-          setView('home');
-        }
-      } else {
-        setView('home');
-      }
+      setView('home');
     };
 
     if (isLoading) {
@@ -509,10 +511,9 @@ export default function KorfbalApp() {
               )}
             </div>
           </div>
-          <button onClick={savePlayers} disabled={isSaving || !hasUnsavedChanges()}
-            className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition flex items-center justify-center space-x-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
-            <Save className="w-5 h-5" /><span>{isSaving ? 'Opslaan...' : hasUnsavedChanges() ? 'Opslaan' : 'Geen wijzigingen'}</span>
-          </button>
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+            <p className="text-sm text-blue-700">💡 Spelers worden automatisch opgeslagen wanneer je ze toevoegt of verwijdert.</p>
+          </div>
         </div>
       </div>
     );
