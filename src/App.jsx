@@ -128,10 +128,16 @@ export default function KorfbalApp() {
     useEffect(() => {
       const loadGodModeData = async () => {
         if (showGodMode) {
-          setGodModeLoading(true);
-          await loadTeams();
-          await loadAllMatches();
-          setGodModeLoading(false);
+          try {
+            setGodModeLoading(true);
+            await loadTeams();
+            await loadAllMatches();
+          } catch (error) {
+            console.error('God Mode loading error:', error);
+            showFeedback('Fout bij laden God Mode: ' + error.message, 'error');
+          } finally {
+            setGodModeLoading(false);
+          }
         }
       };
       loadGodModeData();
@@ -393,18 +399,36 @@ export default function KorfbalApp() {
     }, [currentTeamId]);
 
     const addPlayer = () => {
-      console.log('addPlayer called, current players:', players);
-      if (!newPlayerName.trim()) { showFeedback('Vul een naam in', 'error'); return; }
-      if (newPlayerName.trim().length < 2) { showFeedback('Naam moet minimaal 2 tekens zijn', 'error'); return; }
-      if (players.find(p => p.name.toLowerCase() === newPlayerName.trim().toLowerCase())) {
-        showFeedback('Deze speler bestaat al', 'error'); return;
+      try {
+        alert('addPlayer aangeroepen! Naam: ' + newPlayerName);
+
+        if (!newPlayerName.trim()) {
+          showFeedback('Vul een naam in', 'error');
+          return;
+        }
+
+        if (newPlayerName.trim().length < 2) {
+          showFeedback('Naam moet minimaal 2 tekens zijn', 'error');
+          return;
+        }
+
+        if (players.find(p => p.name.toLowerCase() === newPlayerName.trim().toLowerCase())) {
+          showFeedback('Deze speler bestaat al', 'error');
+          return;
+        }
+
+        const trimmedName = newPlayerName.trim();
+        const updated = [...players, { id: Date.now(), name: trimmedName }];
+
+        alert('Speler toegevoegd! Totaal spelers nu: ' + updated.length);
+
+        setPlayers(updated);
+        setNewPlayerName('');
+        showFeedback(trimmedName + ' toegevoegd', 'success');
+      } catch (error) {
+        alert('FOUT: ' + error.message);
+        showFeedback('Fout bij toevoegen speler', 'error');
       }
-      const trimmedName = newPlayerName.trim();
-      const updated = [...players, { id: Date.now(), name: trimmedName }];
-      console.log('Updated players array:', updated);
-      setPlayers(updated);
-      setNewPlayerName('');
-      showFeedback(`${trimmedName} toegevoegd`, 'success');
     };
 
     const removePlayer = (id) => {
