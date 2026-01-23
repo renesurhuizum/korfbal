@@ -63,10 +63,22 @@ export default function KorfbalApp() {
     }
   };
 
+  const loadAllMatches = async () => {
+    try {
+      const { data, error } = await supabase.from('matches').select('*').order('date', { ascending: false });
+      if (error) throw error;
+      setMatches(data || []);
+    } catch (e) {
+      console.error('Error loading all matches:', e);
+      showFeedback('Fout bij laden wedstrijden', 'error');
+    }
+  };
+
   const saveTeamPlayers = async (teamId, players) => {
     try {
       const { error } = await supabase.from('teams').update({ players }).eq('id', teamId);
       if (error) throw error;
+      // Wait for teams to be reloaded before returning
       await loadTeams();
       return true;
     } catch (e) {
@@ -86,9 +98,11 @@ export default function KorfbalApp() {
       if (error) throw error;
       await loadMatches();
       showFeedback('Wedstrijd opgeslagen', 'success');
+      return true;
     } catch (e) {
       console.error('Error saving match:', e);
       showFeedback('Fout bij opslaan wedstrijd', 'error');
+      return false;
     }
   };
 
@@ -108,6 +122,13 @@ export default function KorfbalApp() {
     const [password, setPassword] = useState('');
     const [isNewTeam, setIsNewTeam] = useState(false);
     const [showGodMode, setShowGodMode] = useState(false);
+
+    // Load all matches when God Mode is shown
+    useEffect(() => {
+      if (showGodMode) {
+        loadAllMatches();
+      }
+    }, [showGodMode]);
 
     const handleLogin = async () => {
       if (!teamName || !password) {
@@ -218,11 +239,15 @@ export default function KorfbalApp() {
                             </div>
                           </div>
                           <button onClick={async () => {
-                            if (confirm(`Team "${team.team_name}" verwijderen?`)) {
+                            if (confirm(`Team "${team.team_name}" verwijderen? Dit verwijdert ook alle wedstrijden van dit team.`)) {
                               try {
+                                // First delete all matches for this team
+                                await supabase.from('matches').delete().eq('team_id', team.id);
+                                // Then delete the team
                                 await supabase.from('teams').delete().eq('id', team.id);
                                 await loadTeams();
-                                showFeedback('Team verwijderd', 'success');
+                                await loadAllMatches();
+                                showFeedback('Team en wedstrijden verwijderd', 'success');
                               } catch (e) {
                                 showFeedback('Fout bij verwijderen', 'error');
                               }
@@ -320,16 +345,20 @@ export default function KorfbalApp() {
     const currentTeamData = teams.find(t => t.id === currentTeamId);
     const [players, setPlayers] = useState([]);
     const [newPlayerName, setNewPlayerName] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     // Sync players state when team data is loaded or when navigating to this view
+    // Don't sync while saving to prevent race conditions
     useEffect(() => {
-      if (currentTeamData) {
-        setPlayers(currentTeamData.players || []);
-      } else {
-        // Team data not loaded yet, reset to empty
-        setPlayers([]);
+      if (!isSaving) {
+        if (currentTeamData) {
+          setPlayers(currentTeamData.players || []);
+        } else {
+          // Team data not loaded yet, reset to empty
+          setPlayers([]);
+        }
       }
-    }, [currentTeamId, currentTeamData]);
+    }, [currentTeamId, currentTeamData, isSaving]);
 
     const addPlayer = () => {
       if (!newPlayerName.trim()) { showFeedback('Vul een naam in', 'error'); return; }
@@ -351,10 +380,12 @@ export default function KorfbalApp() {
     };
 
     const savePlayers = async () => {
+      setIsSaving(true);
       const success = await saveTeamPlayers(currentTeamId, players);
+      setIsSaving(false);
       if (success) {
-        setView('home');
         showFeedback('Spelers opgeslagen', 'success');
+        setView('home');
       }
     };
 
@@ -514,6 +545,13 @@ export default function KorfbalApp() {
       }
     }, [currentMatch]);
 
+    // Sync changes back to currentMatch
+    useEffect(() => {
+      if (match) {
+        setCurrentMatch(match);
+      }
+    }, [match]);
+
     // Guard against null match
     if (!match || !match.players) {
       return <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -585,9 +623,11 @@ export default function KorfbalApp() {
         showFeedback('Geen wedstrijd gevonden', 'error');
         return;
       }
-      await saveMatch(match);
-      setCurrentMatch(match);
-      setView('match-summary');
+      const success = await saveMatch(match);
+      if (success) {
+        setCurrentMatch(match);
+        setView('match-summary');
+      }
     };
 
     const PlayerRow = ({ player }) => {
