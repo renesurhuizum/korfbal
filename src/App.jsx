@@ -122,12 +122,19 @@ export default function KorfbalApp() {
     const [password, setPassword] = useState('');
     const [isNewTeam, setIsNewTeam] = useState(false);
     const [showGodMode, setShowGodMode] = useState(false);
+    const [godModeLoading, setGodModeLoading] = useState(false);
 
     // Load all matches when God Mode is shown
     useEffect(() => {
-      if (showGodMode) {
-        loadAllMatches();
-      }
+      const loadGodModeData = async () => {
+        if (showGodMode) {
+          setGodModeLoading(true);
+          await loadTeams();
+          await loadAllMatches();
+          setGodModeLoading(false);
+        }
+      };
+      loadGodModeData();
     }, [showGodMode]);
 
     const handleLogin = async () => {
@@ -209,16 +216,22 @@ export default function KorfbalApp() {
               <h1 className="text-2xl font-bold text-gray-800">👑 God Mode</h1>
               <button onClick={() => setShowGodMode(false)} className="text-gray-600 hover:text-gray-800">✕ Sluiten</button>
             </div>
-            <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-600 rounded">
-              <p className="font-semibold text-yellow-800">Totaal aantal teams: {teams.length}</p>
-            </div>
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-gray-800">Alle teams:</h2>
-              {teams.length === 0 ? <p className="text-gray-600">Nog geen teams</p> : (
-                <div className="space-y-3">
-                  {teams.map((team) => {
-                    const teamMatches = matches.filter(m => m.team_id === team.id);
-                    return (
+            {godModeLoading ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">Laden...</p>
+              </div>
+            ) : (
+              <>
+                <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-600 rounded">
+                  <p className="font-semibold text-yellow-800">Totaal aantal teams: {teams.length}</p>
+                </div>
+                <div className="space-y-4">
+                  <h2 className="text-xl font-bold text-gray-800">Alle teams:</h2>
+                  {teams.length === 0 ? <p className="text-gray-600">Nog geen teams</p> : (
+                    <div className="space-y-3">
+                      {teams.map((team) => {
+                        const teamMatches = matches.filter(m => m.team_id === team.id);
+                        return (
                       <div key={team.id} className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex-1">
@@ -261,7 +274,8 @@ export default function KorfbalApp() {
                   })}
                 </div>
               )}
-            </div>
+            </>
+            )
           </div>
         </div>
       );
@@ -342,23 +356,41 @@ export default function KorfbalApp() {
   };
 
   const ManagePlayersView = () => {
-    const currentTeamData = teams.find(t => t.id === currentTeamId);
     const [players, setPlayers] = useState([]);
+    const [originalPlayers, setOriginalPlayers] = useState([]);
     const [newPlayerName, setNewPlayerName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Load players from database when view opens
-    // Use a ref to track which team's players we've loaded
-    const [loadedTeamId, setLoadedTeamId] = useState(null);
-
+    // Load players when component mounts or team changes
     useEffect(() => {
-      // Only load if we haven't loaded this team yet, or if team changed
-      if (currentTeamData && currentTeamData.id !== loadedTeamId) {
-        console.log('Loading players for team:', currentTeamData.id, currentTeamData.players);
-        setPlayers(currentTeamData.players || []);
-        setLoadedTeamId(currentTeamData.id);
+      const loadPlayersForTeam = async () => {
+        setIsLoading(true);
+        try {
+          const { data, error } = await supabase
+            .from('teams')
+            .select('players')
+            .eq('id', currentTeamId)
+            .single();
+
+          if (error) throw error;
+          console.log('Loaded players from database:', data?.players);
+          const loadedPlayers = data?.players || [];
+          setPlayers(loadedPlayers);
+          setOriginalPlayers(loadedPlayers);
+        } catch (e) {
+          console.error('Error loading players:', e);
+          showFeedback('Fout bij laden spelers', 'error');
+          setPlayers([]);
+          setOriginalPlayers([]);
+        }
+        setIsLoading(false);
+      };
+
+      if (currentTeamId) {
+        loadPlayersForTeam();
       }
-    }, [currentTeamId, currentTeamData, loadedTeamId]);
+    }, [currentTeamId]);
 
     const addPlayer = () => {
       console.log('addPlayer called, current players:', players);
@@ -393,7 +425,6 @@ export default function KorfbalApp() {
 
     // Check if there are unsaved changes
     const hasUnsavedChanges = () => {
-      const originalPlayers = currentTeamData?.players || [];
       return JSON.stringify(players) !== JSON.stringify(originalPlayers);
     };
 
@@ -406,6 +437,22 @@ export default function KorfbalApp() {
         setView('home');
       }
     };
+
+    if (isLoading) {
+      return (
+        <div className="min-h-screen bg-gray-100">
+          <div className="bg-red-600 text-white p-4 shadow-lg flex items-center">
+            <button onClick={handleBack} className="mr-3"><ArrowLeft className="w-6 h-6" /></button>
+            <h1 className="text-xl font-bold">Spelers beheren</h1>
+          </div>
+          <div className="max-w-2xl mx-auto p-4">
+            <div className="bg-white rounded-lg shadow-lg p-4 text-center">
+              <p className="text-gray-600">Laden...</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="min-h-screen bg-gray-100">
@@ -424,19 +471,23 @@ export default function KorfbalApp() {
               </button>
             </div>
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {players.map(player => (
-                <div key={player.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="font-medium">{player.name}</span>
-                  <button onClick={() => removePlayer(player.id)} className="text-red-600 hover:text-red-800 font-medium">
-                    Verwijder
-                  </button>
-                </div>
-              ))}
+              {players.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">Nog geen spelers toegevoegd</p>
+              ) : (
+                players.map(player => (
+                  <div key={player.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <span className="font-medium">{player.name}</span>
+                    <button onClick={() => removePlayer(player.id)} className="text-red-600 hover:text-red-800 font-medium">
+                      Verwijder
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
-          <button onClick={savePlayers} disabled={isSaving}
+          <button onClick={savePlayers} disabled={isSaving || !hasUnsavedChanges()}
             className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition flex items-center justify-center space-x-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
-            <Save className="w-5 h-5" /><span>{isSaving ? 'Opslaan...' : 'Opslaan'}</span>
+            <Save className="w-5 h-5" /><span>{isSaving ? 'Opslaan...' : hasUnsavedChanges() ? 'Opslaan' : 'Geen wijzigingen'}</span>
           </button>
         </div>
       </div>
