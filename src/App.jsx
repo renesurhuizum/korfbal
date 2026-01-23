@@ -346,18 +346,22 @@ export default function KorfbalApp() {
     const [players, setPlayers] = useState([]);
     const [newPlayerName, setNewPlayerName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    const [hasInitialized, setHasInitialized] = useState(false);
 
-    // Load players from database once when team data becomes available
-    // After that, only update local state from user actions
+    // Load players from database when view opens
+    // Use a ref to track which team's players we've loaded
+    const [loadedTeamId, setLoadedTeamId] = useState(null);
+
     useEffect(() => {
-      if (currentTeamData && !hasInitialized) {
+      // Only load if we haven't loaded this team yet, or if team changed
+      if (currentTeamData && currentTeamData.id !== loadedTeamId) {
+        console.log('Loading players for team:', currentTeamData.id, currentTeamData.players);
         setPlayers(currentTeamData.players || []);
-        setHasInitialized(true);
+        setLoadedTeamId(currentTeamData.id);
       }
-    }, [currentTeamData, hasInitialized]);
+    }, [currentTeamId, currentTeamData, loadedTeamId]);
 
     const addPlayer = () => {
+      console.log('addPlayer called, current players:', players);
       if (!newPlayerName.trim()) { showFeedback('Vul een naam in', 'error'); return; }
       if (newPlayerName.trim().length < 2) { showFeedback('Naam moet minimaal 2 tekens zijn', 'error'); return; }
       if (players.find(p => p.name.toLowerCase() === newPlayerName.trim().toLowerCase())) {
@@ -365,6 +369,7 @@ export default function KorfbalApp() {
       }
       const trimmedName = newPlayerName.trim();
       const updated = [...players, { id: Date.now(), name: trimmedName }];
+      console.log('Updated players array:', updated);
       setPlayers(updated);
       setNewPlayerName('');
       showFeedback(`${trimmedName} toegevoegd`, 'success');
@@ -386,10 +391,26 @@ export default function KorfbalApp() {
       }
     };
 
+    // Check if there are unsaved changes
+    const hasUnsavedChanges = () => {
+      const originalPlayers = currentTeamData?.players || [];
+      return JSON.stringify(players) !== JSON.stringify(originalPlayers);
+    };
+
+    const handleBack = () => {
+      if (hasUnsavedChanges()) {
+        if (confirm('Je hebt niet-opgeslagen wijzigingen. Weet je zeker dat je terug wilt zonder opslaan?')) {
+          setView('home');
+        }
+      } else {
+        setView('home');
+      }
+    };
+
     return (
       <div className="min-h-screen bg-gray-100">
         <div className="bg-red-600 text-white p-4 shadow-lg flex items-center">
-          <button onClick={() => setView('home')} className="mr-3"><ArrowLeft className="w-6 h-6" /></button>
+          <button onClick={handleBack} className="mr-3"><ArrowLeft className="w-6 h-6" /></button>
           <h1 className="text-xl font-bold">Spelers beheren</h1>
         </div>
         <div className="max-w-2xl mx-auto p-4">
