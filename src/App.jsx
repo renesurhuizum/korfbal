@@ -342,11 +342,20 @@ export default function KorfbalApp() {
   };
 
   const ManagePlayersView = () => {
-    // Initialize players from team data - this only happens once when view loads
     const currentTeamData = teams.find(t => t.id === currentTeamId);
-    const [players, setPlayers] = useState(() => currentTeamData?.players || []);
+    const [players, setPlayers] = useState([]);
     const [newPlayerName, setNewPlayerName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [hasInitialized, setHasInitialized] = useState(false);
+
+    // Load players from database once when team data becomes available
+    // After that, only update local state from user actions
+    useEffect(() => {
+      if (currentTeamData && !hasInitialized) {
+        setPlayers(currentTeamData.players || []);
+        setHasInitialized(true);
+      }
+    }, [currentTeamData, hasInitialized]);
 
     const addPlayer = () => {
       if (!newPlayerName.trim()) { showFeedback('Vul een naam in', 'error'); return; }
