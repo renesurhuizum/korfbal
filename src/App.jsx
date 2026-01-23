@@ -342,23 +342,19 @@ export default function KorfbalApp() {
   };
 
   const ManagePlayersView = () => {
-    const currentTeamData = teams.find(t => t.id === currentTeamId);
     const [players, setPlayers] = useState([]);
     const [newPlayerName, setNewPlayerName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    // Sync players state when team data is loaded or when navigating to this view
-    // Don't sync while saving to prevent race conditions
+    // Load players only when component mounts or team changes
     useEffect(() => {
-      if (!isSaving) {
-        if (currentTeamData) {
-          setPlayers(currentTeamData.players || []);
-        } else {
-          // Team data not loaded yet, reset to empty
-          setPlayers([]);
-        }
+      const currentTeamData = teams.find(t => t.id === currentTeamId);
+      if (currentTeamData) {
+        setPlayers(currentTeamData.players || []);
+      } else {
+        setPlayers([]);
       }
-    }, [currentTeamId, currentTeamData, isSaving]);
+    }, [currentTeamId, teams]);
 
     const addPlayer = () => {
       if (!newPlayerName.trim()) { showFeedback('Vul een naam in', 'error'); return; }
@@ -416,9 +412,9 @@ export default function KorfbalApp() {
               ))}
             </div>
           </div>
-          <button onClick={savePlayers}
-            className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition flex items-center justify-center space-x-2">
-            <Save className="w-5 h-5" /><span>Opslaan</span>
+          <button onClick={savePlayers} disabled={isSaving}
+            className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition flex items-center justify-center space-x-2 disabled:bg-gray-400 disabled:cursor-not-allowed">
+            <Save className="w-5 h-5" /><span>{isSaving ? 'Opslaan...' : 'Opslaan'}</span>
           </button>
         </div>
       </div>
