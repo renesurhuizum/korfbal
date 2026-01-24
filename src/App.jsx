@@ -280,7 +280,9 @@ export default function KorfbalApp() {
                   })}
                 </div>
               )}
-            </>
+            </div>
+          </>
+        )}
           </div>
         </div>
       );
