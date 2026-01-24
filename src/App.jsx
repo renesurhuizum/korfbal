@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Users, BarChart3, Plus, ArrowLeft } from 'lucide-react';
+import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const SHOT_TYPES = [
@@ -37,6 +37,61 @@ export default function KorfbalApp() {
       return () => clearTimeout(timer);
     }
   }, [feedback]);
+
+  // Auto-save currentMatch to localStorage
+  useEffect(() => {
+    if (currentMatch && currentTeamId) {
+      const matchData = {
+        match: currentMatch,
+        teamId: currentTeamId,
+        teamName: currentTeam,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem('korfbal_active_match', JSON.stringify(matchData));
+      console.log('Match auto-saved to localStorage', matchData);
+    }
+  }, [currentMatch, currentTeamId, currentTeam]);
+
+  // Session recovery - restore match from localStorage on mount
+  useEffect(() => {
+    const savedMatchData = localStorage.getItem('korfbal_active_match');
+    if (savedMatchData) {
+      try {
+        const parsed = JSON.parse(savedMatchData);
+        console.log('Found saved match in localStorage:', parsed);
+        // Only restore if we have a team loaded and it matches
+        if (parsed.teamId && parsed.match) {
+          // We'll set a flag to check after login
+          window.korfbalSavedMatch = parsed;
+        }
+      } catch (e) {
+        console.error('Error parsing saved match:', e);
+        localStorage.removeItem('korfbal_active_match');
+      }
+    }
+  }, []);
+
+  // Check for saved match after team is loaded
+  useEffect(() => {
+    if (currentTeamId && window.korfbalSavedMatch) {
+      const saved = window.korfbalSavedMatch;
+      if (saved.teamId === currentTeamId) {
+        const timeDiff = new Date() - new Date(saved.timestamp);
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+
+        // Only restore if less than 24 hours old
+        if (hoursDiff < 24) {
+          setCurrentMatch(saved.match);
+          setView('match');
+          showFeedback('Wedstrijd hersteld! Je kunt verder waar je was gebleven.', 'success');
+          console.log('Match restored from localStorage');
+        } else {
+          localStorage.removeItem('korfbal_active_match');
+        }
+      }
+      delete window.korfbalSavedMatch;
+    }
+  }, [currentTeamId]);
 
   const showFeedback = (message, type = 'error') => {
     setFeedback({ message, type });
@@ -97,6 +152,9 @@ export default function KorfbalApp() {
       }]);
       if (error) throw error;
       await loadMatches();
+      // Clear localStorage after successful save
+      localStorage.removeItem('korfbal_active_match');
+      console.log('Match saved to database, localStorage cleared');
       showFeedback('Wedstrijd opgeslagen', 'success');
       return true;
     } catch (e) {
@@ -367,6 +425,9 @@ export default function KorfbalApp() {
     const [originalPlayers, setOriginalPlayers] = useState([]);
     const [newPlayerName, setNewPlayerName] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [editingPlayerId, setEditingPlayerId] = useState(null);
+    const [editingName, setEditingName] = useState('');
+    const [justAddedId, setJustAddedId] = useState(null);
 
     // Load players when component mounts or team changes
     useEffect(() => {
@@ -427,14 +488,64 @@ export default function KorfbalApp() {
 
         if (error) throw error;
 
-        // Update lokale state
+        // Update lokale state + trigger animatie
         setPlayers(updated);
         setOriginalPlayers(updated);
         setNewPlayerName('');
-        showFeedback(trimmedName + ' toegevoegd en opgeslagen!', 'success');
+        setJustAddedId(newPlayer.id);
+
+        // Verwijder animatie na 2 seconden
+        setTimeout(() => setJustAddedId(null), 2000);
       } catch (error) {
         console.error('Error adding player:', error);
         showFeedback('Fout bij toevoegen: ' + error.message, 'error');
+      }
+    };
+
+    const startEditPlayer = (player) => {
+      setEditingPlayerId(player.id);
+      setEditingName(player.name);
+    };
+
+    const cancelEdit = () => {
+      setEditingPlayerId(null);
+      setEditingName('');
+    };
+
+    const saveEditPlayer = async (playerId) => {
+      try {
+        if (!editingName.trim()) {
+          showFeedback('Vul een naam in', 'error');
+          return;
+        }
+
+        if (editingName.trim().length < 2) {
+          showFeedback('Naam moet minimaal 2 tekens zijn', 'error');
+          return;
+        }
+
+        const trimmedName = editingName.trim();
+        const updated = players.map(p =>
+          p.id === playerId ? { ...p, name: trimmedName } : p
+        );
+
+        // Direct opslaan naar database
+        const { error } = await supabase
+          .from('teams')
+          .update({ players: updated })
+          .eq('id', currentTeamId);
+
+        if (error) throw error;
+
+        // Update lokale state
+        setPlayers(updated);
+        setOriginalPlayers(updated);
+        setEditingPlayerId(null);
+        setEditingName('');
+        showFeedback('Naam gewijzigd!', 'success');
+      } catch (error) {
+        console.error('Error editing player:', error);
+        showFeedback('Fout bij wijzigen: ' + error.message, 'error');
       }
     };
 
@@ -501,14 +612,66 @@ export default function KorfbalApp() {
               {players.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">Nog geen spelers toegevoegd</p>
               ) : (
-                players.map(player => (
-                  <div key={player.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="font-medium">{player.name}</span>
-                    <button onClick={() => removePlayer(player.id)} className="text-red-600 hover:text-red-800 font-medium">
-                      Verwijder
-                    </button>
-                  </div>
-                ))
+                players.map(player => {
+                  const isEditing = editingPlayerId === player.id;
+                  const isJustAdded = justAddedId === player.id;
+
+                  return (
+                    <div
+                      key={player.id}
+                      className={`flex justify-between items-center p-3 rounded-lg transition-all duration-500 ${
+                        isJustAdded
+                          ? 'bg-green-100 border-2 border-green-500 shadow-lg'
+                          : 'bg-gray-50'
+                      }`}
+                    >
+                      {isEditing ? (
+                        <>
+                          <input
+                            type="text"
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && saveEditPlayer(player.id)}
+                            className="flex-1 px-3 py-1 border-2 border-red-600 rounded-lg focus:outline-none text-base mr-2"
+                            autoFocus
+                          />
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => saveEditPlayer(player.id)}
+                              className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              className="bg-gray-400 text-white px-3 py-1 rounded text-sm hover:bg-gray-500"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-medium flex-1">{player.name}</span>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => startEditPlayer(player)}
+                              className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                            >
+                              Bewerk
+                            </button>
+                            <button
+                              onClick={() => removePlayer(player.id)}
+                              className="text-red-600 hover:text-red-800 font-medium text-sm"
+                            >
+                              Verwijder
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -627,63 +790,57 @@ export default function KorfbalApp() {
   };
 
   const MatchView = () => {
-    const [match, setMatch] = useState(currentMatch);
     const [showGoalModal, setShowGoalModal] = useState(null);
     const [showAttemptModal, setShowAttemptModal] = useState(null);
     const [showOpponentModal, setShowOpponentModal] = useState(false);
     const [showOpponentPlayerModal, setShowOpponentPlayerModal] = useState(null);
 
-    // Sync match state when currentMatch changes
-    useEffect(() => {
-      if (currentMatch) {
-        setMatch(currentMatch);
-      }
-    }, [currentMatch]);
-
-    // Sync changes back to currentMatch
-    useEffect(() => {
-      if (match) {
-        setCurrentMatch(match);
-      }
-    }, [match]);
-
     // Guard against null match
-    if (!match || !match.players) {
+    if (!currentMatch || !currentMatch.players) {
       return <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <p className="text-gray-600">Geen wedstrijd gevonden</p>
       </div>;
     }
 
     const addGoal = (playerId, shotType) => {
-      setMatch(prevMatch => {
+      setCurrentMatch(prevMatch => {
         const updatedPlayers = prevMatch.players.map(p => {
           if (p.id === playerId) {
-            return {
-              ...p,
-              stats: {
-                ...p.stats,
-                [shotType]: { goals: p.stats[shotType].goals + 1, attempts: p.stats[shotType].attempts + 1 }
+            const newStats = {
+              ...p.stats,
+              [shotType]: {
+                goals: p.stats[shotType].goals + 1,
+                attempts: p.stats[shotType].attempts + 1
               }
             };
+            console.log(`Goal added for ${p.name}:`, newStats[shotType]);
+            return { ...p, stats: newStats };
           }
           return p;
         });
         const player = prevMatch.players.find(p => p.id === playerId);
         const shotTypeName = SHOT_TYPES.find(t => t.id === shotType)?.label || shotType;
         showFeedback(`⚽ Goal voor ${player?.name || 'Onbekend'} (${shotTypeName})`, 'success');
-        return { ...prevMatch, players: updatedPlayers, score: prevMatch.score + 1 };
+        const newScore = prevMatch.score + 1;
+        console.log(`Score updated: ${prevMatch.score} -> ${newScore}`);
+        return { ...prevMatch, players: updatedPlayers, score: newScore };
       });
       setShowGoalModal(null);
     };
 
     const addAttempt = (playerId, shotType) => {
-      setMatch(prevMatch => {
+      setCurrentMatch(prevMatch => {
         const updatedPlayers = prevMatch.players.map(p => {
           if (p.id === playerId) {
-            return {
-              ...p,
-              stats: { ...p.stats, [shotType]: { ...p.stats[shotType], attempts: p.stats[shotType].attempts + 1 } }
+            const newStats = {
+              ...p.stats,
+              [shotType]: {
+                ...p.stats[shotType],
+                attempts: p.stats[shotType].attempts + 1
+              }
             };
+            console.log(`Attempt added for ${p.name}:`, newStats[shotType]);
+            return { ...p, stats: newStats };
           }
           return p;
         });
@@ -700,7 +857,7 @@ export default function KorfbalApp() {
     };
 
     const addOpponentGoalWithPlayer = (playerId, shotType) => {
-      setMatch(prevMatch => {
+      setCurrentMatch(prevMatch => {
         const player = prevMatch.players.find(p => p.id === playerId);
         showFeedback(`Tegendoelpunt tegen ${player?.name || 'Onbekend'}`, 'error');
         return {
@@ -714,13 +871,12 @@ export default function KorfbalApp() {
 
     const finishMatch = async () => {
       if (!confirm('Wedstrijd beëindigen? Dit kan niet ongedaan gemaakt worden.')) return;
-      if (!match) {
+      if (!currentMatch) {
         showFeedback('Geen wedstrijd gevonden', 'error');
         return;
       }
-      const success = await saveMatch(match);
+      const success = await saveMatch(currentMatch);
       if (success) {
-        setCurrentMatch(match);
         setView('match-summary');
       }
     };
@@ -766,21 +922,21 @@ export default function KorfbalApp() {
       <div className="min-h-screen bg-gray-100 pb-20">
         <div className="bg-red-600 text-white p-4 shadow-lg sticky top-0 z-10">
           <div className="flex justify-between items-center mb-2">
-            <h1 className="text-xl font-bold">{match.team}</h1>
-            <h1 className="text-xl font-bold">{match.opponent}</h1>
+            <h1 className="text-xl font-bold">{currentMatch.team}</h1>
+            <h1 className="text-xl font-bold">{currentMatch.opponent}</h1>
           </div>
           <div className="text-center">
-            <div className="text-5xl font-bold">{match.score} - {match.opponentScore}</div>
+            <div className="text-5xl font-bold">{currentMatch.score} - {currentMatch.opponentScore}</div>
           </div>
         </div>
         <div className="max-w-4xl mx-auto p-4">
           <div className="bg-white rounded-lg shadow-lg p-4 mb-4">
             <h2 className="font-bold text-lg mb-3 text-gray-800">Basisspelers</h2>
-            {match.players.filter(p => p.isStarter).map(player => <PlayerRow key={player.id} player={player} />)}
+            {currentMatch.players.filter(p => p.isStarter).map(player => <PlayerRow key={player.id} player={player} />)}
           </div>
           <div className="bg-white rounded-lg shadow-lg p-4 mb-4">
             <h2 className="font-bold text-lg mb-3 text-gray-800">Wisselspelers</h2>
-            {match.players.filter(p => !p.isStarter).map(player => <PlayerRow key={player.id} player={player} />)}
+            {currentMatch.players.filter(p => !p.isStarter).map(player => <PlayerRow key={player.id} player={player} />)}
           </div>
           <button onClick={() => setShowOpponentModal(true)}
             className="w-full bg-gray-800 text-white py-4 rounded-lg font-semibold hover:bg-gray-900 transition mb-4">
@@ -797,7 +953,7 @@ export default function KorfbalApp() {
           onSelect={(type) => addAttempt(showAttemptModal.id, type)} onClose={() => setShowAttemptModal(null)} />}
         {showOpponentModal && <ShotTypeModal title="Tegendoelpunt type"
           onSelect={addOpponentGoal} onClose={() => setShowOpponentModal(false)} />}
-        {showOpponentPlayerModal && <PlayerSelectModal title="Wie kreeg doelpunt tegen?" players={match.players}
+        {showOpponentPlayerModal && <PlayerSelectModal title="Wie kreeg doelpunt tegen?" players={currentMatch.players}
           onSelect={(playerId) => addOpponentGoalWithPlayer(playerId, showOpponentPlayerModal)}
           onClose={() => setShowOpponentPlayerModal(null)} />}
       </div>
@@ -995,16 +1151,85 @@ export default function KorfbalApp() {
       }
     };
 
+    const exportToCSV = () => {
+      try {
+        // Header
+        let csv = 'Team Statistieken - ' + currentTeam + '\n\n';
+
+        // Team overzicht
+        csv += 'Team Overzicht\n';
+        csv += 'Wedstrijden,Gewonnen,Gelijkspel,Verloren,Doelpunten Voor,Doelpunten Tegen\n';
+        csv += teamMatches.length + ',' + wins + ',' + draws + ',' + losses + ',' + totalGoals + ',' + totalAgainst + '\n\n';
+
+        // Speler statistieken
+        csv += 'Speler Statistieken\n';
+        csv += 'Naam,Wedstrijden,Doelpunten,Pogingen,Percentage';
+        SHOT_TYPES.forEach(type => {
+          csv += ',' + type.label + ' Doelpunten,' + type.label + ' Pogingen';
+        });
+        csv += '\n';
+
+        Object.entries(playerStats)
+          .sort(([, a], [, b]) => b.goals - a.goals)
+          .forEach(([name, stats]) => {
+            const percentage = stats.attempts > 0 ? Math.round((stats.goals / stats.attempts) * 100) : 0;
+            csv += name + ',' + stats.matches + ',' + stats.goals + ',' + stats.attempts + ',' + percentage + '%';
+            SHOT_TYPES.forEach(type => {
+              const typeStat = stats.byType[type.id];
+              csv += ',' + typeStat.goals + ',' + typeStat.attempts;
+            });
+            csv += '\n';
+          });
+
+        // Wedstrijd geschiedenis
+        csv += '\n\nWedstrijd Geschiedenis\n';
+        csv += 'Datum,Tegenstander,Uitslag,Resultaat\n';
+        teamMatches
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .forEach(match => {
+            const date = new Date(match.date).toLocaleDateString('nl-NL');
+            const result = match.score > match.opponent_score ? 'Gewonnen' :
+                          match.score < match.opponent_score ? 'Verloren' : 'Gelijkspel';
+            csv += date + ',' + match.opponent + ',' + match.score + '-' + match.opponent_score + ',' + result + '\n';
+          });
+
+        // Download
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', currentTeam + '_statistieken_' + new Date().toISOString().split('T')[0] + '.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        showFeedback('Statistieken geëxporteerd!', 'success');
+      } catch (error) {
+        console.error('Export error:', error);
+        showFeedback('Fout bij exporteren', 'error');
+      }
+    };
+
     if (selectedMatch) {
-      return <MatchDetailView match={selectedMatch} onBack={() => setSelectedMatch(null)} 
+      return <MatchDetailView match={selectedMatch} onBack={() => setSelectedMatch(null)}
         onDelete={() => handleDeleteMatch(selectedMatch)} />;
     }
 
     return (
       <div className="min-h-screen bg-gray-100">
-        <div className="bg-red-600 text-white p-6 shadow-lg flex items-center">
-          <button onClick={() => setView('home')} className="mr-4"><ArrowLeft className="w-6 h-6" /></button>
-          <h1 className="text-2xl font-bold">Statistieken</h1>
+        <div className="bg-red-600 text-white p-6 shadow-lg flex items-center justify-between">
+          <div className="flex items-center">
+            <button onClick={() => setView('home')} className="mr-4"><ArrowLeft className="w-6 h-6" /></button>
+            <h1 className="text-2xl font-bold">Statistieken</h1>
+          </div>
+          <button
+            onClick={exportToCSV}
+            className="bg-white text-red-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center space-x-2"
+          >
+            <Download className="w-5 h-5" />
+            <span>Exporteer</span>
+          </button>
         </div>
         <div className="max-w-4xl mx-auto p-6 space-y-6">
           <div className="bg-white rounded-lg shadow-lg p-6">
@@ -1041,24 +1266,88 @@ export default function KorfbalApp() {
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Speler statistieken</h2>
             <div className="space-y-4">
-              {Object.entries(playerStats).sort(([, a], [, b]) => b.goals - a.goals).map(([name, stats]) => {
+              {Object.entries(playerStats).sort(([, a], [, b]) => b.goals - a.goals).map(([name, stats], index) => {
                 const percentage = stats.attempts > 0 ? Math.round((stats.goals / stats.attempts) * 100) : 0;
+                const avgPerMatch = stats.matches > 0 ? (stats.goals / stats.matches).toFixed(1) : 0;
+
+                // Bepaal kleur op basis van percentage
+                let performanceColor = 'bg-gray-400';
+                let performanceText = 'text-gray-700';
+                if (percentage >= 70) {
+                  performanceColor = 'bg-green-500';
+                  performanceText = 'text-green-700';
+                } else if (percentage >= 50) {
+                  performanceColor = 'bg-yellow-500';
+                  performanceText = 'text-yellow-700';
+                } else if (percentage >= 30) {
+                  performanceColor = 'bg-orange-500';
+                  performanceText = 'text-orange-700';
+                } else if (stats.attempts > 0) {
+                  performanceColor = 'bg-red-500';
+                  performanceText = 'text-red-700';
+                }
+
+                // Ranking badge styling
+                let rankBadge = 'bg-gray-200 text-gray-700';
+                if (index === 0) rankBadge = 'bg-yellow-400 text-yellow-900 font-bold';
+                else if (index === 1) rankBadge = 'bg-gray-300 text-gray-800 font-bold';
+                else if (index === 2) rankBadge = 'bg-orange-300 text-orange-900 font-bold';
+
                 return (
-                  <div key={name} className="border-b border-gray-200 pb-4 last:border-0">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-semibold text-lg">{name}</span>
-                      <span className="text-gray-600">{stats.goals} doelpunten / {stats.attempts} pogingen ({percentage}%)</span>
+                  <div key={name} className="border-l-4 border-red-600 bg-gray-50 p-4 rounded-r-lg">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm ${rankBadge}`}>
+                          #{index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-bold text-lg">{name}</div>
+                          <div className="text-sm text-gray-600">
+                            {stats.matches} wedstrijden • {avgPerMatch} doelpunten/wedstrijd
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-red-600">{stats.goals}</div>
+                        <div className="text-xs text-gray-500">doelpunten</div>
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-500 mb-2">{stats.matches} wedstrijden gespeeld</div>
-                    <div className="flex flex-wrap gap-2 text-sm">
+
+                    {/* Progress bar voor score percentage */}
+                    <div className="mb-3">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-600">Scorepercentage</span>
+                        <span className={`font-semibold ${performanceText}`}>{percentage}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div
+                          className={`h-full ${performanceColor} transition-all duration-500 rounded-full`}
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {stats.goals} van {stats.attempts} pogingen
+                      </div>
+                    </div>
+
+                    {/* Shot type details */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
                       {SHOT_TYPES.map(type => {
                         const typeStat = stats.byType[type.id];
                         if (typeStat.attempts === 0) return null;
                         const typePercentage = Math.round((typeStat.goals / typeStat.attempts) * 100);
+
+                        let typeColor = 'bg-gray-100 border-gray-300';
+                        if (typePercentage >= 70) typeColor = 'bg-green-50 border-green-300';
+                        else if (typePercentage >= 50) typeColor = 'bg-yellow-50 border-yellow-300';
+                        else if (typePercentage >= 30) typeColor = 'bg-orange-50 border-orange-300';
+                        else typeColor = 'bg-red-50 border-red-300';
+
                         return (
-                          <span key={type.id} className="bg-gray-100 px-3 py-1 rounded">
-                            {type.label}: {typeStat.goals}/{typeStat.attempts} ({typePercentage}%)
-                          </span>
+                          <div key={type.id} className={`${typeColor} border px-2 py-1 rounded text-xs`}>
+                            <div className="font-semibold">{type.short}</div>
+                            <div>{typeStat.goals}/{typeStat.attempts} ({typePercentage}%)</div>
+                          </div>
                         );
                       })}
                     </div>
