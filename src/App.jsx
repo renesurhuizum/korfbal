@@ -93,6 +93,23 @@ export default function KorfbalApp() {
     }
   }, [currentTeamId]);
 
+  // Session persistence - restore login on mount
+  useEffect(() => {
+    const savedSession = localStorage.getItem('korfbal_session');
+    if (savedSession) {
+      try {
+        const { teamName, teamId } = JSON.parse(savedSession);
+        console.log('Restoring session for:', teamName);
+        setCurrentTeam(teamName);
+        setCurrentTeamId(teamId);
+        setView('home');
+      } catch (e) {
+        console.error('Error restoring session:', e);
+        localStorage.removeItem('korfbal_session');
+      }
+    }
+  }, []);
+
   const showFeedback = (message, type = 'error') => {
     setFeedback({ message, type });
   };
@@ -221,6 +238,11 @@ export default function KorfbalApp() {
         if (team.password_hash === password) {
           setCurrentTeam(teamName);
           setCurrentTeamId(team.id);
+          // Save session to localStorage
+          localStorage.setItem('korfbal_session', JSON.stringify({
+            teamName: teamName,
+            teamId: team.id
+          }));
           setView('home');
           showFeedback(`Welkom ${teamName}!`, 'success');
         } else {
@@ -263,6 +285,11 @@ export default function KorfbalApp() {
         if (error) throw error;
         setCurrentTeam(teamName);
         setCurrentTeamId(newTeam.id);
+        // Save session to localStorage
+        localStorage.setItem('korfbal_session', JSON.stringify({
+          teamName: teamName,
+          teamId: newTeam.id
+        }));
         await loadTeams();
         setView('home');
         showFeedback(`Team "${teamName}" succesvol aangemaakt!`, 'success');
@@ -375,13 +402,23 @@ export default function KorfbalApp() {
     );
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('korfbal_session');
+    localStorage.removeItem('korfbal_active_match');
+    setCurrentTeam(null);
+    setCurrentTeamId(null);
+    setCurrentMatch(null);
+    setView('login');
+    showFeedback('Uitgelogd', 'success');
+  };
+
   const HomeView = () => {
     const teamMatches = matches.filter(m => m.team_id === currentTeamId);
     return (
       <div className="min-h-screen bg-gray-100">
         <div className="bg-red-600 text-white p-4 shadow-lg">
           <h1 className="text-2xl font-bold">{currentTeam}</h1>
-          <button onClick={() => { setCurrentTeam(null); setCurrentTeamId(null); setView('login'); }}
+          <button onClick={handleLogout}
             className="mt-2 text-sm hover:underline">Uitloggen</button>
         </div>
         <div className="max-w-4xl mx-auto p-4 space-y-3">
@@ -1024,6 +1061,31 @@ export default function KorfbalApp() {
       scoreTimeline.push({ team: match.opponent, player: goal.concededBy, type: shotType?.label || 'Onbekend', isOwn: false });
     });
 
+    // Calculate team statistics
+    const totalGoals = match.players.reduce((sum, p) =>
+      sum + SHOT_TYPES.reduce((s, type) => s + p.stats[type.id].goals, 0), 0);
+    const totalAttempts = match.players.reduce((sum, p) =>
+      sum + SHOT_TYPES.reduce((s, type) => s + p.stats[type.id].attempts, 0), 0);
+    const teamPercentage = totalAttempts > 0 ? Math.round((totalGoals / totalAttempts) * 100) : 0;
+
+    // Find best player
+    const bestPlayer = match.players.reduce((best, player) => {
+      const goals = SHOT_TYPES.reduce((sum, type) => sum + player.stats[type.id].goals, 0);
+      const bestGoals = best ? SHOT_TYPES.reduce((sum, type) => sum + best.stats[type.id].goals, 0) : 0;
+      return goals > bestGoals ? player : best;
+    }, null);
+
+    // Calculate stats per shot type
+    const shotTypeStats = SHOT_TYPES.map(type => {
+      const goals = match.players.reduce((sum, p) => sum + p.stats[type.id].goals, 0);
+      const attempts = match.players.reduce((sum, p) => sum + p.stats[type.id].attempts, 0);
+      const percentage = attempts > 0 ? Math.round((goals / attempts) * 100) : 0;
+      return { type: type.label, goals, attempts, percentage };
+    }).filter(stat => stat.attempts > 0);
+
+    const result = match.score > match.opponentScore ? 'Gewonnen! 🎉' :
+                   match.score < match.opponentScore ? 'Verloren 😔' : 'Gelijkspel';
+
     return (
       <div className="min-h-screen bg-gray-100">
         <div className="bg-red-600 text-white p-6 shadow-lg">
@@ -1031,9 +1093,68 @@ export default function KorfbalApp() {
           <div className="text-center">
             <div className="text-5xl font-bold mb-2">{match.score} - {match.opponentScore}</div>
             <div className="text-xl">{match.team} vs {match.opponent}</div>
+            <div className="text-lg mt-2 font-semibold">{result}</div>
           </div>
         </div>
         <div className="max-w-4xl mx-auto p-6">
+          {/* Team Statistics */}
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">📊 Wedstrijdstatistieken</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="text-center p-3 bg-red-50 rounded-lg">
+                <div className="text-3xl font-bold text-red-600">{teamPercentage}%</div>
+                <div className="text-sm text-gray-600">Team schotpercentage</div>
+              </div>
+              <div className="text-center p-3 bg-blue-50 rounded-lg">
+                <div className="text-3xl font-bold text-blue-600">{totalAttempts}</div>
+                <div className="text-sm text-gray-600">Totaal pogingen</div>
+              </div>
+              <div className="text-center p-3 bg-green-50 rounded-lg">
+                <div className="text-3xl font-bold text-green-600">{totalGoals}</div>
+                <div className="text-sm text-gray-600">Doelpunten</div>
+              </div>
+              <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                <div className="text-3xl font-bold text-yellow-600">{match.players.length}</div>
+                <div className="text-sm text-gray-600">Spelers ingezet</div>
+              </div>
+            </div>
+            {bestPlayer && (
+              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-400 rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-gray-600 mb-1">⭐ Top Scorer</div>
+                    <div className="text-xl font-bold text-gray-800">{bestPlayer.name}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold text-yellow-600">
+                      {SHOT_TYPES.reduce((sum, type) => sum + bestPlayer.stats[type.id].goals, 0)}
+                    </div>
+                    <div className="text-sm text-gray-600">doelpunten</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {shotTypeStats.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-gray-700 mb-3">Schot analyse</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {shotTypeStats.map(stat => (
+                    <div key={stat.type} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      <div className="font-semibold text-sm text-gray-700">{stat.type}</div>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-sm text-gray-600">{stat.goals}/{stat.attempts}</span>
+                        <span className={`text-lg font-bold ${
+                          stat.percentage >= 70 ? 'text-green-600' :
+                          stat.percentage >= 50 ? 'text-yellow-600' :
+                          stat.percentage >= 30 ? 'text-orange-600' : 'text-red-600'
+                        }`}>{stat.percentage}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Scoreverloop</h2>
             <div className="space-y-2">
