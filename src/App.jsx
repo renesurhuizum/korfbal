@@ -1197,6 +1197,65 @@ export default function KorfbalApp() {
           </div>
         </div>
         <div className="max-w-4xl mx-auto p-6">
+          {/* Share button at top */}
+          <button
+            onClick={async () => {
+              try {
+                // Update match to make it shareable
+                const matchToSave = {
+                  team_id: currentTeamId,
+                  team_name: currentTeam,
+                  opponent: match.opponent,
+                  date: match.date,
+                  players: match.players,
+                  score: match.score,
+                  opponent_score: match.opponentScore,
+                  opponent_goals: match.opponentGoals || [],
+                  goals: match.goals || [],
+                  finished: true,
+                  shareable: true
+                };
+
+                // If this match already has an ID (was saved), update it. Otherwise insert it.
+                let matchId;
+                if (match.id) {
+                  const { error } = await supabase
+                    .from('matches')
+                    .update(matchToSave)
+                    .eq('id', match.id);
+                  if (error) {
+                    console.error('Update error:', error);
+                    throw error;
+                  }
+                  matchId = match.id;
+                } else {
+                  const { data, error } = await supabase
+                    .from('matches')
+                    .insert([matchToSave])
+                    .select()
+                    .single();
+                  if (error) {
+                    console.error('Insert error:', error);
+                    throw error;
+                  }
+                  matchId = data.id;
+                }
+
+                // Generate shareable URL
+                const shareUrl = `${window.location.origin}${window.location.pathname}?match=${matchId}`;
+
+                // Copy to clipboard
+                await navigator.clipboard.writeText(shareUrl);
+                showFeedback('Deel-link gekopieerd! Deel deze met je team.', 'success');
+              } catch (error) {
+                console.error('Error sharing match:', error);
+                showFeedback(`Fout bij delen: ${error.message || 'Onbekende fout'}`, 'error');
+              }
+            }}
+            className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2 mb-6"
+          >
+            📤 Deel wedstrijd met team
+          </button>
           {/* Team Statistics */}
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">📊 Wedstrijdstatistieken</h2>
@@ -1324,64 +1383,10 @@ export default function KorfbalApp() {
               </div>
             ) : <p className="text-gray-600">Geen tegendoelpunten</p>}
           </div>
-          <div className="space-y-3">
-            <button
-              onClick={async () => {
-                try {
-                  // Update match to make it shareable
-                  const matchToSave = {
-                    team_id: currentTeamId,
-                    team_name: currentTeam,
-                    opponent: match.opponent,
-                    date: match.date,
-                    players: match.players,
-                    score: match.score,
-                    opponent_score: match.opponentScore,
-                    opponent_goals: match.opponentGoals,
-                    goals: match.goals,
-                    finished: true,
-                    shareable: true
-                  };
-
-                  // If this match already has an ID (was saved), update it. Otherwise insert it.
-                  let matchId;
-                  if (match.id) {
-                    const { error } = await supabase
-                      .from('matches')
-                      .update(matchToSave)
-                      .eq('id', match.id);
-                    if (error) throw error;
-                    matchId = match.id;
-                  } else {
-                    const { data, error } = await supabase
-                      .from('matches')
-                      .insert([matchToSave])
-                      .select()
-                      .single();
-                    if (error) throw error;
-                    matchId = data.id;
-                  }
-
-                  // Generate shareable URL
-                  const shareUrl = `${window.location.origin}${window.location.pathname}?match=${matchId}`;
-
-                  // Copy to clipboard
-                  await navigator.clipboard.writeText(shareUrl);
-                  showFeedback('Deel-link gekopieerd! Deel deze met je team.', 'success');
-                } catch (error) {
-                  console.error('Error sharing match:', error);
-                  showFeedback('Fout bij delen van wedstrijd', 'error');
-                }
-              }}
-              className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2"
-            >
-              📤 Deel wedstrijd met team
-            </button>
-            <button onClick={() => { setCurrentMatch(null); setView('home'); }}
-              className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 transition">
-              Terug naar home
-            </button>
-          </div>
+          <button onClick={() => { setCurrentMatch(null); setView('home'); }}
+            className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 transition">
+            Terug naar home
+          </button>
         </div>
       </div>
     );
