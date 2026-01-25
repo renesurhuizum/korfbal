@@ -20,6 +20,8 @@ export default function KorfbalApp() {
   const [matches, setMatches] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showGodMode, setShowGodMode] = useState(false);
+  const [godModeLoading, setGodModeLoading] = useState(false);
 
   useEffect(() => {
     loadTeams();
@@ -37,6 +39,25 @@ export default function KorfbalApp() {
       return () => clearTimeout(timer);
     }
   }, [feedback]);
+
+  // Load all data when God Mode is activated
+  useEffect(() => {
+    const loadGodModeData = async () => {
+      if (showGodMode) {
+        try {
+          setGodModeLoading(true);
+          await loadTeams();
+          await loadAllMatches();
+        } catch (error) {
+          console.error('God Mode loading error:', error);
+          showFeedback('Fout bij laden God Mode: ' + error.message, 'error');
+        } finally {
+          setGodModeLoading(false);
+        }
+      }
+    };
+    loadGodModeData();
+  }, [showGodMode]);
 
   // Auto-save currentMatch to localStorage
   useEffect(() => {
@@ -227,27 +248,6 @@ export default function KorfbalApp() {
     const [teamName, setTeamName] = useState('');
     const [password, setPassword] = useState('');
     const [isNewTeam, setIsNewTeam] = useState(false);
-    const [showGodMode, setShowGodMode] = useState(false);
-    const [godModeLoading, setGodModeLoading] = useState(false);
-
-    // Load all matches when God Mode is shown
-    useEffect(() => {
-      const loadGodModeData = async () => {
-        if (showGodMode) {
-          try {
-            setGodModeLoading(true);
-            await loadTeams();
-            await loadAllMatches();
-          } catch (error) {
-            console.error('God Mode loading error:', error);
-            showFeedback('Fout bij laden God Mode: ' + error.message, 'error');
-          } finally {
-            setGodModeLoading(false);
-          }
-        }
-      };
-      loadGodModeData();
-    }, [showGodMode]);
 
     const handleLogin = async () => {
       if (!teamName || !password) {
@@ -256,6 +256,7 @@ export default function KorfbalApp() {
       }
       if (teamName === 'ADMIN' && password === 'korfbal2026') {
         setShowGodMode(true);
+        setView('god-mode');
         return;
       }
       setLoading(true);
@@ -330,80 +331,6 @@ export default function KorfbalApp() {
       setLoading(false);
     };
 
-    if (showGodMode) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-600 to-yellow-800 p-4">
-          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-800">👑 God Mode</h1>
-              <button onClick={() => setShowGodMode(false)} className="text-gray-600 hover:text-gray-800">✕ Sluiten</button>
-            </div>
-            {godModeLoading ? (
-              <div className="text-center py-8">
-                <p className="text-gray-600">Laden...</p>
-              </div>
-            ) : (
-              <>
-                <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-600 rounded">
-                  <p className="font-semibold text-yellow-800">Totaal aantal teams: {teams.length}</p>
-                </div>
-                <div className="space-y-4">
-                  <h2 className="text-xl font-bold text-gray-800">Alle teams:</h2>
-                  {teams.length === 0 ? <p className="text-gray-600">Nog geen teams</p> : (
-                    <div className="space-y-3">
-                      {teams.map((team) => {
-                        const teamMatches = matches.filter(m => m.team_id === team.id);
-                        return (
-                      <div key={team.id} className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex-1">
-                            <h3 className="font-bold text-lg">{team.team_name}</h3>
-                            <div className="mt-2 space-y-1 text-sm text-gray-600">
-                              <p>ID: {team.id}</p>
-                              <p>Spelers: {team.players?.length || 0}</p>
-                              <p>Wedstrijden: {teamMatches.length}</p>
-                              {team.created_at && (
-                                <p>Aangemaakt: {new Date(team.created_at).toLocaleDateString('nl-NL', { 
-                                  year: 'numeric', 
-                                  month: 'long', 
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}</p>
-                              )}
-                            </div>
-                          </div>
-                          <button onClick={async () => {
-                            if (confirm(`Team "${team.team_name}" verwijderen? Dit verwijdert ook alle wedstrijden van dit team.`)) {
-                              try {
-                                // First delete all matches for this team
-                                await supabase.from('matches').delete().eq('team_id', team.id);
-                                // Then delete the team
-                                await supabase.from('teams').delete().eq('id', team.id);
-                                await loadTeams();
-                                await loadAllMatches();
-                                showFeedback('Team en wedstrijden verwijderd', 'success');
-                              } catch (e) {
-                                showFeedback('Fout bij verwijderen', 'error');
-                              }
-                            }
-                          }} className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 ml-4">
-                            Verwijder
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
@@ -441,6 +368,81 @@ export default function KorfbalApp() {
     setCurrentMatch(null);
     setView('login');
     showFeedback('Uitgelogd', 'success');
+  };
+
+  const GodModeView = () => {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-600 to-yellow-800 p-4">
+        <div className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-800">👑 God Mode</h1>
+            <button onClick={() => {
+              setShowGodMode(false);
+              setView('login');
+            }} className="text-gray-600 hover:text-gray-800">✕ Sluiten</button>
+          </div>
+          {godModeLoading ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600">Laden...</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-600 rounded">
+                <p className="font-semibold text-yellow-800">Totaal aantal teams: {teams.length}</p>
+              </div>
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-gray-800">Alle teams:</h2>
+                {teams.length === 0 ? <p className="text-gray-600">Nog geen teams</p> : (
+                  <div className="space-y-3">
+                    {teams.map((team) => {
+                      const teamMatches = matches.filter(m => m.team_id === team.id);
+                      return (
+                        <div key={team.id} className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1">
+                              <h3 className="font-bold text-lg">{team.team_name}</h3>
+                              <div className="mt-2 space-y-1 text-sm text-gray-600">
+                                <p>ID: {team.id}</p>
+                                <p>Spelers: {team.players?.length || 0}</p>
+                                <p>Wedstrijden: {teamMatches.length}</p>
+                                {team.created_at && (
+                                  <p>Aangemaakt: {new Date(team.created_at).toLocaleDateString('nl-NL', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}</p>
+                                )}
+                              </div>
+                            </div>
+                            <button onClick={async () => {
+                              if (confirm(`Team "${team.team_name}" verwijderen? Dit verwijdert ook alle wedstrijden van dit team.`)) {
+                                try {
+                                  await supabase.from('matches').delete().eq('team_id', team.id);
+                                  await supabase.from('teams').delete().eq('id', team.id);
+                                  await loadTeams();
+                                  await loadAllMatches();
+                                  showFeedback('Team en wedstrijden verwijderd', 'success');
+                                } catch (e) {
+                                  showFeedback('Fout bij verwijderen', 'error');
+                                }
+                              }
+                            }} className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 ml-4">
+                              Verwijder
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const HomeView = () => {
@@ -2122,6 +2124,7 @@ export default function KorfbalApp() {
         </div>
       )}
       {view === 'login' && <LoginView />}
+      {view === 'god-mode' && <GodModeView />}
       {view === 'home' && <HomeView />}
       {view === 'manage-players' && <ManagePlayersView />}
       {view === 'setup-match' && <SetupMatchView />}
