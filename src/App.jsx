@@ -34,9 +34,21 @@ export default function KorfbalApp() {
   }, [currentTeamId]);
 
   useEffect(() => {
-    if (feedback) {
-      const timer = setTimeout(() => setFeedback(null), 3000);
-      return () => clearTimeout(timer);
+    if (feedback && feedback.visible !== false) {
+      // First fade out after 2.7 seconds
+      const fadeTimer = setTimeout(() => {
+        setFeedback(prev => prev ? { ...prev, visible: false } : null);
+      }, 2700);
+
+      // Then completely remove after 3 seconds
+      const removeTimer = setTimeout(() => {
+        setFeedback(null);
+      }, 3000);
+
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(removeTimer);
+      };
     }
   }, [feedback]);
 
@@ -163,7 +175,7 @@ export default function KorfbalApp() {
   }, []);
 
   const showFeedback = (message, type = 'error') => {
-    setFeedback({ message, type });
+    setFeedback({ message, type, visible: true });
   };
 
   const loadTeams = async () => {
@@ -2121,10 +2133,12 @@ export default function KorfbalApp() {
   return (
     <div>
       {feedback && (
-        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-3 rounded-lg shadow-lg max-w-sm w-full mx-4 ${
-          feedback.type === 'success' ? 'bg-green-600 text-white' : 
-          feedback.type === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
-        }`}>
+        <div
+          className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-3 rounded-lg shadow-lg max-w-sm w-full mx-4 transition-opacity duration-300 ${
+            feedback.type === 'success' ? 'bg-green-600 text-white' :
+            feedback.type === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
+          } ${feedback.visible === false ? 'opacity-0' : 'opacity-100'}`}
+        >
           <p className="font-medium text-center text-sm">{feedback.message}</p>
         </div>
       )}
