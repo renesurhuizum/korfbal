@@ -357,14 +357,14 @@ export default function KorfbalApp() {
                 {teams.length === 0 ? <p className="text-gray-600">Nog geen teams</p> : (
                   <div className="space-y-3">
                     {teams.map((team) => {
-                      const teamMatches = matches.filter(m => m.team_id === team.id);
+                      const teamMatches = matches.filter(m => m.team_id === team._id);
                       return (
-                        <div key={team.id} className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+                        <div key={team._id} className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex-1">
                               <h3 className="font-bold text-lg">{team.team_name}</h3>
                               <div className="mt-2 space-y-1 text-sm text-gray-600">
-                                <p>ID: {team.id}</p>
+                                <p>ID: {team._id}</p>
                                 <p>Spelers: {team.players?.length || 0}</p>
                                 <p>Wedstrijden: {teamMatches.length}</p>
                                 {team.created_at && (
@@ -1340,8 +1340,8 @@ export default function KorfbalApp() {
 
     const handleDeleteMatch = async (match) => {
       if (confirm('Weet je zeker dat je deze wedstrijd wilt verwijderen?')) {
-        await deleteMatch(match.id);
-        if (selectedMatch && selectedMatch.id === match.id) setSelectedMatch(null);
+        await deleteMatch(match._id);
+        if (selectedMatch && selectedMatch._id === match._id) setSelectedMatch(null);
       }
     };
 
@@ -1554,7 +1554,7 @@ export default function KorfbalApp() {
             <h2 className="text-xl font-bold mb-4 text-gray-800">Wedstrijd geschiedenis</h2>
             <div className="space-y-3">
               {teamMatches.sort((a, b) => new Date(b.date) - new Date(a.date)).map((match) => (
-                <div key={match.id} className="p-4 bg-gray-50 rounded-lg">
+                <div key={match._id} className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex justify-between items-start gap-3">
                     <button onClick={() => setSelectedMatch(match)} className="flex-1 text-left">
                       <div className="font-semibold">{match.team_name} vs {match.opponent}</div>
