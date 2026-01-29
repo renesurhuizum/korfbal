@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download } from 'lucide-react';
-import { supabase } from './supabaseClient';
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
 
 const SHOT_TYPES = [
   { id: 'distance', label: 'Afstandschot', short: 'AS' },
@@ -15,23 +16,28 @@ export default function KorfbalApp() {
   const [view, setView] = useState('login');
   const [currentTeam, setCurrentTeam] = useState(null);
   const [currentTeamId, setCurrentTeamId] = useState(null);
-  const [teams, setTeams] = useState([]);
   const [currentMatch, setCurrentMatch] = useState(null);
-  const [matches, setMatches] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showGodMode, setShowGodMode] = useState(false);
-  const [godModeLoading, setGodModeLoading] = useState(false);
+  const [sharedMatchId, setSharedMatchId] = useState(null);
 
-  useEffect(() => {
-    loadTeams();
-  }, []);
+  // Convex queries - automatically reactive!
+  const allTeams = useQuery(api.teams.getAllTeams);
+  const teams = showGodMode ? (allTeams || []) : [];
 
-  useEffect(() => {
-    if (currentTeamId) {
-      loadMatches();
-    }
-  }, [currentTeamId]);
+  const teamMatches = useQuery(
+    api.matches.getTeamMatches,
+    currentTeamId && !showGodMode ? { teamId: currentTeamId } : "skip"
+  );
+  const allMatches = useQuery(api.matches.getAllMatches);
+  const matches = showGodMode ? (allMatches || []) : (teamMatches || []);
+
+  // Shared match query
+  const sharedMatchData = useQuery(
+    api.matches.getShareableMatch,
+    sharedMatchId ? { matchId: sharedMatchId } : "skip"
+  );
 
   useEffect(() => {
     if (feedback && feedback.visible !== false) {
@@ -52,24 +58,8 @@ export default function KorfbalApp() {
     }
   }, [feedback]);
 
-  // Load all data when God Mode is activated
-  useEffect(() => {
-    const loadGodModeData = async () => {
-      if (showGodMode) {
-        try {
-          setGodModeLoading(true);
-          await loadTeams();
-          await loadAllMatches();
-        } catch (error) {
-          console.error('God Mode loading error:', error);
-          showFeedback('Fout bij laden God Mode: ' + error.message, 'error');
-        } finally {
-          setGodModeLoading(false);
-        }
-      }
-    };
-    loadGodModeData();
-  }, [showGodMode]);
+  // Note: God Mode data loading now handled by Convex queries automatically
+  // Teams and matches load reactively based on showGodMode state
 
   // Auto-save currentMatch to localStorage
   useEffect(() => {
@@ -130,31 +120,10 @@ export default function KorfbalApp() {
   useEffect(() => {
     // Check for shared match in URL first
     const urlParams = new URLSearchParams(window.location.search);
-    const sharedMatchId = urlParams.get('match');
+    const matchId = urlParams.get('match');
 
-    if (sharedMatchId) {
-      // Load shared match
-      const loadSharedMatch = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('matches')
-            .select('*')
-            .eq('id', sharedMatchId)
-            .eq('shareable', true)
-            .single();
-
-          if (error) throw error;
-          if (data) {
-            setCurrentMatch(data);
-            setView('shared-match');
-            return;
-          }
-        } catch (e) {
-          console.error('Error loading shared match:', e);
-          showFeedback('Gedeelde wedstrijd niet gevonden', 'error');
-        }
-      };
-      loadSharedMatch();
+    if (matchId) {
+      setSharedMatchId(matchId);
       return; // Don't restore session if loading shared match
     }
 
@@ -174,48 +143,30 @@ export default function KorfbalApp() {
     }
   }, []);
 
+  // Handle shared match data once loaded
+  useEffect(() => {
+    if (sharedMatchData) {
+      setCurrentMatch(sharedMatchData);
+      setView('shared-match');
+    }
+  }, [sharedMatchData]);
+
   const showFeedback = (message, type = 'error') => {
     setFeedback({ message, type, visible: true });
   };
 
-  const loadTeams = async () => {
-    try {
-      const { data, error } = await supabase.from('teams').select('*');
-      if (error) throw error;
-      setTeams(data || []);
-    } catch (e) {
-      console.error('Error loading teams:', e);
-    }
-  };
-
-  const loadMatches = async () => {
-    try {
-      const { data, error } = await supabase.from('matches').select('*').eq('team_id', currentTeamId).order('date', { ascending: false });
-      if (error) throw error;
-      setMatches(data || []);
-    } catch (e) {
-      console.error('Error loading matches:', e);
-      showFeedback('Fout bij laden wedstrijden', 'error');
-    }
-  };
-
-  const loadAllMatches = async () => {
-    try {
-      const { data, error } = await supabase.from('matches').select('*').order('date', { ascending: false });
-      if (error) throw error;
-      setMatches(data || []);
-    } catch (e) {
-      console.error('Error loading all matches:', e);
-      showFeedback('Fout bij laden wedstrijden', 'error');
-    }
-  };
+  // Convex mutations
+  const loginMutation = useMutation(api.auth.login);
+  const registerMutation = useMutation(api.auth.register);
+  const updatePlayersMutation = useMutation(api.teams.updatePlayers);
+  const deleteTeamMutation = useMutation(api.teams.deleteTeam);
+  const createMatchMutation = useMutation(api.matches.createMatch);
+  const updateMatchMutation = useMutation(api.matches.updateMatch);
+  const deleteMatchMutation = useMutation(api.matches.deleteMatch);
 
   const saveTeamPlayers = async (teamId, players) => {
     try {
-      const { error } = await supabase.from('teams').update({ players }).eq('id', teamId);
-      if (error) throw error;
-      // Wait for teams to be reloaded before returning
-      await loadTeams();
+      await updatePlayersMutation({ teamId, players });
       return true;
     } catch (e) {
       console.error('Error saving players:', e);
@@ -226,13 +177,19 @@ export default function KorfbalApp() {
 
   const saveMatch = async (match) => {
     try {
-      const { error } = await supabase.from('matches').insert([{
-        team_id: currentTeamId, team_name: currentTeam, opponent: match.opponent, date: match.date,
-        players: match.players, score: match.score, opponent_score: match.opponentScore,
-        opponent_goals: match.opponentGoals, finished: true
-      }]);
-      if (error) throw error;
-      await loadMatches();
+      await createMatchMutation({
+        teamId: currentTeamId,
+        teamName: currentTeam,
+        opponent: match.opponent,
+        date: match.date,
+        players: match.players,
+        score: match.score,
+        opponentScore: match.opponentScore,
+        opponentGoals: match.opponentGoals || [],
+        goals: match.goals || [],
+        finished: true,
+        shareable: false,
+      });
       // Clear localStorage after successful save
       localStorage.removeItem('korfbal_active_match');
       console.log('Match saved to database, localStorage cleared');
@@ -247,9 +204,7 @@ export default function KorfbalApp() {
 
   const deleteMatch = async (matchId) => {
     try {
-      const { error } = await supabase.from('matches').delete().eq('id', matchId);
-      if (error) throw error;
-      await loadMatches();
+      await deleteMatchMutation({ matchId });
       showFeedback('Wedstrijd verwijderd', 'success');
     } catch (e) {
       console.error('Error deleting match:', e);
@@ -266,34 +221,29 @@ export default function KorfbalApp() {
         showFeedback('Vul beide velden in', 'error');
         return;
       }
-      if (teamName === 'ADMIN' && password === 'korfbal2026') {
-        setShowGodMode(true);
-        setView('god-mode');
-        return;
-      }
       setLoading(true);
       try {
-        const { data: team, error } = await supabase.from('teams').select('*').eq('team_name', teamName).single();
-        if (error || !team) {
-          showFeedback(`Team "${teamName}" bestaat niet. Registreer eerst een nieuw team.`, 'error');
-          setLoading(false);
-          return;
-        }
-        if (team.password_hash === password) {
-          setCurrentTeam(teamName);
-          setCurrentTeamId(team.id);
+        const result = await loginMutation({
+          team_name: teamName,
+          password: password,
+        });
+
+        if (result.isGodMode) {
+          setShowGodMode(true);
+          setView('god-mode');
+        } else {
+          setCurrentTeam(result.teamName);
+          setCurrentTeamId(result.teamId);
           // Save session to localStorage
           localStorage.setItem('korfbal_session', JSON.stringify({
-            teamName: teamName,
-            teamId: team.id
+            teamName: result.teamName,
+            teamId: result.teamId
           }));
           setView('home');
-          showFeedback(`Welkom ${teamName}!`, 'success');
-        } else {
-          showFeedback('Onjuist wachtwoord voor dit team', 'error');
+          showFeedback(`Welkom ${result.teamName}!`, 'success');
         }
       } catch (e) {
-        showFeedback('Fout bij inloggen', 'error');
+        showFeedback(e.message || 'Fout bij inloggen', 'error');
       }
       setLoading(false);
     };
@@ -303,42 +253,24 @@ export default function KorfbalApp() {
         showFeedback('Vul beide velden in', 'error');
         return;
       }
-      if (teamName.length < 2) {
-        showFeedback('Teamnaam moet minimaal 2 tekens zijn', 'error');
-        return;
-      }
-      if (password.length < 3) {
-        showFeedback('Wachtwoord moet minimaal 3 tekens zijn', 'error');
-        return;
-      }
-      if (teamName === 'ADMIN') {
-        showFeedback('Deze teamnaam is gereserveerd', 'error');
-        return;
-      }
       setLoading(true);
       try {
-        const { data: existing } = await supabase.from('teams').select('id').eq('team_name', teamName).single();
-        if (existing) {
-          showFeedback(`Team "${teamName}" bestaat al. Gebruik een andere naam of log in.`, 'error');
-          setLoading(false);
-          return;
-        }
-        const { data: newTeam, error } = await supabase.from('teams').insert([{
-          team_name: teamName, password_hash: password, players: []
-        }]).select().single();
-        if (error) throw error;
-        setCurrentTeam(teamName);
-        setCurrentTeamId(newTeam.id);
+        const result = await registerMutation({
+          team_name: teamName,
+          password: password,
+        });
+
+        setCurrentTeam(result.teamName);
+        setCurrentTeamId(result.teamId);
         // Save session to localStorage
         localStorage.setItem('korfbal_session', JSON.stringify({
-          teamName: teamName,
-          teamId: newTeam.id
+          teamName: result.teamName,
+          teamId: result.teamId
         }));
-        await loadTeams();
         setView('home');
-        showFeedback(`Team "${teamName}" succesvol aangemaakt!`, 'success');
+        showFeedback(`Team "${result.teamName}" succesvol aangemaakt!`, 'success');
       } catch (e) {
-        showFeedback('Fout bij registreren', 'error');
+        showFeedback(e.message || 'Fout bij registreren', 'error');
       }
       setLoading(false);
     };
@@ -431,10 +363,7 @@ export default function KorfbalApp() {
                             <button onClick={async () => {
                               if (confirm(`Team "${team.team_name}" verwijderen? Dit verwijdert ook alle wedstrijden van dit team.`)) {
                                 try {
-                                  await supabase.from('matches').delete().eq('team_id', team.id);
-                                  await supabase.from('teams').delete().eq('id', team.id);
-                                  await loadTeams();
-                                  await loadAllMatches();
+                                  await deleteTeamMutation({ teamId: team._id });
                                   showFeedback('Team en wedstrijden verwijderd', 'success');
                                 } catch (e) {
                                   showFeedback('Fout bij verwijderen', 'error');
@@ -506,40 +435,24 @@ export default function KorfbalApp() {
     const [players, setPlayers] = useState([]);
     const [originalPlayers, setOriginalPlayers] = useState([]);
     const [newPlayerName, setNewPlayerName] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
     const [editingPlayerId, setEditingPlayerId] = useState(null);
     const [editingName, setEditingName] = useState('');
     const [justAddedId, setJustAddedId] = useState(null);
 
-    // Load players when component mounts or team changes
+    // Load team data from Convex
+    const currentTeamData = useQuery(
+      api.teams.getTeam,
+      currentTeamId ? { teamId: currentTeamId } : "skip"
+    );
+
+    // Update local state when Convex data changes
     useEffect(() => {
-      const loadPlayersForTeam = async () => {
-        setIsLoading(true);
-        try {
-          const { data, error } = await supabase
-            .from('teams')
-            .select('players')
-            .eq('id', currentTeamId)
-            .single();
-
-          if (error) throw error;
-          console.log('Loaded players from database:', data?.players);
-          const loadedPlayers = data?.players || [];
-          setPlayers(loadedPlayers);
-          setOriginalPlayers(loadedPlayers);
-        } catch (e) {
-          console.error('Error loading players:', e);
-          showFeedback('Fout bij laden spelers', 'error');
-          setPlayers([]);
-          setOriginalPlayers([]);
-        }
-        setIsLoading(false);
-      };
-
-      if (currentTeamId) {
-        loadPlayersForTeam();
+      if (currentTeamData) {
+        const loadedPlayers = currentTeamData.players || [];
+        setPlayers(loadedPlayers);
+        setOriginalPlayers(loadedPlayers);
       }
-    }, [currentTeamId]);
+    }, [currentTeamData]);
 
     const addPlayer = async () => {
       try {
@@ -563,12 +476,7 @@ export default function KorfbalApp() {
         const updated = [...players, newPlayer];
 
         // Direct opslaan naar database
-        const { error } = await supabase
-          .from('teams')
-          .update({ players: updated })
-          .eq('id', currentTeamId);
-
-        if (error) throw error;
+        await updatePlayersMutation({ teamId: currentTeamId, players: updated });
 
         // Update lokale state + trigger animatie
         setPlayers(updated);
@@ -611,13 +519,8 @@ export default function KorfbalApp() {
           p.id === playerId ? { ...p, name: trimmedName } : p
         );
 
-        // Direct opslaan naar database
-        const { error } = await supabase
-          .from('teams')
-          .update({ players: updated })
-          .eq('id', currentTeamId);
-
-        if (error) throw error;
+        // Opslaan naar Convex
+        await updatePlayersMutation({ teamId: currentTeamId, players: updated });
 
         // Update lokale state
         setPlayers(updated);
@@ -636,13 +539,8 @@ export default function KorfbalApp() {
         const player = players.find(p => p.id === id);
         const updated = players.filter(p => p.id !== id);
 
-        // Direct opslaan naar database
-        const { error } = await supabase
-          .from('teams')
-          .update({ players: updated })
-          .eq('id', currentTeamId);
-
-        if (error) throw error;
+        // Opslaan naar Convex
+        await updatePlayersMutation({ teamId: currentTeamId, players: updated });
 
         // Update lokale state
         setPlayers(updated);
@@ -658,7 +556,7 @@ export default function KorfbalApp() {
       setView('home');
     };
 
-    if (isLoading) {
+    if (currentTeamData === undefined) {
       return (
         <div className="min-h-screen bg-gray-100">
           <div className="bg-red-600 text-white p-4 shadow-lg flex items-center">
@@ -1213,44 +1111,31 @@ export default function KorfbalApp() {
           <button
             onClick={async () => {
               try {
-                // Update match to make it shareable
-                const matchToSave = {
-                  team_id: currentTeamId,
-                  team_name: currentTeam,
-                  opponent: match.opponent,
-                  date: match.date,
-                  players: match.players,
-                  score: match.score,
-                  opponent_score: match.opponentScore,
-                  opponent_goals: match.opponentGoals || [],
-                  goals: match.goals || [],
-                  finished: true,
-                  shareable: true
-                };
+                // If match already has Convex ID (_id), update it
+                // Otherwise create new match first
+                let matchId = match._id;
 
-                // If this match already has an ID (was saved), update it. Otherwise insert it.
-                let matchId;
-                if (match.id) {
-                  const { error } = await supabase
-                    .from('matches')
-                    .update(matchToSave)
-                    .eq('id', match.id);
-                  if (error) {
-                    console.error('Update error:', error);
-                    throw error;
-                  }
-                  matchId = match.id;
+                if (!matchId) {
+                  // Create match first
+                  matchId = await createMatchMutation({
+                    teamId: currentTeamId,
+                    teamName: currentTeam,
+                    opponent: match.opponent,
+                    date: match.date,
+                    players: match.players,
+                    score: match.score,
+                    opponentScore: match.opponentScore,
+                    opponentGoals: match.opponentGoals || [],
+                    goals: match.goals || [],
+                    finished: true,
+                    shareable: true,
+                  });
                 } else {
-                  const { data, error } = await supabase
-                    .from('matches')
-                    .insert([matchToSave])
-                    .select()
-                    .single();
-                  if (error) {
-                    console.error('Insert error:', error);
-                    throw error;
-                  }
-                  matchId = data.id;
+                  // Update existing match to be shareable
+                  await updateMatchMutation({
+                    matchId,
+                    shareable: true,
+                  });
                 }
 
                 // Generate shareable URL
