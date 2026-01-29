@@ -132,6 +132,18 @@ export default function KorfbalApp() {
     if (savedSession) {
       try {
         const { teamName, teamId } = JSON.parse(savedSession);
+
+        // Check if this is an old Supabase UUID (format: 8-4-4-4-12 with dashes)
+        const isOldUUID = teamId && teamId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+
+        if (isOldUUID) {
+          console.log('Detected old Supabase UUID, clearing session. Please log in again.');
+          localStorage.removeItem('korfbal_session');
+          localStorage.removeItem('korfbal_active_match');
+          showFeedback('Sessie verlopen, log opnieuw in na de migratie naar Convex', 'info');
+          return;
+        }
+
         console.log('Restoring session for:', teamName);
         setCurrentTeam(teamName);
         setCurrentTeamId(teamId);

@@ -52,7 +52,7 @@ export const importMatches = mutation({
       }
 
       try {
-        await ctx.db.insert("matches", {
+        const matchData: any = {
           team_id: teamId,
           team_name: match.team_name,
           opponent: match.opponent,
@@ -61,10 +61,16 @@ export const importMatches = mutation({
           score: match.score || 0,
           opponent_score: match.opponent_score || 0,
           opponent_goals: match.opponent_goals || [],
-          goals: match.goals,
           finished: match.finished !== false,
           shareable: match.shareable || false,
-        });
+        };
+
+        // Only add goals if it's not null/undefined
+        if (match.goals !== null && match.goals !== undefined) {
+          matchData.goals = match.goals;
+        }
+
+        await ctx.db.insert("matches", matchData);
 
         imported++;
         console.log(
