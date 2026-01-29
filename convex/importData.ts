@@ -1,7 +1,7 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-// Import teams - run first
+// Import teams - run first, or get existing teams
 export const importTeams = mutation({
   args: {
     teams: v.any(), // Array of teams from Supabase
@@ -11,13 +11,29 @@ export const importTeams = mutation({
 
     for (const team of args.teams) {
       try {
-        const teamId = await ctx.db.insert("teams", {
-          team_name: team.team_name,
-          password_hash: team.password_hash,
-          players: team.players || [],
-        });
-        teamIds.push({ name: team.team_name, id: teamId });
-        console.log(`✓ Imported team: ${team.team_name}`);
+        // Check if team already exists
+        const existingTeam = await ctx.db
+          .query("teams")
+          .withIndex("by_team_name", (q) => q.eq("team_name", team.team_name))
+          .first();
+
+        if (existingTeam) {
+          // Team exists, use existing ID and update players if needed
+          await ctx.db.patch(existingTeam._id, {
+            players: team.players || [],
+          });
+          teamIds.push({ name: team.team_name, id: existingTeam._id });
+          console.log(`✓ Found existing team: ${team.team_name}`);
+        } else {
+          // Create new team
+          const teamId = await ctx.db.insert("teams", {
+            team_name: team.team_name,
+            password_hash: team.password_hash,
+            players: team.players || [],
+          });
+          teamIds.push({ name: team.team_name, id: teamId });
+          console.log(`✓ Imported new team: ${team.team_name}`);
+        }
       } catch (error) {
         console.error(`✗ Failed to import team ${team.team_name}:`, error);
       }
@@ -41,7 +57,11 @@ export const importMatches = mutation({
     let skipped = 0;
     const errors: string[] = [];
 
+    console.log(`Starting import of ${args.matches.length} matches`);
+    console.log(`Team ID map:`, args.teamIdMap);
+
     for (const match of args.matches) {
+      console.log(`\nProcessing match: ${match.team_name} vs ${match.opponent}`);
       const teamId = args.teamIdMap[match.team_name];
 
       if (!teamId) {
@@ -51,7 +71,31 @@ export const importMatches = mutation({
         continue;
       }
 
+      console.log(`Team ID found: ${teamId}`);
+
       try {
+        // Check if match already exists (by team, opponent, and date)
+        const existingMatch = await ctx.db
+          .query("matches")
+          .withIndex("by_team_id", (q) => q.eq("team_id", teamId))
+          .filter((q) =>
+            q.and(
+              q.eq(q.field("opponent"), match.opponent),
+              q.eq(q.field("date"), match.date)
+            )
+          )
+          .first();
+
+        if (existingMatch) {
+          console.log(
+            `○ Match already exists: ${match.team_name} vs ${match.opponent}`
+          );
+          skipped++;
+          continue; // Skip if already exists
+        }
+
+        console.log(`No existing match found, inserting...`);
+
         const matchData: any = {
           team_id: teamId,
           team_name: match.team_name,
@@ -70,20 +114,22 @@ export const importMatches = mutation({
           matchData.goals = match.goals;
         }
 
-        await ctx.db.insert("matches", matchData);
+        const insertedId = await ctx.db.insert("matches", matchData);
+        console.log(`✓ Inserted match ID: ${insertedId}`);
 
         imported++;
         console.log(
           `✓ Imported match: ${match.team_name} vs ${match.opponent} (${match.date})`
         );
       } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
         console.error(
           `✗ Failed to import match ${match.team_name} vs ${match.opponent}:`,
-          error
+          errorMsg
         );
         skipped++;
         errors.push(
-          `Failed: ${match.team_name} vs ${match.opponent} - ${error}`
+          `Failed: ${match.team_name} vs ${match.opponent} - ${errorMsg}`
         );
       }
     }

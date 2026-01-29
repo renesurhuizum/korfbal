@@ -9,9 +9,12 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as debug from "../debug.js";
 import type * as importData from "../importData.js";
+import type * as importMatchesDirect from "../importMatchesDirect.js";
 import type * as matches from "../matches.js";
 import type * as teams from "../teams.js";
+import type * as testInsert from "../testInsert.js";
 
 import type {
   ApiFromModules,
@@ -21,9 +24,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  debug: typeof debug;
   importData: typeof importData;
+  importMatchesDirect: typeof importMatchesDirect;
   matches: typeof matches;
   teams: typeof teams;
+  testInsert: typeof testInsert;
 }>;
 
 /**

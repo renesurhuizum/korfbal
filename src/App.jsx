@@ -39,6 +39,12 @@ export default function KorfbalApp() {
     sharedMatchId ? { matchId: sharedMatchId } : "skip"
   );
 
+  // Current team query - for getting players
+  const currentTeamData = useQuery(
+    api.teams.getTeam,
+    currentTeamId && !showGodMode ? { teamId: currentTeamId } : "skip"
+  );
+
   useEffect(() => {
     if (feedback && feedback.visible !== false) {
       // First fade out after 2.7 seconds
@@ -675,7 +681,6 @@ export default function KorfbalApp() {
     );
   };
   const SetupMatchView = () => {
-    const currentTeamData = teams.find(t => t.id === currentTeamId);
     const players = currentTeamData?.players || [];
     const [opponent, setOpponent] = useState('');
     const [selectedPlayers, setSelectedPlayers] = useState([]);
