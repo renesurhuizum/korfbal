@@ -543,6 +543,51 @@ export default function KorfbalApp() {
 
   const HomeView = () => {
     const teamMatches = matches.filter(m => m.team_id === currentTeamId);
+    const [savedMatchInfo, setSavedMatchInfo] = useState(null);
+
+    // Check for saved match when HomeView loads
+    useEffect(() => {
+      const savedMatchData = localStorage.getItem('korfbal_active_match');
+      if (savedMatchData) {
+        try {
+          const parsed = JSON.parse(savedMatchData);
+          if (parsed.teamId === currentTeamId && parsed.match) {
+            const timeDiff = new Date() - new Date(parsed.timestamp);
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            // Only show if less than 7 days old
+            if (hoursDiff < 168) {
+              setSavedMatchInfo({
+                opponent: parsed.match.opponent,
+                score: parsed.match.score,
+                opponentScore: parsed.match.opponentScore,
+                hoursSince: Math.round(hoursDiff),
+                matchData: parsed.match
+              });
+            } else {
+              // Remove old saved match
+              localStorage.removeItem('korfbal_active_match');
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing saved match:', e);
+        }
+      }
+    }, [currentTeamId]);
+
+    const handleContinueSavedMatch = () => {
+      if (savedMatchInfo && savedMatchInfo.matchData) {
+        setCurrentMatch(savedMatchInfo.matchData);
+        navigateTo('match');
+        showFeedback('Wedstrijd hersteld!', 'success');
+      }
+    };
+
+    const handleDiscardSavedMatch = () => {
+      localStorage.removeItem('korfbal_active_match');
+      setSavedMatchInfo(null);
+      showFeedback('Opgeslagen wedstrijd verwijderd', 'success');
+    };
+
     return (
       <div className="min-h-screen bg-gray-100">
         <div className="bg-red-600 text-white p-4 shadow-lg">
@@ -551,6 +596,47 @@ export default function KorfbalApp() {
             className="mt-2 text-sm hover:underline">Uitloggen</button>
         </div>
         <div className="max-w-4xl mx-auto p-4 space-y-3">
+          {savedMatchInfo && (
+            <div className="bg-gradient-to-r from-yellow-400 to-orange-400 p-5 rounded-lg shadow-xl border-2 border-yellow-500">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <div className="bg-white bg-opacity-30 p-2 rounded-full mr-3">
+                    <Trophy className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-lg">Wedstrijd bezig!</p>
+                    <p className="text-white text-sm opacity-90">
+                      {currentTeam} - {savedMatchInfo.opponent}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-center bg-white bg-opacity-20 px-4 py-2 rounded-lg">
+                  <p className="text-2xl font-bold text-white">
+                    {savedMatchInfo.score} - {savedMatchInfo.opponentScore}
+                  </p>
+                  <p className="text-xs text-white opacity-75">
+                    {savedMatchInfo.hoursSince < 1
+                      ? 'Net gestart'
+                      : `${savedMatchInfo.hoursSince}u geleden`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleContinueSavedMatch}
+                  className="flex-1 bg-white text-orange-600 py-3 rounded-lg font-bold hover:bg-gray-100 transition shadow-md"
+                >
+                  ▶ Verder gaan
+                </button>
+                <button
+                  onClick={handleDiscardSavedMatch}
+                  className="bg-red-600 bg-opacity-80 text-white px-4 py-3 rounded-lg font-semibold hover:bg-opacity-100 transition"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
           <button onClick={() => navigateTo('setup-match')}
             className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl transition flex items-center group">
             <div className="bg-red-600 p-3 rounded-full group-hover:bg-red-700 transition">
