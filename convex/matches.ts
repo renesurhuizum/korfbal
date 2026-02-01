@@ -115,3 +115,22 @@ export const getShareableMatch = query({
     return match;
   },
 });
+
+// Find duplicate matches by team name and opponent
+export const findDuplicateMatches = query({
+  args: { teamName: v.string(), opponent: v.string() },
+  handler: async (ctx, args) => {
+    const allMatches = await ctx.db.query("matches").collect();
+
+    const duplicates = allMatches.filter(
+      (match) =>
+        match.team_name === args.teamName &&
+        match.opponent === args.opponent
+    );
+
+    // Sort by date to help identify which to keep
+    return duplicates.sort((a, b) => {
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  },
+});
