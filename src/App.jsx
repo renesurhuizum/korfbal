@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download } from 'lucide-react';
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
@@ -13,6 +13,20 @@ const SHOT_TYPES = [
   { id: 'other', label: 'Overig', short: 'OV' }
 ];
 
+// Custom hook for debouncing values
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+// Player ID generator to prevent collisions
+let playerIdCounter = 0;
+const generatePlayerId = () => `player_${Date.now()}_${++playerIdCounter}`;
+
 export default function KorfbalApp() {
   const [view, setView] = useState('login');
   const [currentTeam, setCurrentTeam] = useState(null);
@@ -22,12 +36,14 @@ export default function KorfbalApp() {
   const [loading, setLoading] = useState(false);
   const [showGodMode, setShowGodMode] = useState(false);
   const [sharedMatchId, setSharedMatchId] = useState(null);
+  const [pendingSavedMatch, setPendingSavedMatch] = useState(null);
+  const feedbackTimersRef = useRef({ fade: null, remove: null });
 
   // Enhanced navigation function with browser history support
-  const navigateTo = (newView) => {
+  const navigateTo = useCallback((newView) => {
     setView(newView);
     window.history.pushState({ view: newView }, '', `#${newView}`);
-  };
+  }, []);
 
   // Convex queries - automatically reactive!
   const allTeams = useQuery(api.teams.getAllTeams);
@@ -52,23 +68,53 @@ export default function KorfbalApp() {
     currentTeamId && !showGodMode ? { teamId: currentTeamId } : "skip"
   );
 
+  // Debounce currentMatch to reduce localStorage writes
+  const debouncedMatch = useDebounce(currentMatch, 500);
+
   useEffect(() => {
+    // Clear bestaande timers EERST om overlapping te voorkomen
+    if (feedbackTimersRef.current.fade) {
+      clearTimeout(feedbackTimersRef.current.fade);
+      feedbackTimersRef.current.fade = null;
+    }
+    if (feedbackTimersRef.current.remove) {
+      clearTimeout(feedbackTimersRef.current.remove);
+      feedbackTimersRef.current.remove = null;
+    }
+
     if (feedback && feedback.visible !== false) {
-      // First fade out after 2.7 seconds
-      const fadeTimer = setTimeout(() => {
-        setFeedback(prev => prev ? { ...prev, visible: false } : null);
+      // Fade timer
+      feedbackTimersRef.current.fade = setTimeout(() => {
+        setFeedback(prev => {
+          // Verify we're updating the SAME feedback
+          if (prev && prev.message === feedback.message && prev.type === feedback.type) {
+            return { ...prev, visible: false };
+          }
+          return prev;
+        });
       }, 2700);
 
-      // Then completely remove after 3 seconds
-      const removeTimer = setTimeout(() => {
-        setFeedback(null);
+      // Remove timer
+      feedbackTimersRef.current.remove = setTimeout(() => {
+        setFeedback(prev => {
+          // Only remove if still the same feedback
+          if (prev && prev.message === feedback.message && prev.type === feedback.type) {
+            return null;
+          }
+          return prev;
+        });
       }, 3000);
-
-      return () => {
-        clearTimeout(fadeTimer);
-        clearTimeout(removeTimer);
-      };
     }
+
+    // Cleanup on unmount
+    return () => {
+      if (feedbackTimersRef.current.fade) {
+        clearTimeout(feedbackTimersRef.current.fade);
+      }
+      if (feedbackTimersRef.current.remove) {
+        clearTimeout(feedbackTimersRef.current.remove);
+      }
+    };
   }, [feedback]);
 
   // Browser history navigation support (back/forward buttons)
@@ -103,19 +149,19 @@ export default function KorfbalApp() {
   // Note: God Mode data loading now handled by Convex queries automatically
   // Teams and matches load reactively based on showGodMode state
 
-  // Auto-save currentMatch to localStorage
+  // Auto-save currentMatch to localStorage (debounced)
   useEffect(() => {
-    if (currentMatch && currentTeamId) {
+    if (debouncedMatch && currentTeamId) {
       const matchData = {
-        match: currentMatch,
+        match: debouncedMatch,
         teamId: currentTeamId,
         teamName: currentTeam,
         timestamp: new Date().toISOString()
       };
       localStorage.setItem('korfbal_active_match', JSON.stringify(matchData));
-      console.log('Match auto-saved to localStorage', matchData);
+      console.log('Match auto-saved to localStorage (debounced)', matchData);
     }
-  }, [currentMatch, currentTeamId, currentTeam]);
+  }, [debouncedMatch, currentTeamId, currentTeam]);
 
   // Session recovery - restore match from localStorage on mount
   useEffect(() => {
@@ -126,8 +172,8 @@ export default function KorfbalApp() {
         console.log('Found saved match in localStorage:', parsed);
         // Only restore if we have a team loaded and it matches
         if (parsed.teamId && parsed.match) {
-          // We'll set a flag to check after login
-          window.korfbalSavedMatch = parsed;
+          // Use React state instead of global
+          setPendingSavedMatch(parsed);
         }
       } catch (e) {
         console.error('Error parsing saved match:', e);
@@ -138,8 +184,8 @@ export default function KorfbalApp() {
 
   // Check for saved match after team is loaded
   useEffect(() => {
-    if (currentTeamId && window.korfbalSavedMatch) {
-      const saved = window.korfbalSavedMatch;
+    if (currentTeamId && pendingSavedMatch) {
+      const saved = pendingSavedMatch;
       if (saved.teamId === currentTeamId) {
         const timeDiff = new Date() - new Date(saved.timestamp);
         const hoursDiff = timeDiff / (1000 * 60 * 60);
@@ -154,9 +200,9 @@ export default function KorfbalApp() {
           localStorage.removeItem('korfbal_active_match');
         }
       }
-      delete window.korfbalSavedMatch;
+      setPendingSavedMatch(null); // Clear state
     }
-  }, [currentTeamId]);
+  }, [currentTeamId, pendingSavedMatch]);
 
   // Session persistence - restore login on mount
   useEffect(() => {
@@ -205,9 +251,9 @@ export default function KorfbalApp() {
     }
   }, [sharedMatchData]);
 
-  const showFeedback = (message, type = 'error') => {
+  const showFeedback = useCallback((message, type = 'error') => {
     setFeedback({ message, type, visible: true });
-  };
+  }, []);
 
   // Convex mutations
   const loginMutation = useMutation(api.auth.login);
@@ -459,7 +505,7 @@ export default function KorfbalApp() {
     );
   };
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('korfbal_session');
     localStorage.removeItem('korfbal_active_match');
     setCurrentTeam(null);
@@ -467,7 +513,7 @@ export default function KorfbalApp() {
     setCurrentMatch(null);
     navigateTo('login');
     showFeedback('Uitgelogd', 'success');
-  };
+  }, [navigateTo, showFeedback]);
 
   const GodModeView = () => {
     return (
@@ -480,7 +526,7 @@ export default function KorfbalApp() {
               navigateTo('login');
             }} className="text-gray-600 hover:text-gray-800">✕ Sluiten</button>
           </div>
-          {godModeLoading ? (
+          {!teams ? (
             <div className="text-center py-8">
               <p className="text-gray-600">Laden...</p>
             </div>
@@ -543,6 +589,51 @@ export default function KorfbalApp() {
 
   const HomeView = () => {
     const teamMatches = matches.filter(m => m.team_id === currentTeamId);
+    const [savedMatchInfo, setSavedMatchInfo] = useState(null);
+
+    // Check for saved match when HomeView loads
+    useEffect(() => {
+      const savedMatchData = localStorage.getItem('korfbal_active_match');
+      if (savedMatchData) {
+        try {
+          const parsed = JSON.parse(savedMatchData);
+          if (parsed.teamId === currentTeamId && parsed.match) {
+            const timeDiff = new Date() - new Date(parsed.timestamp);
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            // Only show if less than 7 days old
+            if (hoursDiff < 168) {
+              setSavedMatchInfo({
+                opponent: parsed.match.opponent,
+                score: parsed.match.score,
+                opponentScore: parsed.match.opponentScore,
+                hoursSince: Math.round(hoursDiff),
+                matchData: parsed.match
+              });
+            } else {
+              // Remove old saved match
+              localStorage.removeItem('korfbal_active_match');
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing saved match:', e);
+        }
+      }
+    }, [currentTeamId]);
+
+    const handleContinueSavedMatch = () => {
+      if (savedMatchInfo && savedMatchInfo.matchData) {
+        setCurrentMatch(savedMatchInfo.matchData);
+        navigateTo('match');
+        showFeedback('Wedstrijd hersteld!', 'success');
+      }
+    };
+
+    const handleDiscardSavedMatch = () => {
+      localStorage.removeItem('korfbal_active_match');
+      setSavedMatchInfo(null);
+      showFeedback('Opgeslagen wedstrijd verwijderd', 'success');
+    };
+
     return (
       <div className="min-h-screen bg-gray-100">
         <div className="bg-red-600 text-white p-4 shadow-lg">
@@ -551,6 +642,47 @@ export default function KorfbalApp() {
             className="mt-2 text-sm hover:underline">Uitloggen</button>
         </div>
         <div className="max-w-4xl mx-auto p-4 space-y-3">
+          {savedMatchInfo && (
+            <div className="bg-gradient-to-r from-yellow-400 to-orange-400 p-5 rounded-lg shadow-xl border-2 border-yellow-500">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <div className="bg-white bg-opacity-30 p-2 rounded-full mr-3">
+                    <Trophy className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-white text-lg">Wedstrijd bezig!</p>
+                    <p className="text-white text-sm opacity-90">
+                      {currentTeam} - {savedMatchInfo.opponent}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-center bg-white bg-opacity-20 px-4 py-2 rounded-lg">
+                  <p className="text-2xl font-bold text-white">
+                    {savedMatchInfo.score} - {savedMatchInfo.opponentScore}
+                  </p>
+                  <p className="text-xs text-white opacity-75">
+                    {savedMatchInfo.hoursSince < 1
+                      ? 'Net gestart'
+                      : `${savedMatchInfo.hoursSince}u geleden`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleContinueSavedMatch}
+                  className="flex-1 bg-white text-orange-600 py-3 rounded-lg font-bold hover:bg-gray-100 transition shadow-md"
+                >
+                  ▶ Verder gaan
+                </button>
+                <button
+                  onClick={handleDiscardSavedMatch}
+                  className="bg-red-600 bg-opacity-80 text-white px-4 py-3 rounded-lg font-semibold hover:bg-opacity-100 transition"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
           <button onClick={() => navigateTo('setup-match')}
             className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl transition flex items-center group">
             <div className="bg-red-600 p-3 rounded-full group-hover:bg-red-700 transition">
@@ -593,6 +725,7 @@ export default function KorfbalApp() {
     const [editingPlayerId, setEditingPlayerId] = useState(null);
     const [editingName, setEditingName] = useState('');
     const [justAddedId, setJustAddedId] = useState(null);
+    const animationTimerRef = useRef(null);
 
     // Load team data from Convex
     const currentTeamData = useQuery(
@@ -608,6 +741,15 @@ export default function KorfbalApp() {
         setOriginalPlayers(loadedPlayers);
       }
     }, [currentTeamData]);
+
+    // Cleanup animation timer on unmount
+    useEffect(() => {
+      return () => {
+        if (animationTimerRef.current) {
+          clearTimeout(animationTimerRef.current);
+        }
+      };
+    }, []);
 
     const addPlayer = async () => {
       try {
@@ -627,7 +769,7 @@ export default function KorfbalApp() {
         }
 
         const trimmedName = newPlayerName.trim();
-        const newPlayer = { id: Date.now(), name: trimmedName };
+        const newPlayer = { id: generatePlayerId(), name: trimmedName };
         const updated = [...players, newPlayer];
 
         // Direct opslaan naar database
@@ -639,8 +781,16 @@ export default function KorfbalApp() {
         setNewPlayerName('');
         setJustAddedId(newPlayer.id);
 
-        // Verwijder animatie na 2 seconden
-        setTimeout(() => setJustAddedId(null), 2000);
+        // Clear oude timer als die bestaat
+        if (animationTimerRef.current) {
+          clearTimeout(animationTimerRef.current);
+        }
+
+        // Start nieuwe timer
+        animationTimerRef.current = setTimeout(() => {
+          setJustAddedId(null);
+          animationTimerRef.current = null;
+        }, 2000);
       } catch (error) {
         console.error('Error adding player:', error);
         showFeedback('Fout bij toevoegen: ' + error.message, 'error');
@@ -1466,36 +1616,47 @@ export default function KorfbalApp() {
   };
 
   const StatisticsView = () => {
-    const teamMatches = matches.filter(m => m.team_id === currentTeamId);
     const [selectedMatch, setSelectedMatch] = useState(null);
-    const playerStats = {};
 
-    teamMatches.forEach(match => {
-      if (!match.players || !Array.isArray(match.players)) return;
-      match.players.forEach(player => {
-        if (!player || !player.name) return;
-        if (!playerStats[player.name]) {
-          playerStats[player.name] = {
-            matches: 0, goals: 0, attempts: 0,
-            byType: SHOT_TYPES.reduce((acc, type) => ({ ...acc, [type.id]: { goals: 0, attempts: 0 } }), {})
-          };
-        }
-        playerStats[player.name].matches++;
-        SHOT_TYPES.forEach(type => {
-          const stats = player.stats?.[type.id] || { goals: 0, attempts: 0 };
-          playerStats[player.name].goals += stats.goals || 0;
-          playerStats[player.name].attempts += stats.attempts || 0;
-          playerStats[player.name].byType[type.id].goals += stats.goals || 0;
-          playerStats[player.name].byType[type.id].attempts += stats.attempts || 0;
+    // Memoize team matches filter
+    const teamMatches = useMemo(() => {
+      return matches.filter(m => m.team_id === currentTeamId);
+    }, [matches, currentTeamId]);
+
+    // Memoize expensive player stats calculation
+    const playerStats = useMemo(() => {
+      const stats = {};
+
+      teamMatches.forEach(match => {
+        if (!match.players || !Array.isArray(match.players)) return;
+        match.players.forEach(player => {
+          if (!player || !player.name) return;
+          if (!stats[player.name]) {
+            stats[player.name] = {
+              matches: 0, goals: 0, attempts: 0,
+              byType: SHOT_TYPES.reduce((acc, type) => ({ ...acc, [type.id]: { goals: 0, attempts: 0 } }), {})
+            };
+          }
+          stats[player.name].matches++;
+          SHOT_TYPES.forEach(type => {
+            const typeStats = player.stats?.[type.id] || { goals: 0, attempts: 0 };
+            stats[player.name].goals += typeStats.goals || 0;
+            stats[player.name].attempts += typeStats.attempts || 0;
+            stats[player.name].byType[type.id].goals += typeStats.goals || 0;
+            stats[player.name].byType[type.id].attempts += typeStats.attempts || 0;
+          });
         });
       });
-    });
 
-    const totalGoals = teamMatches.reduce((sum, m) => sum + m.score, 0);
-    const totalAgainst = teamMatches.reduce((sum, m) => sum + m.opponent_score, 0);
-    const wins = teamMatches.filter(m => m.score > m.opponent_score).length;
-    const losses = teamMatches.filter(m => m.score < m.opponent_score).length;
-    const draws = teamMatches.filter(m => m.score === m.opponent_score).length;
+      return stats;
+    }, [teamMatches]);
+
+    // Memoize team totals
+    const totalGoals = useMemo(() => teamMatches.reduce((sum, m) => sum + m.score, 0), [teamMatches]);
+    const totalAgainst = useMemo(() => teamMatches.reduce((sum, m) => sum + m.opponent_score, 0), [teamMatches]);
+    const wins = useMemo(() => teamMatches.filter(m => m.score > m.opponent_score).length, [teamMatches]);
+    const losses = useMemo(() => teamMatches.filter(m => m.score < m.opponent_score).length, [teamMatches]);
+    const draws = useMemo(() => teamMatches.filter(m => m.score === m.opponent_score).length, [teamMatches]);
 
     const handleDeleteMatch = async (match) => {
       if (confirm('Weet je zeker dat je deze wedstrijd wilt verwijderen?')) {
@@ -1731,8 +1892,28 @@ export default function KorfbalApp() {
                       }`}>
                         {match.score} - {match.opponent_score}
                       </div>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await updateMatchMutation({
+                              matchId: match._id,
+                              shareable: true,
+                            });
+                            const shareUrl = `${window.location.origin}${window.location.pathname}?match=${match._id}`;
+                            await navigator.clipboard.writeText(shareUrl);
+                            showFeedback('Deel-link gekopieerd!', 'success');
+                          } catch (error) {
+                            showFeedback('Fout bij delen', 'error');
+                          }
+                        }}
+                        className="text-green-600 hover:text-green-800 text-sm font-medium"
+                        title="Deel wedstrijd"
+                      >
+                        📤
+                      </button>
                       <button onClick={(e) => { e.stopPropagation(); handleDeleteMatch(match); }}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium">✕</button>
+                        className="text-red-600 hover:text-red-800 text-sm font-medium" title="Verwijder wedstrijd">✕</button>
                     </div>
                   </div>
                 </div>
@@ -2186,6 +2367,32 @@ export default function KorfbalApp() {
               </div>
             ) : <p className="text-gray-600">Geen tegendoelpunten</p>}
           </div>
+
+          {/* Deel wedstrijd knop */}
+          <button
+            onClick={async () => {
+              try {
+                // Update match to be shareable
+                await updateMatchMutation({
+                  matchId: match._id,
+                  shareable: true,
+                });
+
+                // Generate shareable URL
+                const shareUrl = `${window.location.origin}${window.location.pathname}?match=${match._id}`;
+
+                // Copy to clipboard
+                await navigator.clipboard.writeText(shareUrl);
+                showFeedback('Deel-link gekopieerd! Deel deze met je team.', 'success');
+              } catch (error) {
+                console.error('Error sharing match:', error);
+                showFeedback(`Fout bij delen: ${error.message || 'Onbekende fout'}`, 'error');
+              }
+            }}
+            className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2 mb-3"
+          >
+            📤 Deel wedstrijd met team
+          </button>
 
           <button onClick={onDelete}
             className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 transition">
