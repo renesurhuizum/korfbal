@@ -1892,8 +1892,28 @@ export default function KorfbalApp() {
                       }`}>
                         {match.score} - {match.opponent_score}
                       </div>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await updateMatchMutation({
+                              matchId: match._id,
+                              shareable: true,
+                            });
+                            const shareUrl = `${window.location.origin}${window.location.pathname}?match=${match._id}`;
+                            await navigator.clipboard.writeText(shareUrl);
+                            showFeedback('Deel-link gekopieerd!', 'success');
+                          } catch (error) {
+                            showFeedback('Fout bij delen', 'error');
+                          }
+                        }}
+                        className="text-green-600 hover:text-green-800 text-sm font-medium"
+                        title="Deel wedstrijd"
+                      >
+                        📤
+                      </button>
                       <button onClick={(e) => { e.stopPropagation(); handleDeleteMatch(match); }}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium">✕</button>
+                        className="text-red-600 hover:text-red-800 text-sm font-medium" title="Verwijder wedstrijd">✕</button>
                     </div>
                   </div>
                 </div>
@@ -2347,6 +2367,32 @@ export default function KorfbalApp() {
               </div>
             ) : <p className="text-gray-600">Geen tegendoelpunten</p>}
           </div>
+
+          {/* Deel wedstrijd knop */}
+          <button
+            onClick={async () => {
+              try {
+                // Update match to be shareable
+                await updateMatchMutation({
+                  matchId: match._id,
+                  shareable: true,
+                });
+
+                // Generate shareable URL
+                const shareUrl = `${window.location.origin}${window.location.pathname}?match=${match._id}`;
+
+                // Copy to clipboard
+                await navigator.clipboard.writeText(shareUrl);
+                showFeedback('Deel-link gekopieerd! Deel deze met je team.', 'success');
+              } catch (error) {
+                console.error('Error sharing match:', error);
+                showFeedback(`Fout bij delen: ${error.message || 'Onbekende fout'}`, 'error');
+              }
+            }}
+            className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2 mb-3"
+          >
+            📤 Deel wedstrijd met team
+          </button>
 
           <button onClick={onDelete}
             className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 transition">
