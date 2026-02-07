@@ -1723,6 +1723,8 @@ export default function KorfbalApp() {
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [matchSearch, setMatchSearch] = useState('');
     const [matchFilter, setMatchFilter] = useState('all'); // 'all' | 'won' | 'lost' | 'draw'
+    const [comparePlayer1, setComparePlayer1] = useState('');
+    const [comparePlayer2, setComparePlayer2] = useState('');
 
     // Memoize team matches filter
     const teamMatches = useMemo(() => {
@@ -1912,6 +1914,46 @@ export default function KorfbalApp() {
               </div>
             </div>
           </div>
+          {/* Prestatie trend grafiek */}
+          {teamMatches.length >= 2 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Prestatie per wedstrijd</h2>
+              <div className="flex items-end gap-1 h-40 overflow-x-auto pb-2">
+                {[...teamMatches]
+                  .sort((a, b) => new Date(a.date) - new Date(b.date))
+                  .slice(-10)
+                  .map((m, i) => {
+                    const totalAttempts = m.players?.reduce((sum, p) =>
+                      sum + SHOT_TYPES.reduce((s, t) => s + (p.stats?.[t.id]?.attempts || 0), 0), 0) || 0;
+                    const totalGoals = m.players?.reduce((sum, p) =>
+                      sum + SHOT_TYPES.reduce((s, t) => s + (p.stats?.[t.id]?.goals || 0), 0), 0) || 0;
+                    const pct = totalAttempts > 0 ? Math.round((totalGoals / totalAttempts) * 100) : 0;
+                    const won = m.score > m.opponent_score;
+                    const lost = m.score < m.opponent_score;
+                    return (
+                      <div key={m._id || i} className="flex flex-col items-center flex-1 min-w-[36px]" title={`${m.opponent}: ${m.score}-${m.opponent_score} (${pct}%)`}>
+                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">{pct}%</span>
+                        <div className="w-full flex flex-col items-center" style={{ height: '100px' }}>
+                          <div
+                            className={`w-full max-w-[28px] rounded-t transition-all duration-500 ${
+                              won ? 'bg-green-500' : lost ? 'bg-red-400' : 'bg-gray-400'
+                            }`}
+                            style={{ height: `${Math.max(pct, 4)}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 truncate w-full text-center">{m.opponent?.substring(0, 4)}</span>
+                        <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300">{m.score}-{m.opponent_score}</span>
+                      </div>
+                    );
+                  })}
+              </div>
+              <div className="flex items-center gap-4 mt-3 text-xs text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-500 rounded"></div> Gewonnen</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-400 rounded"></div> Verloren</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-gray-400 rounded"></div> Gelijk</div>
+              </div>
+            </div>
+          )}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Speler statistieken</h2>
             <div className="space-y-4">
@@ -2005,6 +2047,98 @@ export default function KorfbalApp() {
               })}
             </div>
           </div>
+          {/* Speler vergelijking */}
+          {Object.keys(playerStats).length >= 2 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Spelers vergelijken</h2>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <select value={comparePlayer1} onChange={(e) => setComparePlayer1(e.target.value)}
+                  className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-red-600 focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm">
+                  <option value="">Speler 1</option>
+                  {Object.keys(playerStats).map(name => (
+                    <option key={name} value={name} disabled={name === comparePlayer2}>{name}</option>
+                  ))}
+                </select>
+                <select value={comparePlayer2} onChange={(e) => setComparePlayer2(e.target.value)}
+                  className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-red-600 focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm">
+                  <option value="">Speler 2</option>
+                  {Object.keys(playerStats).map(name => (
+                    <option key={name} value={name} disabled={name === comparePlayer1}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              {comparePlayer1 && comparePlayer2 && playerStats[comparePlayer1] && playerStats[comparePlayer2] && (() => {
+                const p1 = playerStats[comparePlayer1];
+                const p2 = playerStats[comparePlayer2];
+                const p1Pct = p1.attempts > 0 ? Math.round((p1.goals / p1.attempts) * 100) : 0;
+                const p2Pct = p2.attempts > 0 ? Math.round((p2.goals / p2.attempts) * 100) : 0;
+                const comparisons = [
+                  { label: 'Doelpunten', v1: p1.goals, v2: p2.goals },
+                  { label: 'Pogingen', v1: p1.attempts, v2: p2.attempts },
+                  { label: 'Percentage', v1: p1Pct, v2: p2Pct, suffix: '%' },
+                  { label: 'Wedstrijden', v1: p1.matches, v2: p2.matches },
+                  { label: 'Gem/wedstrijd', v1: p1.matches > 0 ? (p1.goals / p1.matches).toFixed(1) : 0, v2: p2.matches > 0 ? (p2.goals / p2.matches).toFixed(1) : 0 },
+                ];
+                return (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 text-center text-sm font-semibold mb-2">
+                      <span className="text-red-600 dark:text-red-400">{comparePlayer1}</span>
+                      <span className="text-gray-500 dark:text-gray-400">vs</span>
+                      <span className="text-blue-600 dark:text-blue-400">{comparePlayer2}</span>
+                    </div>
+                    {comparisons.map(c => {
+                      const v1 = parseFloat(c.v1), v2 = parseFloat(c.v2);
+                      const max = Math.max(v1, v2, 1);
+                      return (
+                        <div key={c.label}>
+                          <div className="text-xs text-center text-gray-500 dark:text-gray-400 mb-1">{c.label}</div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-sm font-bold w-12 text-right ${v1 > v2 ? 'text-green-600' : v1 < v2 ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'}`}>
+                              {c.v1}{c.suffix || ''}
+                            </span>
+                            <div className="flex-1 flex h-5 gap-0.5">
+                              <div className="flex-1 flex justify-end">
+                                <div className="bg-red-500 rounded-l h-full transition-all duration-500" style={{ width: `${(v1 / max) * 100}%` }}></div>
+                              </div>
+                              <div className="flex-1">
+                                <div className="bg-blue-500 rounded-r h-full transition-all duration-500" style={{ width: `${(v2 / max) * 100}%` }}></div>
+                              </div>
+                            </div>
+                            <span className={`text-sm font-bold w-12 ${v2 > v1 ? 'text-green-600' : v2 < v1 ? 'text-red-500' : 'text-gray-600 dark:text-gray-400'}`}>
+                              {c.v2}{c.suffix || ''}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {/* Per shot type vergelijking */}
+                    <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                      <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 text-center">Per schottype</div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {SHOT_TYPES.map(type => {
+                          const s1 = p1.byType[type.id], s2 = p2.byType[type.id];
+                          if (s1.attempts === 0 && s2.attempts === 0) return null;
+                          const pct1 = s1.attempts > 0 ? Math.round((s1.goals / s1.attempts) * 100) : 0;
+                          const pct2 = s2.attempts > 0 ? Math.round((s2.goals / s2.attempts) * 100) : 0;
+                          return (
+                            <div key={type.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2 flex justify-between items-center">
+                              <span className="font-semibold text-gray-700 dark:text-gray-300">{type.short}</span>
+                              <span className={pct1 > pct2 ? 'text-green-600 font-bold' : 'text-gray-500 dark:text-gray-400'}>{s1.goals}/{s1.attempts}</span>
+                              <span className="text-gray-400">vs</span>
+                              <span className={pct2 > pct1 ? 'text-green-600 font-bold' : 'text-gray-500 dark:text-gray-400'}>{s2.goals}/{s2.attempts}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              {(!comparePlayer1 || !comparePlayer2) && (
+                <p className="text-center text-gray-500 dark:text-gray-400 text-sm py-4">Selecteer twee spelers om te vergelijken</p>
+              )}
+            </div>
+          )}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Wedstrijd geschiedenis</h2>
             <div className="flex flex-col sm:flex-row gap-2 mb-4">
