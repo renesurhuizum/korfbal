@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download } from 'lucide-react';
+import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search } from 'lucide-react';
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
@@ -607,7 +607,7 @@ export default function KorfbalApp() {
               className="text-sm hover:underline min-h-[44px] px-2">Uitloggen</button>
           </div>
         </div>
-        <div className="max-w-4xl mx-auto p-4 space-y-3">
+        <div className="max-w-4xl mx-auto p-4 pb-24 space-y-3">
           {savedMatchInfo && (
             <div className="bg-gradient-to-r from-yellow-400 to-orange-400 p-5 rounded-lg shadow-xl border-2 border-yellow-500">
               <div className="flex items-center justify-between mb-3">
@@ -840,7 +840,7 @@ export default function KorfbalApp() {
               <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
             </div>
           </div>
-          <div className="max-w-2xl mx-auto p-4">
+          <div className="max-w-2xl mx-auto p-4 pb-24">
             <div className="bg-white rounded-lg shadow-lg p-4 text-center">
               <p className="text-gray-600">Laden...</p>
             </div>
@@ -860,7 +860,7 @@ export default function KorfbalApp() {
             <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
           </div>
         </div>
-        <div className="max-w-2xl mx-auto p-4">
+        <div className="max-w-2xl mx-auto p-4 pb-24">
           <div className="bg-white rounded-lg shadow-lg p-4 mb-4">
             <div className="flex space-x-2 mb-4">
               <input type="text" placeholder="Naam nieuwe speler" value={newPlayerName}
@@ -967,7 +967,7 @@ export default function KorfbalApp() {
               <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
             </div>
           </div>
-          <div className="max-w-2xl mx-auto p-4">
+          <div className="max-w-2xl mx-auto p-4 pb-24">
             <div className="bg-white rounded-lg shadow-lg p-6 text-center">
               <p className="text-gray-600 mb-4">Je hebt nog geen spelers toegevoegd.</p>
               <button onClick={() => navigateTo('manage-players')}
@@ -1022,7 +1022,7 @@ export default function KorfbalApp() {
             <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
           </div>
         </div>
-        <div className="max-w-2xl mx-auto p-4 space-y-4">
+        <div className="max-w-2xl mx-auto p-4 pb-24 space-y-4">
           <div className="bg-white rounded-lg shadow-lg p-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Tegenstander</label>
             <input type="text" value={opponent} onChange={(e) => setOpponent(e.target.value)}
@@ -1066,6 +1066,7 @@ export default function KorfbalApp() {
     const [showOpponentModal, setShowOpponentModal] = useState(false);
     const [showOpponentPlayerModal, setShowOpponentPlayerModal] = useState(null);
     const [actionHistory, setActionHistory] = useState([]);
+    const [scoreAnimKey, setScoreAnimKey] = useState(0);
 
     // Guard against null match
     if (!currentMatch || !currentMatch.players) {
@@ -1114,6 +1115,7 @@ export default function KorfbalApp() {
 
         return { ...prevMatch, players: updatedPlayers, score: newScore, goals: newGoals };
       });
+      setScoreAnimKey(k => k + 1);
       setShowGoalModal(null);
     };
 
@@ -1171,6 +1173,7 @@ export default function KorfbalApp() {
           goals: newGoals
         };
       });
+      setScoreAnimKey(k => k + 1);
       setShowOpponentPlayerModal(null);
     };
 
@@ -1262,7 +1265,7 @@ export default function KorfbalApp() {
             )}
           </div>
           <div className="text-center">
-            <div className="text-5xl font-bold">{currentMatch.score} - {currentMatch.opponentScore}</div>
+            <div key={scoreAnimKey} className="text-5xl font-bold score-pop">{currentMatch.score} - {currentMatch.opponentScore}</div>
           </div>
         </div>
         <div className="max-w-4xl mx-auto p-4">
@@ -1648,6 +1651,15 @@ export default function KorfbalApp() {
     );
   };
 
+  const SkeletonCard = ({ lines = 3 }) => (
+    <div className="bg-white rounded-lg shadow-lg p-6 animate-pulse">
+      <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+      {Array.from({ length: lines }).map((_, i) => (
+        <div key={i} className="h-4 bg-gray-200 rounded mb-3" style={{ width: `${80 - i * 15}%` }}></div>
+      ))}
+    </div>
+  );
+
   const StatisticsView = () => {
     const [selectedMatch, setSelectedMatch] = useState(null);
 
@@ -1767,6 +1779,8 @@ export default function KorfbalApp() {
         onDelete={() => handleDeleteMatch(selectedMatch)} />;
     }
 
+    const isLoading = teamMatches === undefined || (teamMatches.length === 0 && !teamMatches);
+
     return (
       <div className="min-h-screen bg-gray-100">
         <div className="bg-red-600 text-white p-6 shadow-lg">
@@ -1787,7 +1801,15 @@ export default function KorfbalApp() {
             </div>
           </div>
         </div>
-        <div className="max-w-4xl mx-auto p-6 space-y-6">
+        <div className="max-w-4xl mx-auto p-6 pb-24 space-y-6">
+          {teamMatches === undefined ? (
+            <>
+              <SkeletonCard lines={4} />
+              <SkeletonCard lines={5} />
+              <SkeletonCard lines={3} />
+            </>
+          ) : (
+          <>
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Team overzicht</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1958,6 +1980,8 @@ export default function KorfbalApp() {
               ))}
             </div>
           </div>
+          </>
+          )}
         </div>
       </div>
     );
@@ -2441,6 +2465,38 @@ export default function KorfbalApp() {
     );
   };
 
+  // Views that show the bottom navigation bar
+  const bottomNavViews = ['home', 'manage-players', 'setup-match', 'statistics'];
+  const showBottomNav = bottomNavViews.includes(view);
+
+  const BottomNav = () => (
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 pb-[env(safe-area-inset-bottom)]" aria-label="Hoofdnavigatie">
+      <div className="flex justify-around max-w-lg mx-auto">
+        {[
+          { id: 'home', icon: Home, label: 'Home' },
+          { id: 'setup-match', icon: Plus, label: 'Wedstrijd' },
+          { id: 'statistics', icon: BarChart3, label: 'Stats' },
+          { id: 'manage-players', icon: Users, label: 'Spelers' },
+        ].map(item => {
+          const Icon = item.icon;
+          const isActive = view === item.id;
+          return (
+            <button key={item.id} onClick={() => navigateTo(item.id)}
+              className={`flex flex-col items-center py-2 px-3 min-h-[56px] min-w-[64px] transition-colors ${
+                isActive ? 'text-red-600' : 'text-gray-500 hover:text-gray-700'
+              }`}
+              aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <Icon className={`w-6 h-6 ${isActive ? 'stroke-[2.5]' : ''}`} />
+              <span className={`text-xs mt-1 ${isActive ? 'font-semibold' : ''}`}>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+
   return (
     <div>
       <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -2467,15 +2523,18 @@ export default function KorfbalApp() {
         onConfirm={confirmDialog.onConfirm}
         onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
       />
-      {view === 'login' && <LoginView />}
-      {view === 'god-mode' && <GodModeView />}
-      {view === 'home' && <HomeView />}
-      {view === 'manage-players' && <ManagePlayersView />}
-      {view === 'setup-match' && <SetupMatchView />}
-      {view === 'match' && <MatchView />}
-      {view === 'match-summary' && <MatchSummaryView />}
-      {view === 'statistics' && <StatisticsView />}
-      {view === 'shared-match' && <SharedMatchView />}
+      <div key={view} className="page-transition">
+        {view === 'login' && <LoginView />}
+        {view === 'god-mode' && <GodModeView />}
+        {view === 'home' && <HomeView />}
+        {view === 'manage-players' && <ManagePlayersView />}
+        {view === 'setup-match' && <SetupMatchView />}
+        {view === 'match' && <MatchView />}
+        {view === 'match-summary' && <MatchSummaryView />}
+        {view === 'statistics' && <StatisticsView />}
+        {view === 'shared-match' && <SharedMatchView />}
+      </div>
+      {showBottomNav && <BottomNav />}
     </div>
   );
 }
