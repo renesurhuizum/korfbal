@@ -45,15 +45,15 @@ export default function KorfbalApp() {
     window.history.pushState({ view: newView }, '', `#${newView}`);
   }, []);
 
-  // Convex queries - automatically reactive!
-  const allTeams = useQuery(api.teams.getAllTeams);
+  // Convex queries - only load god-mode data when needed
+  const allTeams = useQuery(api.teams.getAllTeams, showGodMode ? {} : "skip");
   const teams = showGodMode ? (allTeams || []) : [];
 
   const teamMatches = useQuery(
     api.matches.getTeamMatches,
     currentTeamId && !showGodMode ? { teamId: currentTeamId } : "skip"
   );
-  const allMatches = useQuery(api.matches.getAllMatches);
+  const allMatches = useQuery(api.matches.getAllMatches, showGodMode ? {} : "skip");
   const matches = showGodMode ? (allMatches || []) : (teamMatches || []);
 
   // Shared match query
@@ -117,16 +117,20 @@ export default function KorfbalApp() {
     };
   }, [feedback]);
 
+  // Views that require authentication
+  const authRequiredViews = ['home', 'manage-players', 'setup-match', 'match', 'match-summary', 'statistics'];
+
   // Browser history navigation support (back/forward buttons)
   useEffect(() => {
     const handlePopState = (event) => {
-      if (event.state && event.state.view) {
-        setView(event.state.view);
-      } else {
-        // Extract view from hash if present
-        const hash = window.location.hash.substring(1);
-        if (hash) {
-          setView(hash);
+      const targetView = event.state?.view || window.location.hash.substring(1);
+      if (targetView) {
+        // Prevent navigating to auth-required views without being logged in
+        if (authRequiredViews.includes(targetView) && !currentTeamId) {
+          setView('login');
+          window.history.replaceState({ view: 'login' }, '', '#login');
+        } else {
+          setView(targetView);
         }
       }
     };
@@ -135,16 +139,16 @@ export default function KorfbalApp() {
 
     // Set initial state
     const initialHash = window.location.hash.substring(1);
-    if (initialHash) {
+    if (initialHash && !authRequiredViews.includes(initialHash)) {
       setView(initialHash);
-    } else {
+    } else if (!initialHash) {
       window.history.replaceState({ view: 'login' }, '', '#login');
     }
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, []);
+  }, [currentTeamId]);
 
   // Note: God Mode data loading now handled by Convex queries automatically
   // Teams and matches load reactively based on showGodMode state
@@ -277,7 +281,7 @@ export default function KorfbalApp() {
 
   const saveMatch = async (match) => {
     try {
-      await createMatchMutation({
+      const matchId = await createMatchMutation({
         teamId: currentTeamId,
         teamName: currentTeam,
         opponent: match.opponent,
@@ -290,6 +294,8 @@ export default function KorfbalApp() {
         finished: true,
         shareable: false,
       });
+      // Update currentMatch with database ID to prevent duplicate creation
+      setCurrentMatch(prev => prev ? { ...prev, _id: matchId } : prev);
       // Clear localStorage after successful save
       localStorage.removeItem('korfbal_active_match');
       console.log('Match saved to database, localStorage cleared');
@@ -315,74 +321,6 @@ export default function KorfbalApp() {
     const [teamName, setTeamName] = useState('');
     const [password, setPassword] = useState('');
     const [isNewTeam, setIsNewTeam] = useState(false);
-    const [savedMatchInfo, setSavedMatchInfo] = useState(null);
-
-    // Check for saved match on mount
-    useEffect(() => {
-      const savedMatchData = localStorage.getItem('korfbal_active_match');
-      if (savedMatchData) {
-        try {
-          const parsed = JSON.parse(savedMatchData);
-          if (parsed.teamName && parsed.match) {
-            const timeDiff = new Date() - new Date(parsed.timestamp);
-            const hoursDiff = timeDiff / (1000 * 60 * 60);
-            // Only show if less than 7 days old
-            if (hoursDiff < 168) {
-              setSavedMatchInfo({
-                teamName: parsed.teamName,
-                opponent: parsed.match.opponent,
-                score: parsed.match.score,
-                opponentScore: parsed.match.opponentScore,
-                hoursSince: Math.round(hoursDiff)
-              });
-            } else {
-              // Remove old saved match
-              localStorage.removeItem('korfbal_active_match');
-            }
-          }
-        } catch (e) {
-          console.error('Error parsing saved match:', e);
-        }
-      }
-    }, []);
-
-    const handleContinueSavedMatch = async () => {
-      if (!savedMatchInfo) return;
-
-      const savedMatchData = localStorage.getItem('korfbal_active_match');
-      if (savedMatchData) {
-        try {
-          const parsed = JSON.parse(savedMatchData);
-          // Auto-login with saved team
-          setLoading(true);
-          const result = await loginMutation({
-            team_name: parsed.teamName,
-            password: prompt(`Voer wachtwoord in voor ${parsed.teamName}`)
-          });
-
-          if (result.teamId === parsed.teamId) {
-            setCurrentTeam(result.teamName);
-            setCurrentTeamId(result.teamId);
-            localStorage.setItem('korfbal_session', JSON.stringify({
-              teamName: result.teamName,
-              teamId: result.teamId
-            }));
-            setCurrentMatch(parsed.match);
-            navigateTo('match');
-            showFeedback('Wedstrijd hersteld!', 'success');
-          }
-        } catch (e) {
-          showFeedback(e.message || 'Fout bij herstellen wedstrijd', 'error');
-        }
-        setLoading(false);
-      }
-    };
-
-    const handleDiscardSavedMatch = () => {
-      localStorage.removeItem('korfbal_active_match');
-      setSavedMatchInfo(null);
-      showFeedback('Opgeslagen wedstrijd verwijderd', 'success');
-    };
 
     const handleLogin = async () => {
       if (!teamName || !password) {
@@ -450,44 +388,11 @@ export default function KorfbalApp() {
             <Trophy className="w-16 h-16 text-red-600 mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-gray-800">Korfbal Score App</h1>
           </div>
-          {savedMatchInfo && (
-            <div className="mb-6 bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4">
-              <div className="text-center mb-3">
-                <p className="font-bold text-gray-800 mb-1">Opgeslagen wedstrijd gevonden!</p>
-                <p className="text-sm text-gray-600 mb-2">
-                  {savedMatchInfo.teamName} - {savedMatchInfo.opponent}
-                </p>
-                <p className="text-lg font-semibold text-red-600">
-                  {savedMatchInfo.score} - {savedMatchInfo.opponentScore}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {savedMatchInfo.hoursSince < 1
-                    ? 'Minder dan een uur geleden'
-                    : `${savedMatchInfo.hoursSince} uur geleden`}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <button
-                  onClick={handleContinueSavedMatch}
-                  disabled={loading}
-                  className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition disabled:bg-gray-400"
-                >
-                  Verder gaan met wedstrijd
-                </button>
-                <button
-                  onClick={handleDiscardSavedMatch}
-                  className="w-full bg-gray-500 text-white py-2 rounded-lg font-semibold hover:bg-gray-600 transition text-sm"
-                >
-                  Verwijder opgeslagen wedstrijd
-                </button>
-              </div>
-            </div>
-          )}
           <div className="space-y-4">
             <input type="text" placeholder="Teamnaam" value={teamName} onChange={(e) => setTeamName(e.target.value)}
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none" />
             <input type="password" placeholder="Wachtwoord" value={password} onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && (isNewTeam ? handleRegister() : handleLogin())}
+              onKeyDown={(e) => e.key === 'Enter' && (isNewTeam ? handleRegister() : handleLogin())}
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none" />
             <button onClick={isNewTeam ? handleRegister : handleLogin} disabled={loading}
               className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition disabled:bg-gray-400">
@@ -897,7 +802,7 @@ export default function KorfbalApp() {
           <div className="bg-white rounded-lg shadow-lg p-4 mb-4">
             <div className="flex space-x-2 mb-4">
               <input type="text" placeholder="Naam nieuwe speler" value={newPlayerName}
-                onChange={(e) => setNewPlayerName(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addPlayer()}
+                onChange={(e) => setNewPlayerName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
                 className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none text-base" />
               <button onClick={addPlayer} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">
                 <Plus className="w-5 h-5" />
@@ -926,7 +831,7 @@ export default function KorfbalApp() {
                             type="text"
                             value={editingName}
                             onChange={(e) => setEditingName(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && saveEditPlayer(player.id)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveEditPlayer(player.id)}
                             className="flex-1 px-3 py-1 border-2 border-red-600 rounded-lg focus:outline-none text-base mr-2"
                             autoFocus
                           />
@@ -1038,7 +943,7 @@ export default function KorfbalApp() {
 
       setCurrentMatch({
         team: currentTeam, opponent: opponent.trim(), date: dateISO,
-        players: allPlayers, score: 0, opponentScore: 0, opponentGoals: []
+        players: allPlayers, score: 0, opponentScore: 0, opponentGoals: [], goals: []
       });
       navigateTo('match');
       showFeedback('Wedstrijd gestart!', 'success');
@@ -1046,9 +951,14 @@ export default function KorfbalApp() {
 
     return (
       <div className="min-h-screen bg-gray-100">
-        <div className="bg-red-600 text-white p-4 shadow-lg flex items-center">
-          <button onClick={() => navigateTo('home')} className="mr-3"><ArrowLeft className="w-6 h-6" /></button>
-          <h1 className="text-xl font-bold">Wedstrijd instellen</h1>
+        <div className="bg-red-600 text-white p-4 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <button onClick={() => navigateTo('home')} className="mr-3"><ArrowLeft className="w-6 h-6" /></button>
+              <h1 className="text-xl font-bold">Wedstrijd instellen</h1>
+            </div>
+            <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
+          </div>
         </div>
         <div className="max-w-2xl mx-auto p-4 space-y-4">
           <div className="bg-white rounded-lg shadow-lg p-4">
@@ -1097,8 +1007,14 @@ export default function KorfbalApp() {
 
     // Guard against null match
     if (!currentMatch || !currentMatch.players) {
-      return <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-gray-600">Geen wedstrijd gevonden</p>
+      return <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Geen wedstrijd gevonden</p>
+          <button onClick={() => navigateTo('home')}
+            className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+            Terug naar home
+          </button>
+        </div>
       </div>;
     }
 
@@ -1357,8 +1273,14 @@ export default function KorfbalApp() {
     const match = currentMatch;
 
     if (!match || !match.players) {
-      return <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <p className="text-gray-600">Geen wedstrijd gevonden</p>
+      return <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Geen wedstrijd gevonden</p>
+          <button onClick={() => navigateTo('home')}
+            className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+            Terug naar home
+          </button>
+        </div>
       </div>;
     }
 
@@ -1423,7 +1345,10 @@ export default function KorfbalApp() {
       <div className="min-h-screen bg-gray-100">
         <div className="bg-red-600 text-white p-6 shadow-lg">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold">Wedstrijd afgelopen</h1>
+            <div className="flex items-center">
+              <button onClick={() => { setCurrentMatch(null); navigateTo('home'); }} className="mr-3"><ArrowLeft className="w-6 h-6" /></button>
+              <h1 className="text-2xl font-bold">Wedstrijd afgelopen</h1>
+            </div>
             <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
           </div>
           <div className="text-center">
@@ -1561,7 +1486,7 @@ export default function KorfbalApp() {
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Speler statistieken</h2>
-            {match.players.sort((a, b) => {
+            {[...match.players].sort((a, b) => {
               const aGoals = SHOT_TYPES.reduce((sum, type) => sum + a.stats[type.id].goals, 0);
               const bGoals = SHOT_TYPES.reduce((sum, type) => sum + b.stats[type.id].goals, 0);
               return bGoals - aGoals;
@@ -1698,7 +1623,7 @@ export default function KorfbalApp() {
         // Wedstrijd geschiedenis
         csv += '\n\nWedstrijd Geschiedenis\n';
         csv += 'Datum,Tegenstander,Uitslag,Resultaat\n';
-        teamMatches
+        [...teamMatches]
           .sort((a, b) => new Date(b.date) - new Date(a.date))
           .forEach(match => {
             const date = new Date(match.date).toLocaleDateString('nl-NL');
@@ -1878,7 +1803,7 @@ export default function KorfbalApp() {
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Wedstrijd geschiedenis</h2>
             <div className="space-y-3">
-              {teamMatches.sort((a, b) => new Date(b.date) - new Date(a.date)).map((match) => (
+              {[...teamMatches].sort((a, b) => new Date(b.date) - new Date(a.date)).map((match) => (
                 <div key={match._id} className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex justify-between items-start gap-3">
                     <button onClick={() => setSelectedMatch(match)} className="flex-1 text-left">
@@ -2104,7 +2029,7 @@ export default function KorfbalApp() {
           {/* Player stats */}
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Speler statistieken</h2>
-            {match.players.sort((a, b) => {
+            {[...match.players].sort((a, b) => {
               const aGoals = SHOT_TYPES.reduce((sum, type) => sum + (a.stats?.[type.id]?.goals || 0), 0);
               const bGoals = SHOT_TYPES.reduce((sum, type) => sum + (b.stats?.[type.id]?.goals || 0), 0);
               return bGoals - aGoals;
@@ -2320,7 +2245,7 @@ export default function KorfbalApp() {
           {/* Player stats */}
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Speler statistieken</h2>
-            {match.players.sort((a, b) => {
+            {[...match.players].sort((a, b) => {
               const aGoals = SHOT_TYPES.reduce((sum, type) => sum + (a.stats?.[type.id]?.goals || 0), 0);
               const bGoals = SHOT_TYPES.reduce((sum, type) => sum + (b.stats?.[type.id]?.goals || 0), 0);
               return bGoals - aGoals;
