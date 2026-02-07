@@ -4,8 +4,10 @@
   "description": "Korfbal wedstrijd statistieken tracker",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#dc2626",
+  "categories": ["sports"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -15,7 +17,8 @@
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
