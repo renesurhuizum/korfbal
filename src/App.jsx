@@ -365,7 +365,9 @@ export default function KorfbalApp() {
 
   const saveTeamPlayers = async (teamId, players) => {
     try {
-      await updatePlayersMutation({ teamId, players });
+      // Sanitize players: only send id and name to match Convex validator
+      const sanitized = players.map(p => ({ id: p.id, name: p.name }));
+      await updatePlayersMutation({ teamId, players: sanitized });
       return true;
     } catch (e) {
       console.error('Error saving players:', e);
@@ -787,7 +789,8 @@ export default function KorfbalApp() {
 
         const trimmedName = newPlayerName.trim();
         const newPlayer = { id: generatePlayerId(), name: trimmedName };
-        const updated = [...players, newPlayer];
+        // Sanitize players: only send id and name to match Convex validator
+        const updated = [...players, newPlayer].map(p => ({ id: p.id, name: p.name }));
 
         // Direct opslaan naar database
         await updatePlayersMutation({ teamId: currentTeamId, players: updated });
@@ -837,8 +840,9 @@ export default function KorfbalApp() {
         }
 
         const trimmedName = editingName.trim();
+        // Sanitize players: only send id and name to match Convex validator
         const updated = players.map(p =>
-          p.id === playerId ? { ...p, name: trimmedName } : p
+          p.id === playerId ? { id: p.id, name: trimmedName } : { id: p.id, name: p.name }
         );
 
         // Opslaan naar Convex
@@ -859,7 +863,8 @@ export default function KorfbalApp() {
     const removePlayer = async (id) => {
       try {
         const player = players.find(p => p.id === id);
-        const updated = players.filter(p => p.id !== id);
+        // Sanitize players: only send id and name to match Convex validator
+        const updated = players.filter(p => p.id !== id).map(p => ({ id: p.id, name: p.name }));
 
         // Opslaan naar Convex
         await updatePlayersMutation({ teamId: currentTeamId, players: updated });
