@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 // Player validator (used in arrays)
 const playerValidator = v.object({
-  id: v.number(), // Client-generated timestamp
+  id: v.union(v.string(), v.number()), // String (new) or number (legacy)
   name: v.string(),
 });
 
@@ -15,7 +15,7 @@ const shotStatsValidator = v.object({
 
 // Player with stats validator (for matches)
 const playerWithStatsValidator = v.object({
-  id: v.number(),
+  id: v.union(v.string(), v.number()), // String (new) or number (legacy)
   name: v.string(),
   isStarter: v.boolean(),
   stats: v.object({
@@ -24,13 +24,14 @@ const playerWithStatsValidator = v.object({
     penalty: shotStatsValidator,
     freeball: shotStatsValidator,
     runthrough: shotStatsValidator,
+    outstart: shotStatsValidator,
     other: shotStatsValidator,
   }),
 });
 
 // Goal validator (chronological goals tracking)
 const goalValidator = v.object({
-  playerId: v.number(),
+  playerId: v.union(v.string(), v.number()), // String (new) or number (legacy)
   playerName: v.string(),
   shotType: v.string(),
   timestamp: v.string(),

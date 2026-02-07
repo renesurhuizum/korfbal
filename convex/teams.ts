@@ -23,7 +23,7 @@ export const updatePlayers = mutation({
     teamId: v.id("teams"),
     players: v.array(
       v.object({
-        id: v.number(),
+        id: v.union(v.string(), v.number()),
         name: v.string(),
       })
     ),
