@@ -3,6 +3,38 @@ import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search } fro
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 
+// Error boundary to catch rendering crashes - exported for use in main.jsx
+export class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('App crash:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
+            <div className="text-5xl mb-4">⚠️</div>
+            <h1 className="text-xl font-bold text-gray-800 mb-2">Er ging iets mis</h1>
+            <p className="text-gray-600 mb-6">De app is onverwacht gestopt. Probeer de pagina te herladen.</p>
+            <button onClick={() => window.location.reload()}
+              className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 active:scale-95 transition-all">
+              Pagina herladen
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const SHOT_TYPES = [
   { id: 'distance', label: 'Afstandschot', short: 'AS' },
   { id: 'close', label: 'Kans bij korf', short: 'KK' },
@@ -872,7 +904,11 @@ export default function KorfbalApp() {
             </div>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {players.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">Nog geen spelers toegevoegd</p>
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 font-medium mb-1">Nog geen spelers</p>
+                  <p className="text-gray-400 text-sm">Voeg je eerste speler toe via het veld hierboven</p>
+                </div>
               ) : (
                 players.map(player => {
                   const isEditing = editingPlayerId === player.id;
@@ -1082,6 +1118,8 @@ export default function KorfbalApp() {
     }
 
     const addGoal = (playerId, shotType) => {
+      // Haptic feedback on supported devices
+      if (navigator.vibrate) navigator.vibrate(50);
       setCurrentMatch(prevMatch => {
         // Save current state to history
         setActionHistory(prev => [...prev, { type: 'goal', match: prevMatch }]);
@@ -1150,6 +1188,7 @@ export default function KorfbalApp() {
     };
 
     const addOpponentGoalWithPlayer = (playerId, shotType) => {
+      if (navigator.vibrate) navigator.vibrate([30, 30, 30]);
       setCurrentMatch(prevMatch => {
         // Save current state to history
         setActionHistory(prev => [...prev, { type: 'opponent_goal', match: prevMatch }]);
@@ -1207,6 +1246,8 @@ export default function KorfbalApp() {
       });
     };
 
+    const isModalOpen = showGoalModal || showAttemptModal || showOpponentModal || showOpponentPlayerModal;
+
     const PlayerRow = ({ player }) => {
       const totalGoals = SHOT_TYPES.reduce((sum, type) => sum + player.stats[type.id].goals, 0);
       const totalAttempts = SHOT_TYPES.reduce((sum, type) => sum + player.stats[type.id].attempts, 0);
@@ -1219,12 +1260,12 @@ export default function KorfbalApp() {
               <span className="text-sm text-gray-600 ml-2">{totalGoals}/{totalAttempts} pogingen</span>
             </div>
             <div className="flex space-x-2">
-              <button onClick={() => setShowGoalModal(player)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2">
+              <button onClick={() => setShowGoalModal(player)} disabled={isModalOpen}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
                 Goal
               </button>
-              <button onClick={() => setShowAttemptModal(player)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+              <button onClick={() => setShowAttemptModal(player)} disabled={isModalOpen}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
                 Poging
               </button>
             </div>
@@ -1662,6 +1703,8 @@ export default function KorfbalApp() {
 
   const StatisticsView = () => {
     const [selectedMatch, setSelectedMatch] = useState(null);
+    const [matchSearch, setMatchSearch] = useState('');
+    const [matchFilter, setMatchFilter] = useState('all'); // 'all' | 'won' | 'lost' | 'draw'
 
     // Memoize team matches filter
     const teamMatches = useMemo(() => {
@@ -1808,6 +1851,16 @@ export default function KorfbalApp() {
               <SkeletonCard lines={5} />
               <SkeletonCard lines={3} />
             </>
+          ) : teamMatches.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+              <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Nog geen statistieken</h2>
+              <p className="text-gray-500 mb-6">Speel je eerste wedstrijd om statistieken te verzamelen</p>
+              <button onClick={() => navigateTo('setup-match')}
+                className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 active:scale-95 transition-all">
+                Nieuwe wedstrijd starten
+              </button>
+            </div>
           ) : (
           <>
           <div className="bg-white rounded-lg shadow-lg p-6">
@@ -1936,8 +1989,44 @@ export default function KorfbalApp() {
           </div>
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800">Wedstrijd geschiedenis</h2>
+            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Zoek op tegenstander..."
+                  value={matchSearch}
+                  onChange={(e) => setMatchSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 border-2 border-gray-300 rounded-lg focus:border-red-600 focus:outline-none text-sm focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                />
+              </div>
+              <div className="flex gap-1">
+                {[
+                  { id: 'all', label: 'Alle' },
+                  { id: 'won', label: 'Gewonnen' },
+                  { id: 'draw', label: 'Gelijk' },
+                  { id: 'lost', label: 'Verloren' },
+                ].map(f => (
+                  <button key={f.id} onClick={() => setMatchFilter(f.id)}
+                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                      matchFilter === f.id ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="space-y-3">
-              {[...teamMatches].sort((a, b) => new Date(b.date) - new Date(a.date)).map((match) => (
+              {[...teamMatches]
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .filter(m => {
+                  if (matchSearch && !m.opponent.toLowerCase().includes(matchSearch.toLowerCase())) return false;
+                  if (matchFilter === 'won' && m.score <= m.opponent_score) return false;
+                  if (matchFilter === 'lost' && m.score >= m.opponent_score) return false;
+                  if (matchFilter === 'draw' && m.score !== m.opponent_score) return false;
+                  return true;
+                })
+                .map((match) => (
                 <div key={match._id} className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex justify-between items-start gap-3">
                     <button onClick={() => setSelectedMatch(match)} className="flex-1 text-left">
@@ -1978,6 +2067,15 @@ export default function KorfbalApp() {
                   </div>
                 </div>
               ))}
+              {teamMatches.length > 0 && [...teamMatches].filter(m => {
+                if (matchSearch && !m.opponent.toLowerCase().includes(matchSearch.toLowerCase())) return false;
+                if (matchFilter === 'won' && m.score <= m.opponent_score) return false;
+                if (matchFilter === 'lost' && m.score >= m.opponent_score) return false;
+                if (matchFilter === 'draw' && m.score !== m.opponent_score) return false;
+                return true;
+              }).length === 0 && (
+                <p className="text-center text-gray-500 py-4">Geen wedstrijden gevonden</p>
+              )}
             </div>
           </div>
           </>
