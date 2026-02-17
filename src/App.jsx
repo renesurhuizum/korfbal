@@ -45,6 +45,9 @@ const SHOT_TYPES = [
   { id: 'other', label: 'Overig', short: 'OV' }
 ];
 
+// Safe accessor for player stats (handles missing outstart in legacy matches)
+const getStat = (player, typeId) => player.stats[typeId] || { goals: 0, attempts: 0 };
+
 // Custom hook for debouncing values
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -1572,8 +1575,8 @@ export default function KorfbalApp() {
     const isModalOpen = showGoalModal || showAttemptModal || showOpponentModal || showOpponentPlayerModal;
 
     const PlayerRow = ({ player }) => {
-      const totalGoals = SHOT_TYPES.reduce((sum, type) => sum + player.stats[type.id].goals, 0);
-      const totalAttempts = SHOT_TYPES.reduce((sum, type) => sum + player.stats[type.id].attempts, 0);
+      const totalGoals = SHOT_TYPES.reduce((sum, type) => sum + getStat(player, type.id).goals, 0);
+      const totalAttempts = SHOT_TYPES.reduce((sum, type) => sum + getStat(player, type.id).attempts, 0);
 
       return (
         <div className="border-b border-gray-200 dark:border-gray-600 py-3 last:border-0">
@@ -1595,7 +1598,7 @@ export default function KorfbalApp() {
           </div>
           <div className="flex flex-wrap gap-2 text-xs">
             {SHOT_TYPES.map(type => {
-              const stat = player.stats[type.id];
+              const stat = getStat(player, type.id);
               if (stat.attempts === 0) return null;
               return (
                 <span key={type.id} className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
@@ -1778,7 +1781,7 @@ export default function KorfbalApp() {
       // Old method for backward compatibility
       match.players.forEach(player => {
         SHOT_TYPES.forEach(type => {
-          const goals = player.stats[type.id].goals;
+          const goals = getStat(player, type.id).goals;
           for (let i = 0; i < goals; i++) {
             scoreTimeline.push({ team: match.team, player: player.name, type: type.label, isOwn: true });
           }
@@ -1793,22 +1796,22 @@ export default function KorfbalApp() {
 
     // Calculate team statistics
     const totalGoals = match.players.reduce((sum, p) =>
-      sum + SHOT_TYPES.reduce((s, type) => s + p.stats[type.id].goals, 0), 0);
+      sum + SHOT_TYPES.reduce((s, type) => s + getStat(p, type.id).goals, 0), 0);
     const totalAttempts = match.players.reduce((sum, p) =>
-      sum + SHOT_TYPES.reduce((s, type) => s + p.stats[type.id].attempts, 0), 0);
+      sum + SHOT_TYPES.reduce((s, type) => s + getStat(p, type.id).attempts, 0), 0);
     const teamPercentage = totalAttempts > 0 ? Math.round((totalGoals / totalAttempts) * 100) : 0;
 
     // Find best player
     const bestPlayer = match.players.reduce((best, player) => {
-      const goals = SHOT_TYPES.reduce((sum, type) => sum + player.stats[type.id].goals, 0);
-      const bestGoals = best ? SHOT_TYPES.reduce((sum, type) => sum + best.stats[type.id].goals, 0) : 0;
+      const goals = SHOT_TYPES.reduce((sum, type) => sum + getStat(player, type.id).goals, 0);
+      const bestGoals = best ? SHOT_TYPES.reduce((sum, type) => sum + getStat(best, type.id).goals, 0) : 0;
       return goals > bestGoals ? player : best;
     }, null);
 
     // Calculate stats per shot type
     const shotTypeStats = SHOT_TYPES.map(type => {
-      const goals = match.players.reduce((sum, p) => sum + p.stats[type.id].goals, 0);
-      const attempts = match.players.reduce((sum, p) => sum + p.stats[type.id].attempts, 0);
+      const goals = match.players.reduce((sum, p) => sum + getStat(p, type.id).goals, 0);
+      const attempts = match.players.reduce((sum, p) => sum + getStat(p, type.id).attempts, 0);
       const percentage = attempts > 0 ? Math.round((goals / attempts) * 100) : 0;
       return { type: type.label, goals, attempts, percentage };
     }).filter(stat => stat.attempts > 0);
@@ -1909,7 +1912,7 @@ export default function KorfbalApp() {
                   </div>
                   <div className="text-right">
                     <div className="text-3xl font-bold text-yellow-600">
-                      {SHOT_TYPES.reduce((sum, type) => sum + bestPlayer.stats[type.id].goals, 0)}
+                      {SHOT_TYPES.reduce((sum, type) => sum + getStat(bestPlayer, type.id).goals, 0)}
                     </div>
                     <div className="text-sm text-gray-600 dark:text-gray-400">doelpunten</div>
                   </div>
@@ -1962,12 +1965,12 @@ export default function KorfbalApp() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Speler statistieken</h2>
             {[...match.players].sort((a, b) => {
-              const aGoals = SHOT_TYPES.reduce((sum, type) => sum + a.stats[type.id].goals, 0);
-              const bGoals = SHOT_TYPES.reduce((sum, type) => sum + b.stats[type.id].goals, 0);
+              const aGoals = SHOT_TYPES.reduce((sum, type) => sum + getStat(a, type.id).goals, 0);
+              const bGoals = SHOT_TYPES.reduce((sum, type) => sum + getStat(b, type.id).goals, 0);
               return bGoals - aGoals;
             }).map(player => {
-              const totalGoals = SHOT_TYPES.reduce((sum, type) => sum + player.stats[type.id].goals, 0);
-              const totalAttempts = SHOT_TYPES.reduce((sum, type) => sum + player.stats[type.id].attempts, 0);
+              const totalGoals = SHOT_TYPES.reduce((sum, type) => sum + getStat(player, type.id).goals, 0);
+              const totalAttempts = SHOT_TYPES.reduce((sum, type) => sum + getStat(player, type.id).attempts, 0);
               const percentage = totalAttempts > 0 ? Math.round((totalGoals / totalAttempts) * 100) : 0;
               return (
                 <div key={player.id} className="border-b border-gray-200 dark:border-gray-600 py-4 last:border-0">
@@ -1977,7 +1980,7 @@ export default function KorfbalApp() {
                   </div>
                   <div className="flex flex-wrap gap-2 text-sm">
                     {SHOT_TYPES.map(type => {
-                      const stat = player.stats[type.id];
+                      const stat = getStat(player, type.id);
                       if (stat.attempts === 0) return null;
                       return (
                         <span key={type.id} className="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded">
