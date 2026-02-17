@@ -104,6 +104,59 @@ const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmLab
   );
 };
 
+// Reusable input dialog component (for text input prompts)
+const InputDialog = ({ isOpen, title, message, placeholder, onSubmit, onCancel, submitLabel = 'Opslaan', inputType = 'text' }) => {
+  const [value, setValue] = useState('');
+  const modalRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setValue('');
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Enter' && value.trim()) onSubmit(value.trim());
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onCancel, onSubmit, value]);
+
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[60] p-4"
+      role="dialog" aria-modal="true" aria-label={title} ref={modalRef}>
+      <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl p-6 max-w-sm w-full shadow-xl">
+        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">{title}</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">{message}</p>
+        <input
+          ref={inputRef}
+          type={inputType}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg mb-4 dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-yellow-500 focus:outline-none"
+        />
+        <div className="flex gap-3">
+          <button onClick={onCancel}
+            className="flex-1 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-95 transition-all">
+            Annuleren
+          </button>
+          <button onClick={() => value.trim() && onSubmit(value.trim())} disabled={!value.trim()}
+            className="flex-1 py-3 rounded-lg font-semibold text-white bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 active:scale-95 transition-all">
+            {submitLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function KorfbalApp() {
   const [view, setView] = useState('login');
   const [currentTeam, setCurrentTeam] = useState(null);
@@ -115,6 +168,7 @@ export default function KorfbalApp() {
   const [sharedMatchId, setSharedMatchId] = useState(null);
   const [pendingSavedMatch, setPendingSavedMatch] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, variant: 'danger' });
+  const [inputDialog, setInputDialog] = useState({ isOpen: false, title: '', message: '', placeholder: '', onSubmit: null, inputType: 'text' });
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('korfbal_dark_mode');
     if (saved !== null) return saved === 'true';
@@ -136,6 +190,13 @@ export default function KorfbalApp() {
       confirmLabel: confirmLabel || 'Bevestigen',
       cancelLabel: cancelLabel || 'Annuleren',
       onConfirm: () => { setConfirmDialog(prev => ({ ...prev, isOpen: false })); onConfirm(); }
+    });
+  }, []);
+
+  const showInput = useCallback(({ title, message, placeholder, onSubmit, inputType = 'text' }) => {
+    setInputDialog({
+      isOpen: true, title, message, placeholder, inputType,
+      onSubmit: (val) => { setInputDialog(prev => ({ ...prev, isOpen: false })); onSubmit(val); }
     });
   }, []);
 
@@ -359,6 +420,9 @@ export default function KorfbalApp() {
   const registerMutation = useMutation(api.auth.register);
   const updatePlayersMutation = useMutation(api.teams.updatePlayers);
   const deleteTeamMutation = useMutation(api.teams.deleteTeam);
+  const resetPasswordMutation = useMutation(api.teams.resetPassword);
+  const renameTeamMutation = useMutation(api.teams.renameTeam);
+  const mergeTeamsMutation = useMutation(api.teams.mergeTeams);
   const createMatchMutation = useMutation(api.matches.createMatch);
   const updateMatchMutation = useMutation(api.matches.updateMatch);
   const deleteMatchMutation = useMutation(api.matches.deleteMatch);
@@ -523,72 +587,299 @@ export default function KorfbalApp() {
   }, [navigateTo, showFeedback]);
 
   const GodModeView = () => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [expandedTeamId, setExpandedTeamId] = useState(null);
+    const [showPasswords, setShowPasswords] = useState(new Set());
+
+    // Detect duplicate teams (same team_name)
+    const duplicateGroups = useMemo(() => {
+      if (!teams.length) return {};
+      const groups = {};
+      teams.forEach(team => {
+        const key = team.team_name.toLowerCase();
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(team);
+      });
+      return Object.fromEntries(
+        Object.entries(groups).filter(([, arr]) => arr.length > 1)
+      );
+    }, [teams]);
+
+    const duplicateTeamIds = useMemo(() => {
+      const ids = new Set();
+      Object.values(duplicateGroups).forEach(group => {
+        group.forEach(t => ids.add(t._id));
+      });
+      return ids;
+    }, [duplicateGroups]);
+
+    // Suggest which team to keep (most matches > most players > oldest)
+    const suggestTarget = (group) => {
+      return [...group].sort((a, b) => {
+        const aMatches = matches.filter(m => m.team_id === a._id).length;
+        const bMatches = matches.filter(m => m.team_id === b._id).length;
+        if (bMatches !== aMatches) return bMatches - aMatches;
+        const aPlayers = a.players?.length || 0;
+        const bPlayers = b.players?.length || 0;
+        if (bPlayers !== aPlayers) return bPlayers - aPlayers;
+        return (a._creationTime || 0) - (b._creationTime || 0);
+      })[0];
+    };
+
+    // Filter teams by search
+    const filteredTeams = useMemo(() => {
+      if (!searchQuery.trim()) return teams;
+      const q = searchQuery.toLowerCase();
+      return teams.filter(t => t.team_name.toLowerCase().includes(q));
+    }, [teams, searchQuery]);
+
+    const handleRename = (team) => {
+      showInput({
+        title: 'Team hernoemen',
+        message: `Nieuwe naam voor "${team.team_name}":`,
+        placeholder: team.team_name,
+        onSubmit: async (newName) => {
+          try {
+            await renameTeamMutation({ teamId: team._id, newName: newName.trim() });
+            showFeedback(`Team hernoemd naar "${newName.trim()}"`, 'success');
+          } catch (e) {
+            showFeedback(e.message || 'Fout bij hernoemen', 'error');
+          }
+        }
+      });
+    };
+
+    const handleResetPassword = (team) => {
+      showInput({
+        title: 'Wachtwoord wijzigen',
+        message: `Nieuw wachtwoord voor "${team.team_name}":`,
+        placeholder: 'Nieuw wachtwoord (min. 3 tekens)',
+        onSubmit: async (newPassword) => {
+          try {
+            await resetPasswordMutation({ teamId: team._id, newPassword });
+            showFeedback('Wachtwoord gewijzigd', 'success');
+          } catch (e) {
+            showFeedback(e.message || 'Fout bij wijzigen wachtwoord', 'error');
+          }
+        }
+      });
+    };
+
+    const handleMerge = (targetTeam, sourceTeam) => {
+      const targetMatchCount = matches.filter(m => m.team_id === targetTeam._id).length;
+      const sourceMatchCount = matches.filter(m => m.team_id === sourceTeam._id).length;
+      showConfirm({
+        title: 'Teams samenvoegen',
+        message: `"${sourceTeam.team_name}" (${sourceMatchCount} wedstrijden, ${sourceTeam.players?.length || 0} spelers) samenvoegen met "${targetTeam.team_name}" (${targetMatchCount} wedstrijden, ${targetTeam.players?.length || 0} spelers)?\n\nHet duplicaat wordt verwijderd.`,
+        confirmLabel: 'Samenvoegen',
+        onConfirm: async () => {
+          try {
+            const result = await mergeTeamsMutation({
+              targetTeamId: targetTeam._id,
+              sourceTeamId: sourceTeam._id,
+            });
+            showFeedback(`Samengevoegd: ${result.matchesMoved} wedstrijden verplaatst, ${result.playersMerged} spelers toegevoegd`, 'success');
+          } catch (e) {
+            showFeedback(e.message || 'Fout bij samenvoegen', 'error');
+          }
+        }
+      });
+    };
+
+    const handleDelete = (team) => {
+      const teamMatchCount = matches.filter(m => m.team_id === team._id).length;
+      showConfirm({
+        title: 'Team verwijderen',
+        message: `Team "${team.team_name}" verwijderen? Dit verwijdert ook ${teamMatchCount} wedstrijd(en).`,
+        onConfirm: async () => {
+          try {
+            await deleteTeamMutation({ teamId: team._id });
+            showFeedback('Team en wedstrijden verwijderd', 'success');
+          } catch (e) {
+            showFeedback('Fout bij verwijderen', 'error');
+          }
+        }
+      });
+    };
+
+    const togglePassword = (teamId) => {
+      setShowPasswords(prev => {
+        const next = new Set(prev);
+        if (next.has(teamId)) next.delete(teamId);
+        else next.add(teamId);
+        return next;
+      });
+    };
+
+    const dupCount = Object.keys(duplicateGroups).length;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-yellow-600 to-yellow-800 p-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 max-w-4xl mx-auto">
+          {/* Header */}
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">👑 God Mode</h1>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">God Mode</h1>
             <button onClick={() => {
               setShowGodMode(false);
               navigateTo('login');
-            }} className="text-gray-600 hover:text-gray-800 dark:text-gray-100" aria-label="God mode sluiten">✕ Sluiten</button>
+            }} className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 px-3 py-1" aria-label="God mode sluiten">Sluiten</button>
           </div>
+
           {!teams ? (
             <div className="text-center py-8">
               <p className="text-gray-600 dark:text-gray-400">Laden...</p>
             </div>
           ) : (
             <>
-              <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-600 rounded">
-                <p className="font-semibold text-yellow-800">Totaal aantal teams: {teams.length}</p>
+              {/* Stats summary */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-yellow-800 dark:text-yellow-300">{teams.length}</p>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-400">Teams</p>
+                </div>
+                <div className="bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-yellow-800 dark:text-yellow-300">{matches.length}</p>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-400">Wedstrijden</p>
+                </div>
+                <div className={`rounded-lg p-3 text-center ${dupCount > 0 ? 'bg-red-50 dark:bg-red-900/30' : 'bg-green-50 dark:bg-green-900/30'}`}>
+                  <p className={`text-2xl font-bold ${dupCount > 0 ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>{dupCount}</p>
+                  <p className={`text-xs ${dupCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>Duplicaten</p>
+                </div>
               </div>
-              <div className="space-y-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Alle teams:</h2>
-                {teams.length === 0 ? <p className="text-gray-600 dark:text-gray-400">Nog geen teams</p> : (
-                  <div className="space-y-3">
-                    {teams.map((team) => {
-                      const teamMatches = matches.filter(m => m.team_id === team._id);
-                      return (
-                        <div key={team._id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border-2 border-gray-200 dark:border-gray-600">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex-1">
-                              <h3 className="font-bold text-lg">{team.team_name}</h3>
-                              <div className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                                <p>ID: {team._id}</p>
-                                <p>Spelers: {team.players?.length || 0}</p>
-                                <p>Wedstrijden: {teamMatches.length}</p>
-                                {team.created_at && (
-                                  <p>Aangemaakt: {new Date(team.created_at).toLocaleDateString('nl-NL', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}</p>
-                                )}
-                              </div>
+
+              {/* Duplicate alert */}
+              {dupCount > 0 && (
+                <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded">
+                  <p className="font-semibold text-red-800 dark:text-red-300 mb-1">Duplicaten gedetecteerd</p>
+                  <p className="text-sm text-red-700 dark:text-red-400">
+                    {Object.entries(duplicateGroups).map(([name, arr]) =>
+                      `${arr[0].team_name} (${arr.length}x)`
+                    ).join(', ')}
+                    {' '}&mdash; gebruik "Samenvoegen" om duplicaten op te ruimen.
+                  </p>
+                </div>
+              )}
+
+              {/* Search */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Zoek team..."
+                  className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-yellow-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Teams list */}
+              <div className="space-y-3">
+                {filteredTeams.length === 0 ? (
+                  <p className="text-gray-600 dark:text-gray-400 text-center py-4">
+                    {searchQuery ? 'Geen teams gevonden' : 'Nog geen teams'}
+                  </p>
+                ) : (
+                  filteredTeams.map((team) => {
+                    const teamMatchCount = matches.filter(m => m.team_id === team._id).length;
+                    const isDuplicate = duplicateTeamIds.has(team._id);
+                    const isExpanded = expandedTeamId === team._id;
+                    const dupGroup = isDuplicate
+                      ? Object.values(duplicateGroups).find(g => g.some(t => t._id === team._id))
+                      : null;
+                    const isTarget = dupGroup ? suggestTarget(dupGroup)._id === team._id : false;
+
+                    return (
+                      <div key={team._id}
+                        className={`rounded-lg p-4 border-2 transition-all ${
+                          isDuplicate
+                            ? 'border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10'
+                            : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700'
+                        }`}>
+                        {/* Team header - clickable to expand */}
+                        <div className="flex justify-between items-start cursor-pointer"
+                          onClick={() => setExpandedTeamId(isExpanded ? null : team._id)}>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100">{team.team_name}</h3>
+                              {isDuplicate && (
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                  isTarget
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                    : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                                }`}>
+                                  {isTarget ? 'BEHOUDEN' : 'DUPLICAAT'}
+                                </span>
+                              )}
                             </div>
-                            <button onClick={() => {
-                              showConfirm({
-                                title: 'Team verwijderen',
-                                message: `Team "${team.team_name}" verwijderen? Dit verwijdert ook alle wedstrijden van dit team.`,
-                                onConfirm: async () => {
-                                  try {
-                                    await deleteTeamMutation({ teamId: team._id });
-                                    showFeedback('Team en wedstrijden verwijderd', 'success');
-                                  } catch (e) {
-                                    showFeedback('Fout bij verwijderen', 'error');
-                                  }
-                                }
-                              });
-                            }} className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 ml-4">
-                              Verwijder
-                            </button>
+                            <div className="flex gap-4 mt-1 text-sm text-gray-600 dark:text-gray-400">
+                              <span>{team.players?.length || 0} spelers</span>
+                              <span>{teamMatchCount} wedstrijden</span>
+                              <span>{new Date(team._creationTime).toLocaleDateString('nl-NL')}</span>
+                            </div>
                           </div>
+                          <span className="text-gray-400 text-sm">{isExpanded ? '▲' : '▼'}</span>
                         </div>
-                      );
-                    })}
-                  </div>
+
+                        {/* Expanded details */}
+                        {isExpanded && (
+                          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                            <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
+                              <p><span className="font-medium">ID:</span> <span className="font-mono text-xs">{team._id}</span></p>
+                              <p>
+                                <span className="font-medium">Wachtwoord:</span>{' '}
+                                <span className="font-mono">
+                                  {showPasswords.has(team._id) ? team.password_hash : '••••••••'}
+                                </span>
+                                <button onClick={(e) => { e.stopPropagation(); togglePassword(team._id); }}
+                                  className="ml-2 text-yellow-600 hover:text-yellow-700 text-xs underline">
+                                  {showPasswords.has(team._id) ? 'verberg' : 'toon'}
+                                </button>
+                              </p>
+                              <p><span className="font-medium">Aangemaakt:</span> {new Date(team._creationTime).toLocaleDateString('nl-NL', {
+                                year: 'numeric', month: 'long', day: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                              })}</p>
+                              {team.players?.length > 0 && (
+                                <p><span className="font-medium">Spelers:</span> {team.players.map(p => p.name).join(', ')}</p>
+                              )}
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex flex-wrap gap-2">
+                              <button onClick={(e) => { e.stopPropagation(); handleRename(team); }}
+                                className="px-3 py-1.5 rounded text-sm font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:hover:bg-blue-800">
+                                Hernoem
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleResetPassword(team); }}
+                                className="px-3 py-1.5 rounded text-sm font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-300 dark:hover:bg-yellow-800">
+                                Wachtwoord
+                              </button>
+                              {isDuplicate && dupGroup && (
+                                <button onClick={(e) => {
+                                  e.stopPropagation();
+                                  const target = suggestTarget(dupGroup);
+                                  if (target._id === team._id) {
+                                    // This is the target - merge others into this one
+                                    const source = dupGroup.find(t => t._id !== team._id);
+                                    if (source) handleMerge(team, source);
+                                  } else {
+                                    // This is a duplicate - merge into target
+                                    handleMerge(target, team);
+                                  }
+                                }}
+                                  className="px-3 py-1.5 rounded text-sm font-medium bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-900 dark:text-orange-300 dark:hover:bg-orange-800">
+                                  {isTarget ? 'Voeg duplicaat samen' : `Samenvoegen met ${suggestTarget(dupGroup).team_name}`}
+                                </button>
+                              )}
+                              <button onClick={(e) => { e.stopPropagation(); handleDelete(team); }}
+                                className="px-3 py-1.5 rounded text-sm font-medium bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800">
+                                Verwijder
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </>
@@ -772,6 +1063,11 @@ export default function KorfbalApp() {
 
     const addPlayer = async () => {
       try {
+        if (!currentTeamId) {
+          showFeedback('Geen team geselecteerd, log opnieuw in', 'error');
+          return;
+        }
+
         if (!newPlayerName.trim()) {
           showFeedback('Vul een naam in', 'error');
           return;
@@ -789,8 +1085,10 @@ export default function KorfbalApp() {
 
         const trimmedName = newPlayerName.trim();
         const newPlayer = { id: generatePlayerId(), name: trimmedName };
-        // Sanitize players: only send id and name to match Convex validator
-        const updated = [...players, newPlayer].map(p => ({ id: p.id, name: p.name }));
+        // Sanitize players: only send id and name, filter out invalid entries
+        const updated = [...players, newPlayer]
+          .filter(p => p.id != null && p.name)
+          .map(p => ({ id: p.id, name: p.name }));
 
         // Direct opslaan naar database
         await updatePlayersMutation({ teamId: currentTeamId, players: updated });
@@ -840,10 +1138,10 @@ export default function KorfbalApp() {
         }
 
         const trimmedName = editingName.trim();
-        // Sanitize players: only send id and name to match Convex validator
+        // Sanitize players: only send id and name, filter out invalid entries
         const updated = players.map(p =>
           p.id === playerId ? { id: p.id, name: trimmedName } : { id: p.id, name: p.name }
-        );
+        ).filter(p => p.id != null && p.name);
 
         // Opslaan naar Convex
         await updatePlayersMutation({ teamId: currentTeamId, players: updated });
@@ -863,8 +1161,10 @@ export default function KorfbalApp() {
     const removePlayer = async (id) => {
       try {
         const player = players.find(p => p.id === id);
-        // Sanitize players: only send id and name to match Convex validator
-        const updated = players.filter(p => p.id !== id).map(p => ({ id: p.id, name: p.name }));
+        // Sanitize players: only send id and name, filter out invalid entries
+        const updated = players.filter(p => p.id !== id)
+          .filter(p => p.id != null && p.name)
+          .map(p => ({ id: p.id, name: p.name }));
 
         // Opslaan naar Convex
         await updatePlayersMutation({ teamId: currentTeamId, players: updated });
@@ -2777,6 +3077,15 @@ export default function KorfbalApp() {
         variant={confirmDialog.variant}
         onConfirm={confirmDialog.onConfirm}
         onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+      />
+      <InputDialog
+        isOpen={inputDialog.isOpen}
+        title={inputDialog.title}
+        message={inputDialog.message}
+        placeholder={inputDialog.placeholder}
+        inputType={inputDialog.inputType}
+        onSubmit={inputDialog.onSubmit}
+        onCancel={() => setInputDialog(prev => ({ ...prev, isOpen: false }))}
       />
       <div key={view} className="page-transition">
         {view === 'login' && <LoginView />}
