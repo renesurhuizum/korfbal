@@ -46,16 +46,52 @@ export const createMatch = mutation({
     shareable: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    // Normalize players to exactly match schema (guards against stale/malformed data)
+    const players = ((args.players as any[]) || [])
+      .filter((p: any) => p.id !== undefined && p.id !== null)
+      .map((p: any) => ({
+        id: p.id,
+        name: p.name ?? 'Onbekend',
+        isStarter: p.isStarter ?? false,
+        stats: {
+          distance:   { goals: Number(p.stats?.distance?.goals)   || 0, attempts: Number(p.stats?.distance?.attempts)   || 0 },
+          close:      { goals: Number(p.stats?.close?.goals)      || 0, attempts: Number(p.stats?.close?.attempts)      || 0 },
+          penalty:    { goals: Number(p.stats?.penalty?.goals)    || 0, attempts: Number(p.stats?.penalty?.attempts)    || 0 },
+          freeball:   { goals: Number(p.stats?.freeball?.goals)   || 0, attempts: Number(p.stats?.freeball?.attempts)   || 0 },
+          runthrough: { goals: Number(p.stats?.runthrough?.goals) || 0, attempts: Number(p.stats?.runthrough?.attempts) || 0 },
+          outstart:   { goals: Number(p.stats?.outstart?.goals)   || 0, attempts: Number(p.stats?.outstart?.attempts)   || 0 },
+          other:      { goals: Number(p.stats?.other?.goals)      || 0, attempts: Number(p.stats?.other?.attempts)      || 0 },
+        },
+      }));
+
+    // Normalize goals
+    const goals = ((args.goals as any[]) || [])
+      .filter((g: any) => g.playerId !== undefined && g.playerId !== null)
+      .map((g: any) => ({
+        playerId:   g.playerId,
+        playerName: g.playerName ?? 'Onbekend',
+        shotType:   g.shotType ?? 'other',
+        timestamp:  g.timestamp ?? new Date().toISOString(),
+        isOwn:      g.isOwn ?? false,
+      }));
+
+    // Normalize opponent goals
+    const opponentGoals = ((args.opponentGoals as any[]) || []).map((g: any) => ({
+      type:       g.type ?? 'other',
+      time:       g.time ?? new Date().toISOString(),
+      concededBy: g.concededBy ?? 'Onbekend',
+    }));
+
     const matchId = await ctx.db.insert("matches", {
       team_id: args.teamId,
       team_name: args.teamName,
       opponent: args.opponent,
       date: args.date,
-      players: args.players,
+      players,
       score: args.score,
       opponent_score: args.opponentScore,
-      opponent_goals: args.opponentGoals || [],
-      goals: args.goals,
+      opponent_goals: opponentGoals,
+      goals,
       finished: args.finished !== false,
       shareable: args.shareable || false,
     });
