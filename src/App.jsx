@@ -409,7 +409,7 @@ export default function KorfbalApp() {
         concededBy: g.concededBy ?? 'Onbekend',
       }));
 
-      const matchId = await createMatchMutation({
+      const payload = {
         teamId: currentTeamId,
         teamName: currentTeam ?? '',
         opponent: match.opponent ?? '',
@@ -421,7 +421,9 @@ export default function KorfbalApp() {
         goals: normalizedGoals,
         finished: true,
         shareable: false,
-      });
+      };
+      console.log('saveMatch payload:', JSON.stringify(payload, null, 2));
+      const matchId = await createMatchMutation(payload);
       // Update currentMatch with database ID to prevent duplicate creation
       setCurrentMatch(prev => prev ? { ...prev, _id: matchId } : prev);
       // Clear localStorage after successful save
@@ -429,11 +431,10 @@ export default function KorfbalApp() {
       showFeedback('Wedstrijd opgeslagen', 'success');
       return true;
     } catch (e) {
-      console.error('Error saving match – full error:', e);
-      console.error('Error data:', e.data);
-      // Extract first meaningful line (Convex errors are multi-line)
-      const msg = (e.message || 'onbekende fout').split('\n').find(l => l.trim() && !l.startsWith('[') && !l.startsWith('Called')) || e.message || 'onbekende fout';
-      showFeedback('Fout bij opslaan: ' + msg, 'error');
+      console.error('saveMatch fout – message:', e.message);
+      console.error('saveMatch fout – data:', e.data);
+      console.error('saveMatch fout – full:', e);
+      showFeedback('Fout bij opslaan – zie browser console (F12)', 'error');
       return false;
     }
   };
