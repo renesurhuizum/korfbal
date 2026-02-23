@@ -378,12 +378,28 @@ export default function KorfbalApp() {
 
   const saveMatch = async (match) => {
     try {
+      // Skip save if match is already in the database
+      if (match._id) {
+        localStorage.removeItem('korfbal_active_match');
+        showFeedback('Wedstrijd opgeslagen', 'success');
+        return true;
+      }
+      // Normalize player stats: ensure all shot types are present (guards against old localStorage data)
+      const normalizedPlayers = (match.players || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        isStarter: p.isStarter ?? false,
+        stats: SHOT_TYPES.reduce((acc, type) => ({
+          ...acc,
+          [type.id]: p.stats?.[type.id] ?? { goals: 0, attempts: 0 }
+        }), {})
+      }));
       const matchId = await createMatchMutation({
         teamId: currentTeamId,
         teamName: currentTeam,
         opponent: match.opponent,
         date: match.date,
-        players: match.players,
+        players: normalizedPlayers,
         score: match.score,
         opponentScore: match.opponentScore,
         opponentGoals: match.opponentGoals || [],
@@ -860,23 +876,31 @@ export default function KorfbalApp() {
       }
     };
 
-    const removePlayer = async (id) => {
-      try {
-        const player = players.find(p => p.id === id);
-        // Sanitize players: only send id and name to match Convex validator
-        const updated = players.filter(p => p.id !== id).map(p => ({ id: p.id, name: p.name }));
+    const removePlayer = (id) => {
+      const player = players.find(p => p.id === id);
+      showConfirm({
+        title: 'Speler verwijderen',
+        message: `${player?.name || 'Deze speler'} verwijderen uit je team?`,
+        confirmLabel: 'Verwijderen',
+        variant: 'danger',
+        onConfirm: async () => {
+          try {
+            // Sanitize players: only send id and name to match Convex validator
+            const updated = players.filter(p => p.id !== id).map(p => ({ id: p.id, name: p.name }));
 
-        // Opslaan naar Convex
-        await updatePlayersMutation({ teamId: currentTeamId, players: updated });
+            // Opslaan naar Convex
+            await updatePlayersMutation({ teamId: currentTeamId, players: updated });
 
-        // Update lokale state
-        setPlayers(updated);
-        setOriginalPlayers(updated);
-        showFeedback(player.name + ' verwijderd', 'success');
-      } catch (error) {
-        console.error('Error removing player:', error);
-        showFeedback('Fout bij verwijderen: ' + error.message, 'error');
-      }
+            // Update lokale state
+            setPlayers(updated);
+            setOriginalPlayers(updated);
+            showFeedback((player?.name || 'Speler') + ' verwijderd', 'success');
+          } catch (error) {
+            console.error('Error removing player:', error);
+            showFeedback('Fout bij verwijderen: ' + error.message, 'error');
+          }
+        }
+      });
     };
 
     const handleBack = () => {
@@ -1542,13 +1566,23 @@ export default function KorfbalApp() {
                 let matchId = match._id;
 
                 if (!matchId) {
+                  // Normalize player stats before saving
+                  const normalizedPlayers = (match.players || []).map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    isStarter: p.isStarter ?? false,
+                    stats: SHOT_TYPES.reduce((acc, type) => ({
+                      ...acc,
+                      [type.id]: p.stats?.[type.id] ?? { goals: 0, attempts: 0 }
+                    }), {})
+                  }));
                   // Create match first
                   matchId = await createMatchMutation({
                     teamId: currentTeamId,
                     teamName: currentTeam,
                     opponent: match.opponent,
                     date: match.date,
-                    players: match.players,
+                    players: normalizedPlayers,
                     score: match.score,
                     opponentScore: match.opponentScore,
                     opponentGoals: match.opponentGoals || [],
