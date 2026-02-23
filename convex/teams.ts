@@ -35,6 +35,45 @@ export const updatePlayers = mutation({
   },
 });
 
+// Clean duplicate teams (God mode) - keeps team with most matches per name, deletes the rest
+export const cleanDuplicateTeams = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allTeams = await ctx.db.query("teams").collect();
+    const allMatches = await ctx.db.query("matches").collect();
+
+    // Group teams by name
+    const byName = new Map<string, typeof allTeams>();
+    for (const team of allTeams) {
+      const key = team.team_name.toLowerCase().trim();
+      if (!byName.has(key)) byName.set(key, []);
+      byName.get(key)!.push(team);
+    }
+
+    let deleted = 0;
+    for (const [, group] of byName) {
+      if (group.length <= 1) continue;
+
+      // Keep the team with the most matches; on tie keep most recently created
+      const ranked = group
+        .map(t => ({ team: t, matchCount: allMatches.filter(m => m.team_id === t._id).length }))
+        .sort((a, b) => b.matchCount - a.matchCount || b.team._creationTime - a.team._creationTime);
+
+      // Delete all but the first (best) one
+      for (const { team } of ranked.slice(1)) {
+        const teamMatches = allMatches.filter(m => m.team_id === team._id);
+        for (const match of teamMatches) {
+          await ctx.db.delete(match._id);
+        }
+        await ctx.db.delete(team._id);
+        deleted++;
+      }
+    }
+
+    return { deleted };
+  },
+});
+
 // Delete team (God mode) - also deletes all matches
 export const deleteTeam = mutation({
   args: { teamId: v.id("teams") },
