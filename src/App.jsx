@@ -382,13 +382,13 @@ export default function KorfbalApp() {
       // Normalize all data against the current Convex schema (guards against stale localStorage data)
       const normalizedPlayers = (match.players || []).map(p => ({
         id: p.id,
-        name: p.name,
+        name: p.name ?? 'Onbekend',
         isStarter: p.isStarter ?? false,
         stats: SHOT_TYPES.reduce((acc, type) => ({
           ...acc,
           [type.id]: {
-            goals: p.stats?.[type.id]?.goals ?? 0,
-            attempts: p.stats?.[type.id]?.attempts ?? 0,
+            goals: Number(p.stats?.[type.id]?.goals) || 0,
+            attempts: Number(p.stats?.[type.id]?.attempts) || 0,
           }
         }), {})
       })).filter(p => p.id !== undefined && p.id !== null);
@@ -422,7 +422,7 @@ export default function KorfbalApp() {
         finished: true,
         shareable: false,
       };
-      console.log('saveMatch payload:', JSON.stringify(payload, null, 2));
+      console.error('saveMatch payload:', JSON.stringify(payload, null, 2));
       const matchId = await createMatchMutation(payload);
       // Update currentMatch with database ID to prevent duplicate creation
       setCurrentMatch(prev => prev ? { ...prev, _id: matchId } : prev);
