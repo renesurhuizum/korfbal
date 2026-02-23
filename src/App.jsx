@@ -429,8 +429,11 @@ export default function KorfbalApp() {
       showFeedback('Wedstrijd opgeslagen', 'success');
       return true;
     } catch (e) {
-      console.error('Error saving match:', e);
-      showFeedback('Fout bij opslaan: ' + (e.message || 'onbekende fout'), 'error');
+      console.error('Error saving match – full error:', e);
+      console.error('Error data:', e.data);
+      // Extract first meaningful line (Convex errors are multi-line)
+      const msg = (e.message || 'onbekende fout').split('\n').find(l => l.trim() && !l.startsWith('[') && !l.startsWith('Called')) || e.message || 'onbekende fout';
+      showFeedback('Fout bij opslaan: ' + msg, 'error');
       return false;
     }
   };
@@ -1601,30 +1604,37 @@ export default function KorfbalApp() {
                 let matchId = match._id;
 
                 if (!matchId) {
-                  // Normalize player stats before saving
-                  const normalizedPlayers = (match.players || []).map(p => ({
+                  const normPlayers = (match.players || []).map(p => ({
                     id: p.id,
                     name: p.name,
                     isStarter: p.isStarter ?? false,
                     stats: SHOT_TYPES.reduce((acc, type) => ({
                       ...acc,
-                      [type.id]: p.stats?.[type.id] ?? { goals: 0, attempts: 0 }
+                      [type.id]: { goals: Number(p.stats?.[type.id]?.goals) || 0, attempts: Number(p.stats?.[type.id]?.attempts) || 0 }
                     }), {})
+                  })).filter(p => p.id !== undefined && p.id !== null);
+                  const normGoals = (match.goals || []).filter(g => g.playerId !== undefined && g.playerId !== null).map(g => ({
+                    playerId: g.playerId, playerName: g.playerName ?? 'Onbekend',
+                    shotType: g.shotType ?? 'other', timestamp: g.timestamp ?? new Date().toISOString(), isOwn: g.isOwn ?? false,
                   }));
-                  // Create match first
+                  const normOppGoals = (match.opponentGoals || []).map(g => ({
+                    type: g.type ?? 'other', time: g.time ?? new Date().toISOString(), concededBy: g.concededBy ?? 'Onbekend',
+                  }));
                   matchId = await createMatchMutation({
                     teamId: currentTeamId,
-                    teamName: currentTeam,
-                    opponent: match.opponent,
-                    date: match.date,
-                    players: normalizedPlayers,
-                    score: match.score,
-                    opponentScore: match.opponentScore,
-                    opponentGoals: match.opponentGoals || [],
-                    goals: match.goals || [],
+                    teamName: currentTeam ?? '',
+                    opponent: match.opponent ?? '',
+                    date: match.date ?? new Date().toISOString(),
+                    players: normPlayers,
+                    score: Number(match.score) || 0,
+                    opponentScore: Number(match.opponentScore) || 0,
+                    opponentGoals: normOppGoals,
+                    goals: normGoals,
                     finished: true,
                     shareable: true,
                   });
+                  setCurrentMatch(prev => prev ? { ...prev, _id: matchId } : prev);
+                  localStorage.removeItem('korfbal_active_match');
                 } else {
                   // Update existing match to be shareable
                   await updateMatchMutation({
