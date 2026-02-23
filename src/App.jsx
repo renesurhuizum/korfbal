@@ -379,26 +379,46 @@ export default function KorfbalApp() {
         showFeedback('Wedstrijd opgeslagen', 'success');
         return true;
       }
-      // Normalize player stats: ensure all shot types are present (guards against old localStorage data)
+      // Normalize all data against the current Convex schema (guards against stale localStorage data)
       const normalizedPlayers = (match.players || []).map(p => ({
         id: p.id,
         name: p.name,
         isStarter: p.isStarter ?? false,
         stats: SHOT_TYPES.reduce((acc, type) => ({
           ...acc,
-          [type.id]: p.stats?.[type.id] ?? { goals: 0, attempts: 0 }
+          [type.id]: {
+            goals: p.stats?.[type.id]?.goals ?? 0,
+            attempts: p.stats?.[type.id]?.attempts ?? 0,
+          }
         }), {})
+      })).filter(p => p.id !== undefined && p.id !== null);
+
+      const normalizedGoals = (match.goals || [])
+        .filter(g => g.playerId !== undefined && g.playerId !== null)
+        .map(g => ({
+          playerId: g.playerId,
+          playerName: g.playerName ?? 'Onbekend',
+          shotType: g.shotType ?? 'other',
+          timestamp: g.timestamp ?? new Date().toISOString(),
+          isOwn: g.isOwn ?? false,
+        }));
+
+      const normalizedOpponentGoals = (match.opponentGoals || []).map(g => ({
+        type: g.type ?? 'other',
+        time: g.time ?? new Date().toISOString(),
+        concededBy: g.concededBy ?? 'Onbekend',
       }));
+
       const matchId = await createMatchMutation({
         teamId: currentTeamId,
-        teamName: currentTeam,
-        opponent: match.opponent,
-        date: match.date,
+        teamName: currentTeam ?? '',
+        opponent: match.opponent ?? '',
+        date: match.date ?? new Date().toISOString(),
         players: normalizedPlayers,
-        score: match.score,
-        opponentScore: match.opponentScore,
-        opponentGoals: match.opponentGoals || [],
-        goals: match.goals || [],
+        score: Number(match.score) || 0,
+        opponentScore: Number(match.opponentScore) || 0,
+        opponentGoals: normalizedOpponentGoals,
+        goals: normalizedGoals,
         finished: true,
         shareable: false,
       });
