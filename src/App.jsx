@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun } from 'lucide-react';
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
@@ -104,12 +104,47 @@ const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmLab
   );
 };
 
+// Standalone feedback toast – keeps its own state so it never re-renders KorfbalApp
+const FeedbackToast = forwardRef(function FeedbackToast(_props, ref) {
+  const [feedback, setFeedback] = useState(null);
+  const timers = useRef({ fade: null, remove: null });
+
+  useImperativeHandle(ref, () => ({
+    show(message, type = 'error') {
+      if (timers.current.fade) clearTimeout(timers.current.fade);
+      if (timers.current.remove) clearTimeout(timers.current.remove);
+      setFeedback({ message, type, visible: true });
+      timers.current.fade = setTimeout(() => {
+        setFeedback(prev => prev ? { ...prev, visible: false } : null);
+      }, 2700);
+      timers.current.remove = setTimeout(() => {
+        setFeedback(null);
+      }, 3000);
+    },
+  }));
+
+  if (!feedback) return null;
+  return (
+    <>
+      <div aria-live="polite" aria-atomic="true" className="sr-only">{feedback.message}</div>
+      <div
+        role="status"
+        className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-3 rounded-lg shadow-lg max-w-sm w-full mx-4 transition-opacity duration-300 ${
+          feedback.type === 'success' ? 'bg-green-600 text-white' :
+          feedback.type === 'error'   ? 'bg-red-600 text-white'   : 'bg-blue-600 text-white'
+        } ${feedback.visible === false ? 'opacity-0' : 'opacity-100'}`}
+      >
+        <p className="font-medium text-center text-sm">{feedback.message}</p>
+      </div>
+    </>
+  );
+});
+
 export default function KorfbalApp() {
   const [view, setView] = useState('login');
   const [currentTeam, setCurrentTeam] = useState(null);
   const [currentTeamId, setCurrentTeamId] = useState(null);
   const [currentMatch, setCurrentMatch] = useState(null);
-  const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showGodMode, setShowGodMode] = useState(false);
   const [sharedMatchId, setSharedMatchId] = useState(null);
@@ -120,7 +155,7 @@ export default function KorfbalApp() {
     if (saved !== null) return saved === 'true';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
-  const feedbackTimersRef = useRef({ fade: null, remove: null });
+  const feedbackRef = useRef(null);
 
   // Apply dark mode class to document
   useEffect(() => {
@@ -171,51 +206,6 @@ export default function KorfbalApp() {
   // Debounce currentMatch to reduce localStorage writes
   const debouncedMatch = useDebounce(currentMatch, 500);
 
-  useEffect(() => {
-    // Clear bestaande timers EERST om overlapping te voorkomen
-    if (feedbackTimersRef.current.fade) {
-      clearTimeout(feedbackTimersRef.current.fade);
-      feedbackTimersRef.current.fade = null;
-    }
-    if (feedbackTimersRef.current.remove) {
-      clearTimeout(feedbackTimersRef.current.remove);
-      feedbackTimersRef.current.remove = null;
-    }
-
-    if (feedback && feedback.visible !== false) {
-      // Fade timer
-      feedbackTimersRef.current.fade = setTimeout(() => {
-        setFeedback(prev => {
-          // Verify we're updating the SAME feedback
-          if (prev && prev.message === feedback.message && prev.type === feedback.type) {
-            return { ...prev, visible: false };
-          }
-          return prev;
-        });
-      }, 2700);
-
-      // Remove timer
-      feedbackTimersRef.current.remove = setTimeout(() => {
-        setFeedback(prev => {
-          // Only remove if still the same feedback
-          if (prev && prev.message === feedback.message && prev.type === feedback.type) {
-            return null;
-          }
-          return prev;
-        });
-      }, 3000);
-    }
-
-    // Cleanup on unmount
-    return () => {
-      if (feedbackTimersRef.current.fade) {
-        clearTimeout(feedbackTimersRef.current.fade);
-      }
-      if (feedbackTimersRef.current.remove) {
-        clearTimeout(feedbackTimersRef.current.remove);
-      }
-    };
-  }, [feedback]);
 
   // Views that require authentication
   const authRequiredViews = ['home', 'manage-players', 'setup-match', 'match', 'match-summary', 'statistics'];
@@ -351,7 +341,7 @@ export default function KorfbalApp() {
   }, [sharedMatchData]);
 
   const showFeedback = useCallback((message, type = 'error') => {
-    setFeedback({ message, type, visible: true });
+    feedbackRef.current?.show(message, type);
   }, []);
 
   // Convex mutations
@@ -359,6 +349,7 @@ export default function KorfbalApp() {
   const registerMutation = useMutation(api.auth.register);
   const updatePlayersMutation = useMutation(api.teams.updatePlayers);
   const deleteTeamMutation = useMutation(api.teams.deleteTeam);
+  const cleanDuplicateTeamsMutation = useMutation(api.teams.cleanDuplicateTeams);
   const createMatchMutation = useMutation(api.matches.createMatch);
   const updateMatchMutation = useMutation(api.matches.updateMatch);
   const deleteMatchMutation = useMutation(api.matches.deleteMatch);
@@ -377,6 +368,10 @@ export default function KorfbalApp() {
   };
 
   const saveMatch = async (match) => {
+    if (!currentTeamId) {
+      showFeedback('Niet ingelogd – log opnieuw in', 'error');
+      return false;
+    }
     try {
       // Skip save if match is already in the database
       if (match._id) {
@@ -415,7 +410,7 @@ export default function KorfbalApp() {
       return true;
     } catch (e) {
       console.error('Error saving match:', e);
-      showFeedback('Fout bij opslaan wedstrijd', 'error');
+      showFeedback('Fout bij opslaan: ' + (e.message || 'onbekende fout'), 'error');
       return false;
     }
   };
@@ -555,8 +550,28 @@ export default function KorfbalApp() {
             </div>
           ) : (
             <>
-              <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-600 rounded">
+              <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-600 rounded flex items-center justify-between flex-wrap gap-3">
                 <p className="font-semibold text-yellow-800">Totaal aantal teams: {teams.length}</p>
+                <button
+                  onClick={() => {
+                    showConfirm({
+                      title: 'Dubbele teams opschonen',
+                      message: 'Per teamnaam wordt het team met de meeste wedstrijden bewaard. De overige duplicaten en hun wedstrijden worden permanent verwijderd.',
+                      confirmLabel: 'Opschonen',
+                      onConfirm: async () => {
+                        try {
+                          const result = await cleanDuplicateTeamsMutation({});
+                          showFeedback(`Opgeschoond: ${result.deletedTeams} teams en ${result.deletedMatches} wedstrijden verwijderd`, 'success');
+                        } catch (e) {
+                          showFeedback('Fout bij opschonen: ' + (e.message || e), 'error');
+                        }
+                      }
+                    });
+                  }}
+                  className="bg-yellow-600 text-white px-3 py-1.5 rounded text-sm font-medium hover:bg-yellow-700"
+                >
+                  Dubbelen verwijderen
+                </button>
               </div>
               <div className="space-y-4">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Alle teams:</h2>
@@ -2788,20 +2803,7 @@ export default function KorfbalApp() {
 
   return (
     <div>
-      <div aria-live="polite" aria-atomic="true" className="sr-only">
-        {feedback?.message}
-      </div>
-      {feedback && (
-        <div
-          className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-3 rounded-lg shadow-lg max-w-sm w-full mx-4 transition-opacity duration-300 ${
-            feedback.type === 'success' ? 'bg-green-600 text-white' :
-            feedback.type === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
-          } ${feedback.visible === false ? 'opacity-0' : 'opacity-100'}`}
-          role="status"
-        >
-          <p className="font-medium text-center text-sm">{feedback.message}</p>
-        </div>
-      )}
+      <FeedbackToast ref={feedbackRef} />
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.title}
