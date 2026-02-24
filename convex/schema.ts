@@ -24,7 +24,7 @@ const playerWithStatsValidator = v.object({
     penalty: shotStatsValidator,
     freeball: shotStatsValidator,
     runthrough: shotStatsValidator,
-    outstart: shotStatsValidator,
+    outstart: v.optional(shotStatsValidator),
     other: shotStatsValidator,
   }),
 });
