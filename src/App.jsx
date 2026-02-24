@@ -24,7 +24,7 @@ export class ErrorBoundary extends React.Component {
             <h1 className="text-xl font-bold text-gray-800 mb-2">Er ging iets mis</h1>
             <p className="text-gray-600 mb-6">De app is onverwacht gestopt. Probeer de pagina te herladen.</p>
             <button onClick={() => window.location.reload()}
-              className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 active:scale-95 transition-all">
+              className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-95 transition-all">
               Pagina herladen
             </button>
           </div>
@@ -92,12 +92,12 @@ const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmLab
         <p className="text-gray-600 mb-6">{message}</p>
         <div className="flex gap-3">
           <button onClick={onCancel} data-cancel
-            className="flex-1 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 font-semibold text-gray-700 hover:bg-gray-50 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
+            className="flex-1 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 font-semibold text-gray-700 hover:bg-gray-50 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             {cancelLabel}
           </button>
           <button onClick={onConfirm}
             className={`flex-1 py-3 rounded-lg font-semibold text-white active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-offset-2 ${
-              variant === 'danger' ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500' : 'bg-green-600 hover:bg-green-700 focus-visible:ring-green-500'
+              variant === 'danger' ? 'bg-primary hover:bg-primary-dark focus-visible:ring-primary' : 'bg-green-600 hover:bg-green-700 focus-visible:ring-green-500'
             }`}>
             {confirmLabel}
           </button>
@@ -177,6 +177,9 @@ export default function KorfbalApp() {
     if (saved !== null) return saved === 'true';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
+  const [colorTheme, setColorTheme] = useState(() => {
+    return localStorage.getItem('korfbal_color_theme') || 'red';
+  });
   const feedbackTimersRef = useRef({ fade: null, remove: null });
 
   // Apply dark mode class to document
@@ -184,6 +187,16 @@ export default function KorfbalApp() {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('korfbal_dark_mode', darkMode);
   }, [darkMode]);
+
+  // Apply color theme to document
+  useEffect(() => {
+    if (colorTheme === 'red') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', colorTheme);
+    }
+    localStorage.setItem('korfbal_color_theme', colorTheme);
+  }, [colorTheme]);
 
   const toggleDarkMode = useCallback(() => setDarkMode(prev => !prev), []);
 
@@ -548,26 +561,26 @@ export default function KorfbalApp() {
       <div className="min-h-screen bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-8 max-w-md w-full">
           <div className="text-center mb-8">
-            <Trophy className="w-16 h-16 text-red-600 mx-auto mb-4" />
+            <Trophy className="w-16 h-16 text-primary mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Korfbal Score App</h1>
           </div>
           <div className="space-y-4">
             <div>
               <label htmlFor="login-teamname" className="block text-sm font-medium text-gray-700 mb-1">Teamnaam</label>
               <input id="login-teamname" type="text" placeholder="Vul je teamnaam in" value={teamName} onChange={(e) => setTeamName(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-red-600 focus:outline-none dark:bg-gray-700 dark:text-gray-100 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2" />
+                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
             </div>
             <div>
               <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1">Wachtwoord</label>
               <input id="login-password" type="password" placeholder="Vul je wachtwoord in" value={password} onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (isNewTeam ? handleRegister() : handleLogin())}
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-red-600 focus:outline-none dark:bg-gray-700 dark:text-gray-100 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2" />
+                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
             </div>
             <button onClick={isNewTeam ? handleRegister : handleLogin} disabled={loading}
-              className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 active:scale-95 transition-all disabled:bg-gray-400 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
+              className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-95 transition-all disabled:bg-gray-400 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
               {loading ? 'Laden...' : (isNewTeam ? 'Registreer nieuw team' : 'Inloggen')}
             </button>
-            <button onClick={() => setIsNewTeam(!isNewTeam)} className="w-full text-red-600 hover:underline text-sm">
+            <button onClick={() => setIsNewTeam(!isNewTeam)} className="w-full text-primary hover:underline text-sm">
               {isNewTeam ? 'Al een account? Inloggen' : 'Nieuw team? Registreer hier'}
             </button>
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
@@ -746,7 +759,7 @@ export default function KorfbalApp() {
                 </div>
                 <div className={`rounded-lg p-3 text-center ${dupCount > 0 ? 'bg-red-50 dark:bg-red-900/30' : 'bg-green-50 dark:bg-green-900/30'}`}>
                   <p className={`text-2xl font-bold ${dupCount > 0 ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>{dupCount}</p>
-                  <p className={`text-xs ${dupCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>Duplicaten</p>
+                  <p className={`text-xs ${dupCount > 0 ? 'text-primary dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>Duplicaten</p>
                 </div>
               </div>
 
@@ -941,11 +954,29 @@ export default function KorfbalApp() {
 
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-red-600 text-white p-4 shadow-lg">
+        <div className="bg-primary text-white p-4 shadow-lg">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">{currentTeam}</h1>
             <div className="flex items-center gap-2">
-              <button onClick={toggleDarkMode} className="p-2 rounded-lg hover:bg-red-700 transition" aria-label={darkMode ? 'Lichte modus' : 'Donkere modus'}>
+              {/* Theme color picker */}
+              <div className="flex items-center gap-1" title="Kleurthema">
+                {[
+                  { id: 'red',    bg: '#dc2626', label: 'Rood' },
+                  { id: 'orange', bg: '#ea580c', label: 'Oranje' },
+                  { id: 'blue',   bg: '#2563eb', label: 'Blauw' },
+                  { id: 'green',  bg: '#16a34a', label: 'Groen' },
+                  { id: 'purple', bg: '#7c3aed', label: 'Paars' },
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setColorTheme(t.id)}
+                    style={{ backgroundColor: t.bg }}
+                    aria-label={`Thema: ${t.label}`}
+                    className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${colorTheme === t.id ? 'border-white scale-110' : 'border-transparent'}`}
+                  />
+                ))}
+              </div>
+              <button onClick={toggleDarkMode} className="p-2 rounded-lg hover:bg-primary-dark transition" aria-label={darkMode ? 'Lichte modus' : 'Donkere modus'}>
                 {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
               <button onClick={handleLogout}
@@ -988,7 +1019,7 @@ export default function KorfbalApp() {
                 </button>
                 <button
                   onClick={handleDiscardSavedMatch}
-                  className="bg-red-600 bg-opacity-80 text-white px-4 py-3 rounded-lg font-semibold hover:bg-opacity-100 transition"
+                  className="bg-primary bg-opacity-80 text-white px-4 py-3 rounded-lg font-semibold hover:bg-opacity-100 transition"
                   aria-label="Opgeslagen wedstrijd verwijderen"
                 >
                   ✕
@@ -997,8 +1028,8 @@ export default function KorfbalApp() {
             </div>
           )}
           <button onClick={() => navigateTo('setup-match')}
-            className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center group focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
-            <div className="bg-red-600 p-3 rounded-full group-hover:bg-red-700 transition">
+            className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            <div className="bg-primary p-3 rounded-full group-hover:bg-primary-dark transition">
               <Plus className="w-6 h-6 text-white" />
             </div>
             <div className="ml-4 text-left">
@@ -1007,8 +1038,8 @@ export default function KorfbalApp() {
             </div>
           </button>
           <button onClick={() => navigateTo('manage-players')}
-            className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center group focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
-            <div className="bg-red-600 p-3 rounded-full group-hover:bg-red-700 transition">
+            className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            <div className="bg-primary p-3 rounded-full group-hover:bg-primary-dark transition">
               <Users className="w-6 h-6 text-white" />
             </div>
             <div className="ml-4 text-left">
@@ -1017,8 +1048,8 @@ export default function KorfbalApp() {
             </div>
           </button>
           <button onClick={() => navigateTo('statistics')}
-            className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center group focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
-            <div className="bg-red-600 p-3 rounded-full group-hover:bg-red-700 transition">
+            className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            <div className="bg-primary p-3 rounded-full group-hover:bg-primary-dark transition">
               <BarChart3 className="w-6 h-6 text-white" />
             </div>
             <div className="ml-4 text-left">
@@ -1189,7 +1220,7 @@ export default function KorfbalApp() {
     if (currentTeamData === undefined) {
       return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-          <div className="bg-red-600 text-white p-4 shadow-lg">
+          <div className="bg-primary text-white p-4 shadow-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <button onClick={handleBack} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
@@ -1209,7 +1240,7 @@ export default function KorfbalApp() {
 
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-red-600 text-white p-4 shadow-lg">
+        <div className="bg-primary text-white p-4 shadow-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <button onClick={handleBack} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
@@ -1223,8 +1254,8 @@ export default function KorfbalApp() {
             <div className="flex space-x-2 mb-4">
               <input type="text" placeholder="Naam nieuwe speler" value={newPlayerName}
                 onChange={(e) => setNewPlayerName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-                className="flex-1 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-red-600 focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base" />
-              <button onClick={addPlayer} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition" aria-label="Speler toevoegen">
+                className="flex-1 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base" />
+              <button onClick={addPlayer} className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition" aria-label="Speler toevoegen">
                 <Plus className="w-5 h-5" />
               </button>
             </div>
@@ -1256,7 +1287,7 @@ export default function KorfbalApp() {
                             value={editingName}
                             onChange={(e) => setEditingName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && saveEditPlayer(player.id)}
-                            className="flex-1 px-3 py-1 border-2 border-red-600 rounded-lg focus:outline-none text-base mr-2"
+                            className="flex-1 px-3 py-1 border-2 border-primary rounded-lg focus:outline-none text-base mr-2"
                             autoFocus
                           />
                           <div className="flex space-x-2">
@@ -1286,7 +1317,7 @@ export default function KorfbalApp() {
                             </button>
                             <button
                               onClick={() => removePlayer(player.id)}
-                              className="text-red-600 hover:text-red-800 font-medium text-sm min-h-[44px] min-w-[44px] px-2"
+                              className="text-primary hover:text-red-800 font-medium text-sm min-h-[44px] min-w-[44px] px-2"
                             >
                               Verwijder
                             </button>
@@ -1320,7 +1351,7 @@ export default function KorfbalApp() {
     if (players.length === 0) {
       return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-          <div className="bg-red-600 text-white p-4 shadow-lg">
+          <div className="bg-primary text-white p-4 shadow-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <button onClick={() => navigateTo('home')} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
@@ -1333,7 +1364,7 @@ export default function KorfbalApp() {
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center">
               <p className="text-gray-600 mb-4">Je hebt nog geen spelers toegevoegd.</p>
               <button onClick={() => navigateTo('manage-players')}
-                className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+                className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition">
                 Spelers toevoegen
               </button>
             </div>
@@ -1375,7 +1406,7 @@ export default function KorfbalApp() {
 
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-red-600 text-white p-4 shadow-lg">
+        <div className="bg-primary text-white p-4 shadow-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <button onClick={() => navigateTo('home')} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
@@ -1388,13 +1419,13 @@ export default function KorfbalApp() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Tegenstander</label>
             <input type="text" value={opponent} onChange={(e) => setOpponent(e.target.value)}
-              className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-red-600 focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base"
+              className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base"
               placeholder="Naam tegenstander" />
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Datum wedstrijd</label>
             <input type="date" value={matchDate} onChange={(e) => setMatchDate(e.target.value)}
-              className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-red-600 focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base" />
+              className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base" />
             <p className="text-xs text-gray-500 mt-1">Selecteer de datum waarop de wedstrijd is/was gespeeld</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
@@ -1406,7 +1437,7 @@ export default function KorfbalApp() {
                 <button key={player.id} onClick={() => togglePlayer(player)}
                   className={`p-3 rounded-lg font-medium transition text-sm ${
                     selectedPlayers.find(p => p.id === player.id)
-                      ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                      ? 'bg-primary text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                   }`}>
                   {player.name}
                 </button>
@@ -1414,7 +1445,7 @@ export default function KorfbalApp() {
             </div>
           </div>
           <button onClick={startMatch} disabled={!opponent || selectedPlayers.length !== 8}
-            className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 active:scale-[0.98] transition-all disabled:bg-gray-400 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
+            className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all disabled:bg-gray-400 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             Start wedstrijd
           </button>
         </div>
@@ -1436,7 +1467,7 @@ export default function KorfbalApp() {
         <div className="text-center">
           <p className="text-gray-600 mb-4">Geen wedstrijd gevonden</p>
           <button onClick={() => navigateTo('home')}
-            className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+            className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition">
             Terug naar home
           </button>
         </div>
@@ -1613,7 +1644,7 @@ export default function KorfbalApp() {
 
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 pb-20">
-        <div className="bg-red-600 text-white p-4 shadow-lg sticky top-0 z-10">
+        <div className="bg-primary text-white p-4 shadow-lg sticky top-0 z-10">
           <div className="flex justify-between items-center text-sm mb-2">
             <button onClick={() => navigateTo('home')} className="hover:underline min-h-[44px] px-2" aria-label="Terug naar home">← Home</button>
             <button onClick={handleLogout} className="hover:underline min-h-[44px] px-2">Uitloggen</button>
@@ -1649,7 +1680,7 @@ export default function KorfbalApp() {
             + Tegendoelpunt
           </button>
           <button onClick={finishMatch}
-            className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
+            className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             Wedstrijd beëindigen
           </button>
         </div>
@@ -1693,13 +1724,13 @@ export default function KorfbalApp() {
           <div className="grid grid-cols-2 gap-2">
             {SHOT_TYPES.map(type => (
               <button key={type.id} onClick={() => onSelect(type.id)}
-                className="bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 active:scale-95 transition-all font-semibold text-sm focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2">
+                className="bg-primary text-white p-3 rounded-lg hover:bg-primary-dark active:scale-95 transition-all font-semibold text-sm focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2">
                 {type.label}
               </button>
             ))}
           </div>
           <button onClick={onClose}
-            className="w-full mt-3 bg-gray-300 dark:bg-gray-600 text-gray-800 py-2 rounded-lg hover:bg-gray-400 active:scale-95 transition-all font-medium focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
+            className="w-full mt-3 bg-gray-300 dark:bg-gray-600 text-gray-800 py-2 rounded-lg hover:bg-gray-400 active:scale-95 transition-all font-medium focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             Annuleren
           </button>
         </div>
@@ -1734,13 +1765,13 @@ export default function KorfbalApp() {
           <div className="space-y-2">
             {players.map(player => (
               <button key={player.id} onClick={() => onSelect(player.id)}
-                className="w-full bg-red-600 text-white p-3 rounded-lg hover:bg-red-700 active:scale-95 transition-all font-semibold text-left text-sm focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2">
+                className="w-full bg-primary text-white p-3 rounded-lg hover:bg-primary-dark active:scale-95 transition-all font-semibold text-left text-sm focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2">
                 {player.name}
               </button>
             ))}
           </div>
           <button onClick={onClose}
-            className="w-full mt-3 bg-gray-300 dark:bg-gray-600 text-gray-800 py-2 rounded-lg hover:bg-gray-400 active:scale-95 transition-all font-medium focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
+            className="w-full mt-3 bg-gray-300 dark:bg-gray-600 text-gray-800 py-2 rounded-lg hover:bg-gray-400 active:scale-95 transition-all font-medium focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             Annuleren
           </button>
         </div>
@@ -1755,7 +1786,7 @@ export default function KorfbalApp() {
         <div className="text-center">
           <p className="text-gray-600 mb-4">Geen wedstrijd gevonden</p>
           <button onClick={() => navigateTo('home')}
-            className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+            className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition">
             Terug naar home
           </button>
         </div>
@@ -1821,7 +1852,7 @@ export default function KorfbalApp() {
 
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-red-600 text-white p-6 shadow-lg">
+        <div className="bg-primary text-white p-6 shadow-lg">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center">
               <button onClick={() => { setCurrentMatch(null); navigateTo('home'); }} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
@@ -1887,7 +1918,7 @@ export default function KorfbalApp() {
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">📊 Wedstrijdstatistieken</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div className="text-center p-3 bg-red-50 rounded-lg">
-                <div className="text-3xl font-bold text-red-600">{teamPercentage}%</div>
+                <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
               </div>
               <div className="text-center p-3 bg-blue-50 rounded-lg">
@@ -1931,7 +1962,7 @@ export default function KorfbalApp() {
                         <span className={`text-lg font-bold ${
                           stat.percentage >= 70 ? 'text-green-600' :
                           stat.percentage >= 50 ? 'text-yellow-600' :
-                          stat.percentage >= 30 ? 'text-orange-600' : 'text-red-600'
+                          stat.percentage >= 30 ? 'text-orange-600' : 'text-primary'
                         }`}>{stat.percentage}%</span>
                       </div>
                     </div>
@@ -1947,7 +1978,7 @@ export default function KorfbalApp() {
                 const currentScore = scoreTimeline.slice(0, idx + 1).filter(g => g.isOwn).length;
                 const currentOpponentScore = scoreTimeline.slice(0, idx + 1).filter(g => !g.isOwn).length;
                 return (
-                  <div key={idx} className={`p-3 rounded-lg ${goal.isOwn ? 'bg-green-50 border-l-4 border-green-600' : 'bg-red-50 border-l-4 border-red-600'}`}>
+                  <div key={idx} className={`p-3 rounded-lg ${goal.isOwn ? 'bg-green-50 border-l-4 border-green-600' : 'bg-red-50 border-l-4 border-primary'}`}>
                     <div className="flex justify-between items-center">
                       <div>
                         <span className="font-semibold">{goal.isOwn ? '⚽' : '🚫'} {goal.team}</span>
@@ -2010,7 +2041,7 @@ export default function KorfbalApp() {
             ) : <p className="text-gray-600 dark:text-gray-400">Geen tegendoelpunten</p>}
           </div>
           <button onClick={() => { setCurrentMatch(null); navigateTo('home'); }}
-            className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2">
+            className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             Terug naar home
           </button>
         </div>
@@ -2154,7 +2185,7 @@ export default function KorfbalApp() {
 
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-red-600 text-white p-6 shadow-lg">
+        <div className="bg-primary text-white p-6 shadow-lg">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center">
               <button onClick={() => navigateTo('home')} className="mr-4" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
@@ -2163,7 +2194,7 @@ export default function KorfbalApp() {
             <div className="flex items-center gap-3">
               <button
                 onClick={exportToCSV}
-                className="bg-white text-red-600 px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center space-x-2"
+                className="bg-white text-primary px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center space-x-2"
               >
                 <Download className="w-5 h-5" />
                 <span>Exporteer</span>
@@ -2185,7 +2216,7 @@ export default function KorfbalApp() {
               <h2 className="text-xl font-bold text-gray-800 mb-2">Nog geen statistieken</h2>
               <p className="text-gray-500 mb-6">Speel je eerste wedstrijd om statistieken te verzamelen</p>
               <button onClick={() => navigateTo('setup-match')}
-                className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 active:scale-95 transition-all">
+                className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-95 transition-all">
                 Nieuwe wedstrijd starten
               </button>
             </div>
@@ -2195,7 +2226,7 @@ export default function KorfbalApp() {
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Team overzicht</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold text-red-600">{teamMatches.length}</div>
+                <div className="text-3xl font-bold text-primary">{teamMatches.length}</div>
                 <div className="text-gray-600 dark:text-gray-400">Wedstrijden</div>
               </div>
               <div className="text-center">
@@ -2213,7 +2244,7 @@ export default function KorfbalApp() {
             </div>
             <div className="mt-6 grid grid-cols-2 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold text-red-600">{totalGoals}</div>
+                <div className="text-3xl font-bold text-primary">{totalGoals}</div>
                 <div className="text-gray-600 dark:text-gray-400">Doelpunten voor</div>
               </div>
               <div className="text-center">
@@ -2293,7 +2324,7 @@ export default function KorfbalApp() {
                 else if (index === 2) rankBadge = 'bg-orange-300 text-orange-900 font-bold';
 
                 return (
-                  <div key={name} className="border-l-4 border-red-600 bg-gray-50 dark:bg-gray-700 p-4 rounded-r-lg">
+                  <div key={name} className="border-l-4 border-primary bg-gray-50 dark:bg-gray-700 p-4 rounded-r-lg">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3 flex-1">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm ${rankBadge}`}>
@@ -2307,7 +2338,7 @@ export default function KorfbalApp() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-red-600">{stats.goals}</div>
+                        <div className="text-2xl font-bold text-primary">{stats.goals}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">doelpunten</div>
                       </div>
                     </div>
@@ -2361,14 +2392,14 @@ export default function KorfbalApp() {
               <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Spelers vergelijken</h2>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <select value={comparePlayer1} onChange={(e) => setComparePlayer1(e.target.value)}
-                  className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-red-600 focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm">
+                  className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm">
                   <option value="">Speler 1</option>
                   {Object.keys(playerStats).map(name => (
                     <option key={name} value={name} disabled={name === comparePlayer2}>{name}</option>
                   ))}
                 </select>
                 <select value={comparePlayer2} onChange={(e) => setComparePlayer2(e.target.value)}
-                  className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-red-600 focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm">
+                  className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm">
                   <option value="">Speler 2</option>
                   {Object.keys(playerStats).map(name => (
                     <option key={name} value={name} disabled={name === comparePlayer1}>{name}</option>
@@ -2390,7 +2421,7 @@ export default function KorfbalApp() {
                 return (
                   <div className="space-y-3">
                     <div className="grid grid-cols-3 text-center text-sm font-semibold mb-2">
-                      <span className="text-red-600 dark:text-red-400">{comparePlayer1}</span>
+                      <span className="text-primary dark:text-red-400">{comparePlayer1}</span>
                       <span className="text-gray-500 dark:text-gray-400">vs</span>
                       <span className="text-blue-600 dark:text-blue-400">{comparePlayer2}</span>
                     </div>
@@ -2457,7 +2488,7 @@ export default function KorfbalApp() {
                   placeholder="Zoek op tegenstander..."
                   value={matchSearch}
                   onChange={(e) => setMatchSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-red-600 focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                  className="w-full pl-9 pr-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 />
               </div>
               <div className="flex gap-1">
@@ -2469,7 +2500,7 @@ export default function KorfbalApp() {
                 ].map(f => (
                   <button key={f.id} onClick={() => setMatchFilter(f.id)}
                     className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                      matchFilter === f.id ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      matchFilter === f.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}>
                     {f.label}
                   </button>
@@ -2496,7 +2527,7 @@ export default function KorfbalApp() {
                     <div className="flex items-center gap-3">
                       <div className={`text-xl font-bold whitespace-nowrap ${
                         match.score > match.opponent_score ? 'text-green-600' :
-                        match.score < match.opponent_score ? 'text-red-600' : 'text-gray-600'
+                        match.score < match.opponent_score ? 'text-primary' : 'text-gray-600'
                       }`}>
                         {match.score} - {match.opponent_score}
                       </div>
@@ -2522,7 +2553,7 @@ export default function KorfbalApp() {
                         📤
                       </button>
                       <button onClick={(e) => { e.stopPropagation(); handleDeleteMatch(match); }}
-                        className="text-red-600 hover:text-red-800 text-sm font-medium min-h-[44px] min-w-[44px] flex items-center justify-center" title="Verwijder wedstrijd" aria-label="Verwijder wedstrijd">✕</button>
+                        className="text-primary hover:text-red-800 text-sm font-medium min-h-[44px] min-w-[44px] flex items-center justify-center" title="Verwijder wedstrijd" aria-label="Verwijder wedstrijd">✕</button>
                     </div>
                   </div>
                 </div>
@@ -2559,7 +2590,7 @@ export default function KorfbalApp() {
                 navigateTo('login');
                 setCurrentMatch(null);
               }}
-              className="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition"
+              className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition"
             >
               Ga naar login
             </button>
@@ -2624,7 +2655,7 @@ export default function KorfbalApp() {
 
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-red-600 text-white p-6 shadow-lg">
+        <div className="bg-primary text-white p-6 shadow-lg">
           <div className="text-center">
             <div className="text-5xl font-bold mb-2">{match.score} - {match.opponent_score}</div>
             <div className="text-xl">{match.team_name} vs {match.opponent}</div>
@@ -2643,7 +2674,7 @@ export default function KorfbalApp() {
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">📊 Wedstrijdstatistieken</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div className="text-center p-3 bg-red-50 rounded-lg">
-                <div className="text-3xl font-bold text-red-600">{teamPercentage}%</div>
+                <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
               </div>
               <div className="text-center p-3 bg-blue-50 rounded-lg">
@@ -2687,7 +2718,7 @@ export default function KorfbalApp() {
                         <span className={`text-lg font-bold ${
                           stat.percentage >= 70 ? 'text-green-600' :
                           stat.percentage >= 50 ? 'text-yellow-600' :
-                          stat.percentage >= 30 ? 'text-orange-600' : 'text-red-600'
+                          stat.percentage >= 30 ? 'text-orange-600' : 'text-primary'
                         }`}>{stat.percentage}%</span>
                       </div>
                     </div>
@@ -2705,7 +2736,7 @@ export default function KorfbalApp() {
                 const currentScore = scoreTimeline.slice(0, idx + 1).filter(g => g.isOwn).length;
                 const currentOpponentScore = scoreTimeline.slice(0, idx + 1).filter(g => !g.isOwn).length;
                 return (
-                  <div key={idx} className={`p-3 rounded-lg ${goal.isOwn ? 'bg-green-50 border-l-4 border-green-600' : 'bg-red-50 border-l-4 border-red-600'}`}>
+                  <div key={idx} className={`p-3 rounded-lg ${goal.isOwn ? 'bg-green-50 border-l-4 border-green-600' : 'bg-red-50 border-l-4 border-primary'}`}>
                     <div className="flex justify-between items-center">
                       <div>
                         <span className="font-semibold">{goal.isOwn ? '⚽' : '🚫'} {goal.team}</span>
@@ -2766,7 +2797,7 @@ export default function KorfbalApp() {
               navigateTo('login');
               setCurrentMatch(null);
             }}
-            className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 transition"
+            className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark transition"
           >
             Ga naar login
           </button>
@@ -2840,7 +2871,7 @@ export default function KorfbalApp() {
 
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-red-600 text-white p-6 shadow-lg">
+        <div className="bg-primary text-white p-6 shadow-lg">
           <button onClick={onBack} className="mb-2 flex items-center text-white hover:underline">
             <ArrowLeft className="w-5 h-5 mr-2" /><span>Terug</span>
           </button>
@@ -2859,7 +2890,7 @@ export default function KorfbalApp() {
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">📊 Wedstrijdstatistieken</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div className="text-center p-3 bg-red-50 rounded-lg">
-                <div className="text-3xl font-bold text-red-600">{teamPercentage}%</div>
+                <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
               </div>
               <div className="text-center p-3 bg-blue-50 rounded-lg">
@@ -2903,7 +2934,7 @@ export default function KorfbalApp() {
                         <span className={`text-lg font-bold ${
                           stat.percentage >= 70 ? 'text-green-600' :
                           stat.percentage >= 50 ? 'text-yellow-600' :
-                          stat.percentage >= 30 ? 'text-orange-600' : 'text-red-600'
+                          stat.percentage >= 30 ? 'text-orange-600' : 'text-primary'
                         }`}>{stat.percentage}%</span>
                       </div>
                     </div>
@@ -2921,7 +2952,7 @@ export default function KorfbalApp() {
                 const currentScore = scoreTimeline.slice(0, idx + 1).filter(g => g.isOwn).length;
                 const currentOpponentScore = scoreTimeline.slice(0, idx + 1).filter(g => !g.isOwn).length;
                 return (
-                  <div key={idx} className={`p-3 rounded-lg ${goal.isOwn ? 'bg-green-50 border-l-4 border-green-600' : 'bg-red-50 border-l-4 border-red-600'}`}>
+                  <div key={idx} className={`p-3 rounded-lg ${goal.isOwn ? 'bg-green-50 border-l-4 border-green-600' : 'bg-red-50 border-l-4 border-primary'}`}>
                     <div className="flex justify-between items-center">
                       <div>
                         <span className="font-semibold">{goal.isOwn ? '⚽' : '🚫'} {goal.team}</span>
@@ -3015,7 +3046,7 @@ export default function KorfbalApp() {
           </button>
 
           <button onClick={onDelete}
-            className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 transition">
+            className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark transition">
             Wedstrijd verwijderen
           </button>
         </div>
@@ -3041,7 +3072,7 @@ export default function KorfbalApp() {
           return (
             <button key={item.id} onClick={() => navigateTo(item.id)}
               className={`flex flex-col items-center py-2 px-3 min-h-[56px] min-w-[64px] transition-colors ${
-                isActive ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                isActive ? 'text-primary dark:text-red-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
               }`}
               aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
@@ -3064,7 +3095,7 @@ export default function KorfbalApp() {
         <div
           className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-3 rounded-lg shadow-lg max-w-sm w-full mx-4 transition-opacity duration-300 ${
             feedback.type === 'success' ? 'bg-green-600 text-white' :
-            feedback.type === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
+            feedback.type === 'error' ? 'bg-primary text-white' : 'bg-blue-600 text-white'
           } ${feedback.visible === false ? 'opacity-0' : 'opacity-100'}`}
           role="status"
         >
