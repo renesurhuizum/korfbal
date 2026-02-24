@@ -2065,6 +2065,12 @@ export default function KorfbalApp() {
     const [comparePlayer1, setComparePlayer1] = useState('');
     const [comparePlayer2, setComparePlayer2] = useState('');
 
+    // Server-side stats queries
+    const formLast5 = useQuery(api.stats.getFormLastN, currentTeamId ? { teamId: currentTeamId, n: 5 } : 'skip');
+    const opponentStats = useQuery(api.stats.getOpponentStats, currentTeamId ? { teamId: currentTeamId } : 'skip');
+    const playerOfMonth = useQuery(api.stats.getPlayerOfMonth, currentTeamId ? { teamId: currentTeamId } : 'skip');
+    const topPlayers = useQuery(api.stats.getTopPlayers, currentTeamId ? { teamId: currentTeamId, limit: 5 } : 'skip');
+
     // Memoize team matches filter
     const teamMatches = useMemo(() => {
       return matches.filter(m => m.team_id === currentTeamId);
@@ -2253,6 +2259,96 @@ export default function KorfbalApp() {
               </div>
             </div>
           </div>
+          {/* Vorm-strip: laatste 5 wedstrijden */}
+          {formLast5 && formLast5.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Vorm laatste {formLast5.length} wedstrijden</h2>
+              <div className="flex items-center gap-3 flex-wrap">
+                {formLast5.map((m, i) => (
+                  <div key={m.matchId || i} className="flex flex-col items-center gap-1">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow ${
+                      m.result === 'W' ? 'bg-green-500' : m.result === 'D' ? 'bg-gray-400' : 'bg-red-500'
+                    }`}>
+                      {m.result}
+                    </div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{m.score}-{m.opponentScore}</span>
+                    <span className="text-[10px] text-gray-400 truncate max-w-[48px] text-center">{m.opponent.substring(0, 6)}</span>
+                  </div>
+                ))}
+                <div className="ml-auto text-sm text-gray-500 dark:text-gray-400 flex gap-3">
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 inline-block"></span>W</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-400 inline-block"></span>G</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>V</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Speler van de maand */}
+          {playerOfMonth && (
+            <div className="bg-gradient-to-r from-primary to-primary-dark text-white rounded-lg shadow-lg p-6">
+              <h2 className="text-lg font-bold mb-1 opacity-90">🏆 Speler van de maand</h2>
+              <p className="text-3xl font-extrabold">{playerOfMonth.name}</p>
+              <p className="text-sm opacity-80 mt-1">{playerOfMonth.goals} doelpunten in de afgelopen 30 dagen</p>
+            </div>
+          )}
+
+          {/* Beste spelers top 5 */}
+          {topPlayers && topPlayers.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Top 5 scorers (dit seizoen)</h2>
+              <div className="space-y-3">
+                {topPlayers.map((p, i) => (
+                  <div key={p.playerId} className="flex items-center gap-3">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                      i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-amber-600' : 'bg-gray-300 text-gray-700'
+                    }`}>{i + 1}</span>
+                    <span className="flex-1 font-medium text-gray-800 dark:text-gray-100">{p.name}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{p.goals} doelpunten</span>
+                    <span className="text-sm font-semibold text-primary">{p.percentage}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tegenstander tabel */}
+          {opponentStats && opponentStats.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Resultaten per tegenstander</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
+                      <th className="text-left pb-2">Tegenstander</th>
+                      <th className="text-center pb-2">Gespeeld</th>
+                      <th className="text-center pb-2 text-green-600">W</th>
+                      <th className="text-center pb-2 text-gray-500">G</th>
+                      <th className="text-center pb-2 text-red-500">V</th>
+                      <th className="text-right pb-2">Win%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {opponentStats.map((o) => (
+                      <tr key={o.name} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
+                        <td className="py-2 font-medium text-gray-800 dark:text-gray-100">{o.name}</td>
+                        <td className="py-2 text-center text-gray-600 dark:text-gray-400">{o.played}</td>
+                        <td className="py-2 text-center text-green-600 font-semibold">{o.wins}</td>
+                        <td className="py-2 text-center text-gray-500">{o.draws}</td>
+                        <td className="py-2 text-center text-red-500">{o.losses}</td>
+                        <td className="py-2 text-right">
+                          <span className={`font-bold ${o.winPercentage >= 50 ? 'text-green-600' : o.winPercentage >= 30 ? 'text-yellow-600' : 'text-red-500'}`}>
+                            {o.winPercentage}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Prestatie trend grafiek */}
           {teamMatches.length >= 2 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
