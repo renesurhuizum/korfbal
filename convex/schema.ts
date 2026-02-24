@@ -48,8 +48,10 @@ const opponentGoalValidator = v.object({
 export default defineSchema({
   teams: defineTable({
     team_name: v.string(),
-    password_hash: v.string(), // TODO: Consider bcrypt in future
+    password_hash: v.string(), // bcrypt hash (see convex/auth.ts)
     players: v.array(playerValidator),
+    // Fase 1 preparation: track if team has been migrated to email auth
+    migrated: v.optional(v.boolean()),
   })
     .index("by_team_name", ["team_name"]), // For login lookups
 
@@ -69,4 +71,55 @@ export default defineSchema({
     .index("by_team_id", ["team_id"])
     .index("by_team_and_date", ["team_id", "date"])
     .index("by_shareable", ["shareable"]), // For public match viewing
+
+  // === Fase 1: Email authenticatie (te activeren met @convex-dev/auth) ===
+  // Requires: npm install @convex-dev/auth resend
+  // Requires: npx convex env set AUTH_RESEND_KEY <key>
+
+  users: defineTable({
+    email: v.string(),
+    emailVerified: v.optional(v.boolean()),
+    name: v.optional(v.string()),
+    // User preferences (Fase 3)
+    preferences: v.optional(v.object({
+      theme: v.optional(v.string()),    // "red" | "orange" | "blue" | "green" | "purple"
+      language: v.optional(v.string()), // "nl" | "en" (toekomstig)
+    })),
+  }).index("by_email", ["email"]),
+
+  passwordResetTokens: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    expiresAt: v.number(),
+    used: v.boolean(),
+  }).index("by_token", ["token"]),
+
+  // === Fase 2: Multi-user teams ===
+
+  team_members: defineTable({
+    teamId: v.id("teams"),
+    userId: v.id("users"),
+    role: v.union(v.literal("admin"), v.literal("member"), v.literal("viewer")),
+    joinedAt: v.number(),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_user", ["userId"])
+    .index("by_team_and_user", ["teamId", "userId"]),
+
+  team_invites: defineTable({
+    teamId: v.id("teams"),
+    token: v.string(),
+    createdBy: v.id("users"),
+    expiresAt: v.number(),
+    usedCount: v.number(),
+  }).index("by_token", ["token"]),
+
+  // === Fase 6: AI Trainingsadvies ===
+
+  ai_advice: defineTable({
+    teamId: v.id("teams"),
+    advice: v.string(),
+    generatedAt: v.number(),
+    basedOnMatchCount: v.number(),
+  }).index("by_team", ["teamId"]),
 });
