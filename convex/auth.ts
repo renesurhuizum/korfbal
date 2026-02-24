@@ -2,7 +2,7 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import bcrypt from "bcryptjs";
 
-const BCRYPT_ROUNDS = 10;
+const BCRYPT_ROUNDS = 8; // 10 rounds kan CPU-timeout veroorzaken in Convex's V8 isolate
 
 // Check if a string is already a bcrypt hash
 function isBcryptHash(str: string): boolean {
