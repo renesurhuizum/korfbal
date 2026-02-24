@@ -2,6 +2,10 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun } from 'lucide-react';
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { SHOT_TYPES } from './constants/shotTypes';
+import { generatePlayerId } from './utils/generatePlayerId';
+import { exportMatchesCSV } from './utils/exportCSV';
+import { ConfirmDialog } from './components/ui/ConfirmDialog';
 
 // Error boundary to catch rendering crashes - exported for use in main.jsx
 export class ErrorBoundary extends React.Component {
@@ -35,16 +39,6 @@ export class ErrorBoundary extends React.Component {
   }
 }
 
-const SHOT_TYPES = [
-  { id: 'distance', label: 'Afstandschot', short: 'AS' },
-  { id: 'close', label: 'Kans bij korf', short: 'KK' },
-  { id: 'penalty', label: 'Strafworp', short: 'SW' },
-  { id: 'freeball', label: 'Vrije bal', short: 'VB' },
-  { id: 'runthrough', label: 'Doorloopbal', short: 'DL' },
-  { id: 'outstart', label: 'Uitstart', short: 'US' },
-  { id: 'other', label: 'Overig', short: 'OV' }
-];
-
 // Safe accessor for player stats (handles missing outstart in legacy matches)
 const getStat = (player, typeId) => player.stats[typeId] || { goals: 0, attempts: 0 };
 
@@ -58,54 +52,9 @@ function useDebounce(value, delay) {
   return debouncedValue;
 }
 
-// Player ID generator to prevent collisions
-let playerIdCounter = 0;
-const generatePlayerId = () => `player_${Date.now()}_${++playerIdCounter}`;
+// generatePlayerId is imported from ./utils/generatePlayerId
 
-// Reusable confirm dialog component (replaces browser confirm())
-const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel, confirmLabel = 'Bevestigen', cancelLabel = 'Annuleren', variant = 'danger' }) => {
-  const modalRef = useRef(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onCancel();
-      if (e.key === 'Tab') {
-        const focusable = modalRef.current?.querySelectorAll('button');
-        if (!focusable?.length) return;
-        const first = focusable[0], last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    setTimeout(() => modalRef.current?.querySelector('[data-cancel]')?.focus(), 50);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onCancel]);
-
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[60] p-4"
-      role="dialog" aria-modal="true" aria-label={title} ref={modalRef}>
-      <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl p-6 max-w-sm w-full shadow-xl">
-        <h2 className="text-lg font-bold text-gray-800 mb-2">{title}</h2>
-        <p className="text-gray-600 mb-6">{message}</p>
-        <div className="flex gap-3">
-          <button onClick={onCancel} data-cancel
-            className="flex-1 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 font-semibold text-gray-700 hover:bg-gray-50 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-            {cancelLabel}
-          </button>
-          <button onClick={onConfirm}
-            className={`flex-1 py-3 rounded-lg font-semibold text-white active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-offset-2 ${
-              variant === 'danger' ? 'bg-primary hover:bg-primary-dark focus-visible:ring-primary' : 'bg-green-600 hover:bg-green-700 focus-visible:ring-green-500'
-            }`}>
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+// ConfirmDialog is imported from ./components/ui/ConfirmDialog
 
 // Reusable input dialog component (for text input prompts)
 const InputDialog = ({ isOpen, title, message, placeholder, onSubmit, onCancel, submitLabel = 'Opslaan', inputType = 'text' }) => {
@@ -2124,57 +2073,7 @@ export default function KorfbalApp() {
 
     const exportToCSV = () => {
       try {
-        // Header
-        let csv = 'Team Statistieken - ' + currentTeam + '\n\n';
-
-        // Team overzicht
-        csv += 'Team Overzicht\n';
-        csv += 'Wedstrijden,Gewonnen,Gelijkspel,Verloren,Doelpunten Voor,Doelpunten Tegen\n';
-        csv += teamMatches.length + ',' + wins + ',' + draws + ',' + losses + ',' + totalGoals + ',' + totalAgainst + '\n\n';
-
-        // Speler statistieken
-        csv += 'Speler Statistieken\n';
-        csv += 'Naam,Wedstrijden,Doelpunten,Pogingen,Percentage';
-        SHOT_TYPES.forEach(type => {
-          csv += ',' + type.label + ' Doelpunten,' + type.label + ' Pogingen';
-        });
-        csv += '\n';
-
-        Object.entries(playerStats)
-          .sort(([, a], [, b]) => b.goals - a.goals)
-          .forEach(([name, stats]) => {
-            const percentage = stats.attempts > 0 ? Math.round((stats.goals / stats.attempts) * 100) : 0;
-            csv += name + ',' + stats.matches + ',' + stats.goals + ',' + stats.attempts + ',' + percentage + '%';
-            SHOT_TYPES.forEach(type => {
-              const typeStat = stats.byType[type.id];
-              csv += ',' + typeStat.goals + ',' + typeStat.attempts;
-            });
-            csv += '\n';
-          });
-
-        // Wedstrijd geschiedenis
-        csv += '\n\nWedstrijd Geschiedenis\n';
-        csv += 'Datum,Tegenstander,Uitslag,Resultaat\n';
-        [...teamMatches]
-          .sort((a, b) => new Date(b.date) - new Date(a.date))
-          .forEach(match => {
-            const date = new Date(match.date).toLocaleDateString('nl-NL');
-            const result = match.score > match.opponent_score ? 'Gewonnen' :
-                          match.score < match.opponent_score ? 'Verloren' : 'Gelijkspel';
-            csv += date + ',' + match.opponent + ',' + match.score + '-' + match.opponent_score + ',' + result + '\n';
-          });
-
-        // Download
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', currentTeam + '_statistieken_' + new Date().toISOString().split('T')[0] + '.csv');
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
+        exportMatchesCSV(teamMatches, currentTeam);
         showFeedback('Statistieken geëxporteerd!', 'success');
       } catch (error) {
         console.error('Export error:', error);
