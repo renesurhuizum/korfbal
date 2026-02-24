@@ -2,6 +2,14 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import bcrypt from "bcryptjs";
 
+// Convex V8 exposeert crypto.getRandomValues() als globaal maar niet self.crypto
+// bcryptjs v2.4.3 heeft dit nodig voor bcrypt.hash() (salt generatie)
+bcrypt.setRandomFallback((len: number) => {
+  const buf = new Uint8Array(len);
+  (globalThis as any).crypto.getRandomValues(buf);
+  return Array.from(buf);
+});
+
 const BCRYPT_ROUNDS = 8; // 10 rounds kan CPU-timeout veroorzaken in Convex's V8 isolate
 
 // Check if a string is already a bcrypt hash
