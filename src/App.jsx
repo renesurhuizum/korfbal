@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun } from 'lucide-react';
+import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun, Cog } from 'lucide-react';
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { SHOT_TYPES } from './constants/shotTypes';
 import { generatePlayerId } from './utils/generatePlayerId';
 import { exportMatchesCSV } from './utils/exportCSV';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
+import { SettingsSheet } from './components/ui/SettingsSheet';
 
 // Error boundary to catch rendering crashes - exported for use in main.jsx
 export class ErrorBoundary extends React.Component {
@@ -129,6 +130,7 @@ export default function KorfbalApp() {
   const [colorTheme, setColorTheme] = useState(() => {
     return localStorage.getItem('korfbal_color_theme') || 'red';
   });
+  const [showSettings, setShowSettings] = useState(false);
   const feedbackTimersRef = useRef({ fade: null, remove: null });
 
   // Apply dark mode class to document
@@ -507,7 +509,7 @@ export default function KorfbalApp() {
     };
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-8 max-w-md w-full">
           <div className="text-center mb-8">
             <Trophy className="w-16 h-16 text-primary mx-auto mb-4" />
@@ -907,26 +909,12 @@ export default function KorfbalApp() {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold">{currentTeam}</h1>
             <div className="flex items-center gap-2">
-              {/* Theme color picker */}
-              <div className="flex items-center gap-1" title="Kleurthema">
-                {[
-                  { id: 'red',    bg: '#dc2626', label: 'Rood' },
-                  { id: 'orange', bg: '#ea580c', label: 'Oranje' },
-                  { id: 'blue',   bg: '#2563eb', label: 'Blauw' },
-                  { id: 'green',  bg: '#16a34a', label: 'Groen' },
-                  { id: 'purple', bg: '#7c3aed', label: 'Paars' },
-                ].map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setColorTheme(t.id)}
-                    style={{ backgroundColor: t.bg }}
-                    aria-label={`Thema: ${t.label}`}
-                    className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${colorTheme === t.id ? 'border-white scale-110' : 'border-transparent'}`}
-                  />
-                ))}
-              </div>
-              <button onClick={toggleDarkMode} className="p-2 rounded-lg hover:bg-primary-dark transition" aria-label={darkMode ? 'Lichte modus' : 'Donkere modus'}>
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2 rounded-lg hover:bg-primary-dark transition"
+                aria-label="Instellingen openen"
+              >
+                <Cog className="w-5 h-5" />
               </button>
               <button onClick={handleLogout}
                 className="text-sm hover:underline min-h-[44px] px-2">Uitloggen</button>
@@ -3067,7 +3055,7 @@ export default function KorfbalApp() {
           return (
             <button key={item.id} onClick={() => navigateTo(item.id)}
               className={`flex flex-col items-center py-2 px-3 min-h-[56px] min-w-[64px] transition-colors ${
-                isActive ? 'text-primary dark:text-red-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                isActive ? 'text-primary dark:text-primary-text' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
               }`}
               aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
@@ -3115,6 +3103,16 @@ export default function KorfbalApp() {
         inputType={inputDialog.inputType}
         onSubmit={inputDialog.onSubmit}
         onCancel={() => setInputDialog(prev => ({ ...prev, isOpen: false }))}
+      />
+      <SettingsSheet
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        colorTheme={colorTheme}
+        setColorTheme={setColorTheme}
+        darkMode={darkMode}
+        toggleDarkMode={toggleDarkMode}
+        currentTeamId={currentTeamId}
+        onFeedback={showFeedback}
       />
       <div key={view} className="page-transition">
         {view === 'login' && <LoginView />}
