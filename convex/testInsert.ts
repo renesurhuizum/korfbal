@@ -14,7 +14,7 @@ export const insertTestMatch = mutation({
       opponent: "Test Opponent",
       date: new Date().toISOString(),
       players: [{
-        id: 1,
+        id: "test_player_1",
         name: "Test Player",
         isStarter: true,
         stats: {
@@ -23,6 +23,7 @@ export const insertTestMatch = mutation({
           penalty: { goals: 0, attempts: 0 },
           freeball: { goals: 0, attempts: 0 },
           runthrough: { goals: 0, attempts: 0 },
+          outstart: { goals: 0, attempts: 0 },
           other: { goals: 0, attempts: 0 },
         }
       }],

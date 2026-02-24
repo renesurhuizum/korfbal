@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* === Kleurthema's via CSS custom properties === */
+:root {
+  --color-primary:      220 38 38;   /* red-600 — standaard */
+  --color-primary-dark: 185 28 28;   /* red-700 */
+  --color-primary-light:254 202 202; /* red-200 */
+  --color-primary-text: 239 68 68;   /* red-500 */
+}
+[data-theme="orange"] {
+  --color-primary:      234 88 12;
+  --color-primary-dark: 194 65 12;
+  --color-primary-light:254 215 170;
+  --color-primary-text: 249 115 22;
+}
+[data-theme="blue"] {
+  --color-primary:      37 99 235;
+  --color-primary-dark: 29 78 216;
+  --color-primary-light:191 219 254;
+  --color-primary-text: 59 130 246;
+}
+[data-theme="green"] {
+  --color-primary:      22 163 74;
+  --color-primary-dark: 21 128 61;
+  --color-primary-light:187 247 208;
+  --color-primary-text: 34 197 94;
+}
+[data-theme="purple"] {
+  --color-primary:      124 58 237;
+  --color-primary-dark: 109 40 217;
+  --color-primary-light:221 214 254;
+  --color-primary-text: 139 92 246;
+}
+
 * {
   margin: 0;
   padding: 0;
