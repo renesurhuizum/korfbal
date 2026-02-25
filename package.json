@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npx convex deploy && vite build",
+    "build": "vite build",
+    "deploy:convex": "npx convex deploy",
     "preview": "vite preview"
   },
   "dependencies": {
