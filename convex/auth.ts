@@ -1,20 +1,64 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
-import bcrypt from "bcryptjs";
 
-// Convex V8 exposeert crypto.getRandomValues() als globaal maar niet self.crypto
-// bcryptjs v2.4.3 heeft dit nodig voor bcrypt.hash() (salt generatie)
-bcrypt.setRandomFallback((len: number) => {
-  const buf = new Uint8Array(len);
-  (globalThis as any).crypto.getRandomValues(buf);
-  return Array.from(buf);
-});
+// Native Web Crypto API — altijd beschikbaar in Convex V8, geen externe bibliotheek nodig
 
-const BCRYPT_ROUNDS = 8; // 10 rounds kan CPU-timeout veroorzaken in Convex's V8 isolate
+const PBKDF2_ITERATIONS = 100000;
+const HASH_PREFIX = "pbkdf2:";
 
-// Check if a string is already a bcrypt hash
-function isBcryptHash(str: string): boolean {
-  return str.startsWith("$2a$") || str.startsWith("$2b$") || str.startsWith("$2y$");
+// Hash a password using PBKDF2-SHA256 with a random salt
+async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const hashBuffer = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, hash: "SHA-256", iterations: PBKDF2_ITERATIONS },
+    keyMaterial,
+    256
+  );
+  const saltB64 = btoa(String.fromCharCode(...salt));
+  const hashB64 = btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
+  return `${HASH_PREFIX}${saltB64}:${hashB64}`;
+}
+
+// Verify a password against a stored hash
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  if (stored.startsWith(HASH_PREFIX)) {
+    // PBKDF2 hash — verify using same salt
+    const parts = stored.split(":");
+    if (parts.length !== 3) return false;
+    const saltB64 = parts[1];
+    const salt = Uint8Array.from(atob(saltB64), (c) => c.charCodeAt(0));
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    const hashBuffer = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt, hash: "SHA-256", iterations: PBKDF2_ITERATIONS },
+      keyMaterial,
+      256
+    );
+    const hashB64 = btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
+    return stored === `${HASH_PREFIX}${saltB64}:${hashB64}`;
+  }
+
+  // Legacy: plaintext password (from before hashing was introduced)
+  // Verify directly — will be upgraded to PBKDF2 on success
+  if (!stored.startsWith("$2")) {
+    return stored === password;
+  }
+
+  // Legacy: old bcrypt hash — bcryptjs is removed, cannot verify
+  // User must re-register to get a PBKDF2 hash
+  return false;
 }
 
 // Login mutation
@@ -43,19 +87,15 @@ export const login = mutation({
       throw new Error(`Team "${args.team_name}" bestaat niet. Registreer eerst een nieuw team.`);
     }
 
-    // Lazy migration: if stored as plaintext, verify + upgrade to bcrypt hash
-    if (!isBcryptHash(team.password_hash)) {
-      if (team.password_hash !== args.password) {
-        throw new Error("Onjuist wachtwoord voor dit team");
-      }
-      // Upgrade plaintext password to bcrypt hash
-      const newHash = await bcrypt.hash(args.password, BCRYPT_ROUNDS);
+    const valid = await verifyPassword(args.password, team.password_hash);
+    if (!valid) {
+      throw new Error("Onjuist wachtwoord voor dit team");
+    }
+
+    // Lazy migration: upgrade plaintext to PBKDF2 hash on successful login
+    if (!team.password_hash.startsWith(HASH_PREFIX)) {
+      const newHash = await hashPassword(args.password);
       await ctx.db.patch(team._id, { password_hash: newHash });
-    } else {
-      const valid = await bcrypt.compare(args.password, team.password_hash);
-      if (!valid) {
-        throw new Error("Onjuist wachtwoord voor dit team");
-      }
     }
 
     return {
@@ -92,7 +132,7 @@ export const register = mutation({
       throw new Error(`Team "${args.team_name}" bestaat al. Gebruik een andere naam of log in.`);
     }
 
-    const passwordHash = await bcrypt.hash(args.password, BCRYPT_ROUNDS);
+    const passwordHash = await hashPassword(args.password);
 
     const teamId = await ctx.db.insert("teams", {
       team_name: args.team_name,
@@ -108,8 +148,7 @@ export const register = mutation({
   },
 });
 
-// Admin mutation: migrate all existing plaintext passwords to bcrypt hashes
-// Call this once via God Mode after deploying
+// Admin mutation: migrate all existing plaintext passwords to PBKDF2 hashes
 export const migratePasswords = mutation({
   args: {
     adminPassword: v.string(),
@@ -124,8 +163,8 @@ export const migratePasswords = mutation({
     let migrated = 0;
 
     for (const team of teams) {
-      if (!isBcryptHash(team.password_hash)) {
-        const newHash = await bcrypt.hash(team.password_hash, BCRYPT_ROUNDS);
+      if (!team.password_hash.startsWith(HASH_PREFIX)) {
+        const newHash = await hashPassword(team.password_hash);
         await ctx.db.patch(team._id, { password_hash: newHash });
         migrated++;
       }
@@ -152,19 +191,12 @@ export const changePassword = mutation({
       throw new Error("Team niet gevonden");
     }
 
-    // Verify current password
-    let valid = false;
-    if (isBcryptHash(team.password_hash)) {
-      valid = await bcrypt.compare(args.currentPassword, team.password_hash);
-    } else {
-      valid = team.password_hash === args.currentPassword;
-    }
-
+    const valid = await verifyPassword(args.currentPassword, team.password_hash);
     if (!valid) {
       throw new Error("Huidig wachtwoord klopt niet");
     }
 
-    const newHash = await bcrypt.hash(args.newPassword, BCRYPT_ROUNDS);
+    const newHash = await hashPassword(args.newPassword);
     await ctx.db.patch(args.teamId, { password_hash: newHash });
 
     return { success: true };
