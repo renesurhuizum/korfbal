@@ -2083,12 +2083,17 @@ export default function KorfbalApp() {
     const [matchFilter, setMatchFilter] = useState('all'); // 'all' | 'won' | 'lost' | 'draw'
     const [comparePlayer1, setComparePlayer1] = useState('');
     const [comparePlayer2, setComparePlayer2] = useState('');
+    const [expandedPlayer, setExpandedPlayer] = useState(null);
 
     // Server-side stats queries
     const formLast5 = useQuery(api.stats.getFormLastN, currentTeamId ? { teamId: currentTeamId, n: 5 } : 'skip');
     const opponentStats = useQuery(api.stats.getOpponentStats, currentTeamId ? { teamId: currentTeamId } : 'skip');
     const playerOfMonth = useQuery(api.stats.getPlayerOfMonth, currentTeamId ? { teamId: currentTeamId } : 'skip');
     const topPlayers = useQuery(api.stats.getTopPlayers, currentTeamId ? { teamId: currentTeamId, limit: 5 } : 'skip');
+    // Fase 4 — nieuwe stats
+    const trendByMonth = useQuery(api.stats.getTrendByMonth, currentTeamId ? { teamId: currentTeamId } : 'skip');
+    const shotTypeTrend = useQuery(api.stats.getShotTypeTrend, currentTeamId ? { teamId: currentTeamId, n: 10 } : 'skip');
+    const careerStats = useQuery(api.stats.getPlayerCareerStats, currentTeamId ? { teamId: currentTeamId } : 'skip');
 
     // Memoize team matches filter
     const teamMatches = useMemo(() => {
@@ -2281,6 +2286,73 @@ export default function KorfbalApp() {
             </div>
           )}
 
+          {/* Maandelijkse trend SVG grafiek */}
+          {trendByMonth && trendByMonth.length >= 2 && (() => {
+            const maxGoals = Math.max(...trendByMonth.flatMap(m => [m.goalsFor, m.goalsAgainst]), 1);
+            const W = 300, H = 100, padX = 8, padY = 8;
+            const plotW = W - padX * 2;
+            const plotH = H - padY * 2;
+            const n = trendByMonth.length;
+            const xStep = n > 1 ? plotW / (n - 1) : 0;
+            const yScale = (v) => padY + plotH - (v / maxGoals) * plotH;
+            const xAt = (i) => padX + i * xStep;
+
+            const pointsFor = trendByMonth.map((m, i) => `${xAt(i)},${yScale(m.goalsFor)}`).join(' ');
+            const pointsAgainst = trendByMonth.map((m, i) => `${xAt(i)},${yScale(m.goalsAgainst)}`).join(' ');
+
+            // Filled area paths
+            const areaFor = `M${padX},${H - padY} ` +
+              trendByMonth.map((m, i) => `L${xAt(i)},${yScale(m.goalsFor)}`).join(' ') +
+              ` L${xAt(n - 1)},${H - padY} Z`;
+            const areaAgainst = `M${padX},${H - padY} ` +
+              trendByMonth.map((m, i) => `L${xAt(i)},${yScale(m.goalsAgainst)}`).join(' ') +
+              ` L${xAt(n - 1)},${H - padY} Z`;
+
+            return (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <h2 className="text-xl font-bold mb-1 text-gray-800 dark:text-gray-100">Doelpunten per maand</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Gemiddeld per wedstrijd · {trendByMonth.length} maanden</p>
+                <div className="overflow-x-auto">
+                  <svg viewBox={`0 0 ${W} ${H + 20}`} className="w-full max-w-xl" aria-hidden="true">
+                    {/* Grid lines */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((frac) => (
+                      <line key={frac}
+                        x1={padX} y1={yScale(maxGoals * frac)}
+                        x2={W - padX} y2={yScale(maxGoals * frac)}
+                        stroke="currentColor" strokeOpacity="0.1" strokeWidth="1"
+                      />
+                    ))}
+                    {/* Area fills */}
+                    <path d={areaFor} fill="#22c55e" fillOpacity="0.12" />
+                    <path d={areaAgainst} fill="#ef4444" fillOpacity="0.12" />
+                    {/* Lines */}
+                    <polyline points={pointsFor} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <polyline points={pointsAgainst} fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    {/* Dots */}
+                    {trendByMonth.map((m, i) => (
+                      <g key={i}>
+                        <circle cx={xAt(i)} cy={yScale(m.goalsFor)} r="3" fill="#22c55e" />
+                        <circle cx={xAt(i)} cy={yScale(m.goalsAgainst)} r="3" fill="#ef4444" />
+                      </g>
+                    ))}
+                    {/* X-axis labels */}
+                    {trendByMonth.map((m, i) => (
+                      <text key={i} x={xAt(i)} y={H + 16}
+                        textAnchor="middle" fontSize="8" fill="currentColor" fillOpacity="0.5"
+                      >
+                        {m.month}
+                      </text>
+                    ))}
+                  </svg>
+                </div>
+                <div className="flex items-center gap-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-green-500 inline-block rounded"></span>Voor</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-red-400 inline-block rounded"></span>Tegen</span>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Tegenstander tabel */}
           {opponentStats && opponentStats.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
@@ -2317,6 +2389,61 @@ export default function KorfbalApp() {
               </div>
             </div>
           )}
+
+          {/* Schot-type trend tabel */}
+          {shotTypeTrend && teamMatches.length >= 3 && (() => {
+            const usedMatches = shotTypeTrend[0]?.usedMatches ?? 10;
+            const anyData = shotTypeTrend.some(s => s.season.attempts > 0);
+            if (!anyData) return null;
+            return (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <h2 className="text-xl font-bold mb-1 text-gray-800 dark:text-gray-100">Schot-type trend</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  Laatste {usedMatches} wedstr. vs heel seizoen · {teamMatches.length} wedstrijden totaal
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-gray-500 dark:text-gray-400 border-b dark:border-gray-700">
+                        <th className="text-left pb-2">Schottype</th>
+                        <th className="text-center pb-2">Seizoen%</th>
+                        <th className="text-center pb-2">Laatste {usedMatches}%</th>
+                        <th className="text-right pb-2">Trend</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shotTypeTrend.filter(s => s.season.attempts > 0).map((s) => (
+                        <tr key={s.shotType} className="border-b dark:border-gray-700">
+                          <td className="py-2 text-gray-800 dark:text-gray-100">
+                            <span className="font-medium">{s.label}</span>
+                            <span className="ml-1.5 text-xs text-gray-400">{s.short}</span>
+                          </td>
+                          <td className="py-2 text-center text-gray-600 dark:text-gray-400">{s.season.pct}%</td>
+                          <td className="py-2 text-center font-semibold text-gray-800 dark:text-gray-100">
+                            {s.recent.attempts > 0 ? `${s.recent.pct}%` : '–'}
+                          </td>
+                          <td className="py-2 text-right">
+                            {s.recent.attempts === 0 ? (
+                              <span className="text-gray-400 text-xs">geen data</span>
+                            ) : s.trend === 'up' ? (
+                              <span className="text-green-600 font-bold text-base">↑</span>
+                            ) : s.trend === 'down' ? (
+                              <span className="text-red-500 font-bold text-base">↓</span>
+                            ) : (
+                              <span className="text-gray-400 font-bold">–</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+                  ↑ verbeterd (&gt;3%) · ↓ verslechterd (&gt;3%) · – stabiel
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Prestatie trend grafiek */}
           {teamMatches.length >= 2 && (
@@ -2388,6 +2515,9 @@ export default function KorfbalApp() {
                 else if (index === 1) rankBadge = 'bg-gray-300 dark:bg-gray-600 text-gray-800 font-bold';
                 else if (index === 2) rankBadge = 'bg-orange-300 text-orange-900 font-bold';
 
+                const isExpanded = expandedPlayer === name;
+                const career = careerStats?.find(c => c.name === name);
+
                 return (
                   <div key={name} className="border-l-4 border-primary bg-gray-50 dark:bg-gray-700 p-4 rounded-r-lg">
                     <div className="flex items-start justify-between mb-3">
@@ -2396,9 +2526,21 @@ export default function KorfbalApp() {
                           #{index + 1}
                         </div>
                         <div className="flex-1">
-                          <div className="font-bold text-lg">{name}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {stats.matches} wedstrijden • {avgPerMatch} doelpunten/wedstrijd
+                          <button
+                            className="font-bold text-lg text-left flex items-center gap-1 hover:text-primary transition-colors"
+                            onClick={() => setExpandedPlayer(isExpanded ? null : name)}
+                            aria-expanded={isExpanded}
+                          >
+                            {name}
+                            <span className={`text-xs text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
+                          </button>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 flex-wrap">
+                            <span>{stats.matches} wedstrijden • {avgPerMatch} doelpunten/wedstrijd</span>
+                            {career?.bestShotTypeLabel && (
+                              <span className="bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded font-medium">
+                                ★ {career.bestShotTypeLabel}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -2425,27 +2567,34 @@ export default function KorfbalApp() {
                       </div>
                     </div>
 
-                    {/* Shot type details */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                      {SHOT_TYPES.map(type => {
-                        const typeStat = stats.byType[type.id];
-                        if (typeStat.attempts === 0) return null;
-                        const typePercentage = Math.round((typeStat.goals / typeStat.attempts) * 100);
+                    {/* Shot type details — uitklapbaar */}
+                    {isExpanded && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm mt-1">
+                        {SHOT_TYPES.map(type => {
+                          const typeStat = stats.byType[type.id];
+                          if (typeStat.attempts === 0) return null;
+                          const typePercentage = Math.round((typeStat.goals / typeStat.attempts) * 100);
 
-                        let typeColor = 'bg-gray-100 border-gray-300 dark:border-gray-600';
-                        if (typePercentage >= 70) typeColor = 'bg-green-50 border-green-300';
-                        else if (typePercentage >= 50) typeColor = 'bg-yellow-50 border-yellow-300';
-                        else if (typePercentage >= 30) typeColor = 'bg-orange-50 border-orange-300';
-                        else typeColor = 'bg-red-50 border-red-300';
+                          let typeColor = 'bg-gray-100 border-gray-300 dark:border-gray-600';
+                          if (typePercentage >= 70) typeColor = 'bg-green-50 border-green-300';
+                          else if (typePercentage >= 50) typeColor = 'bg-yellow-50 border-yellow-300';
+                          else if (typePercentage >= 30) typeColor = 'bg-orange-50 border-orange-300';
+                          else typeColor = 'bg-red-50 border-red-300';
 
-                        return (
-                          <div key={type.id} className={`${typeColor} border px-2 py-1 rounded text-xs`}>
-                            <div className="font-semibold">{type.short}</div>
-                            <div>{typeStat.goals}/{typeStat.attempts} ({typePercentage}%)</div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          return (
+                            <div key={type.id} className={`${typeColor} border px-2 py-1 rounded text-xs`}>
+                              <div className="font-semibold">{type.short}</div>
+                              <div>{typeStat.goals}/{typeStat.attempts} ({typePercentage}%)</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {!isExpanded && stats.attempts > 0 && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        Klik op naam voor schottype details
+                      </p>
+                    )}
                   </div>
                 );
               })}

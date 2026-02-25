@@ -204,6 +204,146 @@ export const getOpponentStats = query({
   },
 });
 
+// Shot type labels (mirrors src/constants/shotTypes.js — can't import from src/ in Convex V8)
+const SHOT_TYPE_META: Record<string, { label: string; short: string }> = {
+  distance:   { label: 'Afstandschot', short: 'AS' },
+  close:      { label: 'Kans bij korf', short: 'KK' },
+  penalty:    { label: 'Strafworp',     short: 'SW' },
+  freeball:   { label: 'Vrije bal',     short: 'VB' },
+  runthrough: { label: 'Doorloopbal',   short: 'DL' },
+  outstart:   { label: 'Uitstart',      short: 'US' },
+  other:      { label: 'Overig',        short: 'OV' },
+};
+const ALL_SHOT_TYPES = ['distance', 'close', 'penalty', 'freeball', 'runthrough', 'outstart', 'other'];
+
+// Shot type trend: compare last N matches vs full season per shot type
+export const getShotTypeTrend = query({
+  args: { teamId: v.id("teams"), n: v.number() },
+  handler: async (ctx, args) => {
+    const matches = await ctx.db
+      .query("matches")
+      .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
+      .filter((q) => q.eq(q.field("finished"), true))
+      .collect();
+
+    const sorted = matches.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    const recentMatches = sorted.slice(0, args.n);
+
+    function calcShotStats(matchList: typeof matches) {
+      const totals: Record<string, { goals: number; attempts: number }> = {};
+      for (const st of ALL_SHOT_TYPES) totals[st] = { goals: 0, attempts: 0 };
+      for (const match of matchList) {
+        for (const player of match.players || []) {
+          for (const st of ALL_SHOT_TYPES) {
+            const s = player.stats?.[st];
+            if (s) {
+              totals[st].goals += s.goals || 0;
+              totals[st].attempts += s.attempts || 0;
+            }
+          }
+        }
+      }
+      return totals;
+    }
+
+    const seasonTotals = calcShotStats(matches);
+    const recentTotals = calcShotStats(recentMatches);
+
+    return ALL_SHOT_TYPES.map((st) => {
+      const seasonPct = seasonTotals[st].attempts > 0
+        ? Math.round((seasonTotals[st].goals / seasonTotals[st].attempts) * 100) : 0;
+      const recentPct = recentTotals[st].attempts > 0
+        ? Math.round((recentTotals[st].goals / recentTotals[st].attempts) * 100) : 0;
+      const diff = recentPct - seasonPct;
+      const trend: "up" | "down" | "stable" = diff > 3 ? "up" : diff < -3 ? "down" : "stable";
+
+      return {
+        shotType: st,
+        label: SHOT_TYPE_META[st].label,
+        short: SHOT_TYPE_META[st].short,
+        season: { goals: seasonTotals[st].goals, attempts: seasonTotals[st].attempts, pct: seasonPct },
+        recent: { goals: recentTotals[st].goals, attempts: recentTotals[st].attempts, pct: recentPct },
+        trend,
+        usedMatches: Math.min(args.n, matches.length),
+      };
+    });
+  },
+});
+
+// Career stats per player with per-shot-type breakdown
+export const getPlayerCareerStats = query({
+  args: { teamId: v.id("teams") },
+  handler: async (ctx, args) => {
+    const matches = await ctx.db
+      .query("matches")
+      .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
+      .filter((q) => q.eq(q.field("finished"), true))
+      .collect();
+
+    type ByType = Record<string, { goals: number; attempts: number }>;
+    const players: Record<string, { name: string; goals: number; attempts: number; matches: number; byType: ByType }> = {};
+
+    for (const match of matches) {
+      for (const player of match.players || []) {
+        const id = String(player.id);
+        if (!players[id]) {
+          players[id] = {
+            name: player.name,
+            goals: 0,
+            attempts: 0,
+            matches: 0,
+            byType: Object.fromEntries(ALL_SHOT_TYPES.map((st) => [st, { goals: 0, attempts: 0 }])),
+          };
+        }
+        players[id].matches++;
+        for (const st of ALL_SHOT_TYPES) {
+          const s = player.stats?.[st];
+          if (s) {
+            players[id].goals += s.goals || 0;
+            players[id].attempts += s.attempts || 0;
+            players[id].byType[st].goals += s.goals || 0;
+            players[id].byType[st].attempts += s.attempts || 0;
+          }
+        }
+      }
+    }
+
+    return Object.entries(players)
+      .map(([id, p]) => {
+        const byTypeWithPct = Object.fromEntries(
+          ALL_SHOT_TYPES.map((st) => [
+            st,
+            {
+              ...p.byType[st],
+              percentage: p.byType[st].attempts > 0
+                ? Math.round((p.byType[st].goals / p.byType[st].attempts) * 100) : 0,
+            },
+          ])
+        );
+        // Best shot type = highest goals with at least 1 attempt
+        const bestShotType = ALL_SHOT_TYPES
+          .filter((st) => p.byType[st].goals > 0)
+          .sort((a, b) => p.byType[b].goals - p.byType[a].goals)[0] || null;
+
+        return {
+          playerId: id,
+          name: p.name,
+          goals: p.goals,
+          attempts: p.attempts,
+          matches: p.matches,
+          percentage: p.attempts > 0 ? Math.round((p.goals / p.attempts) * 100) : 0,
+          goalsPerMatch: p.matches > 0 ? Math.round((p.goals / p.matches) * 10) / 10 : 0,
+          byType: byTypeWithPct,
+          bestShotType,
+          bestShotTypeLabel: bestShotType ? SHOT_TYPE_META[bestShotType].label : null,
+        };
+      })
+      .sort((a, b) => b.goals - a.goals);
+  },
+});
+
 // Player of the month (most goals in last 30 days)
 export const getPlayerOfMonth = query({
   args: { teamId: v.id("teams") },
