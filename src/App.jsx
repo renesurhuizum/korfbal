@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun, Cog } from 'lucide-react';
 import { useMutation, useQuery, useConvexAuth } from "convex/react";
-import { useClerk, SignIn } from "@clerk/clerk-react";
+import { useClerk, SignIn, SignUp } from "@clerk/clerk-react";
 import { api } from "../convex/_generated/api";
 import { SHOT_TYPES } from './constants/shotTypes';
 import { generatePlayerId } from './utils/generatePlayerId';
@@ -3424,27 +3424,43 @@ export default function KorfbalApp() {
             );
           }
 
-          // Not logged in → Clerk SignIn component
+          // Not logged in → Clerk SignIn or SignUp component
           if (!isAuthenticated) {
+            const isSignUpPage = window.location.pathname === '/sign-up';
             return (
               <div className="min-h-screen bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
                   <div className="text-center mb-6">
                     <Trophy className="w-14 h-14 text-white mx-auto mb-3" />
                     <h1 className="text-2xl font-bold text-white">Korfbal Score App</h1>
-                    <p className="text-white/70 text-sm mt-1">Log in om verder te gaan</p>
+                    <p className="text-white/70 text-sm mt-1">{isSignUpPage ? 'Maak een account aan' : 'Log in om verder te gaan'}</p>
                   </div>
-                  <SignIn
-                    appearance={{
-                      elements: {
-                        rootBox: 'w-full',
-                        card: 'rounded-2xl shadow-2xl',
-                        headerTitle: 'hidden',
-                        headerSubtitle: 'hidden',
-                      }
-                    }}
-                    signUpUrl="/sign-up"
-                  />
+                  {isSignUpPage ? (
+                    <SignUp
+                      appearance={{
+                        elements: {
+                          rootBox: 'w-full',
+                          card: 'rounded-2xl shadow-2xl',
+                          headerTitle: 'hidden',
+                          headerSubtitle: 'hidden',
+                        }
+                      }}
+                      signInUrl="/"
+                      afterSignUpUrl="/"
+                    />
+                  ) : (
+                    <SignIn
+                      appearance={{
+                        elements: {
+                          rootBox: 'w-full',
+                          card: 'rounded-2xl shadow-2xl',
+                          headerTitle: 'hidden',
+                          headerSubtitle: 'hidden',
+                        }
+                      }}
+                      signUpUrl="/sign-up"
+                    />
+                  )}
                   {/* God Mode escape hatch — hidden, for admin only */}
                   <div className="mt-4 text-center">
                     <button
