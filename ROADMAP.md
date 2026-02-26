@@ -103,29 +103,17 @@ src/
 
 ---
 
-## Fase 6: AI Trainingsadvies ⏳ VOLGENDE
+## Fase 6: AI Trainingsadvies ✅ GEDAAN
 
-**Doel:** Gepersonaliseerde trainingsaanbevelingen op basis van wedstrijddata.
+**Wat gedaan:**
+- `convex/ai.ts` (`"use node;"`) — Convex action die Anthropic Claude claude-3-5-haiku-20241022 aanroept
+- `convex/aiQueries.ts` — aparte V8-runtime query voor `getAdvice` (queries kunnen niet in Node.js runtime)
+- `convex/schema.ts` — `ai_advice` tabel toegevoegd met `by_team` index
+- `AIAdviceCard` component in `src/App.jsx` — geïsoleerd met eigen `AIAdviceErrorBoundary`
+- Zichtbaar bij ≥ 5 wedstrijden in de Statistieken-pagina
+- Advies gecached in Convex; knop om te vernieuwen
 
-**Convex action** (`convex/ai.ts`) — roept Anthropic Claude API aan:
-1. Haalt laatste 10+ wedstrijden op via `ctx.runQuery`
-2. Bouwt gestructureerde prompt met statistieken (schot%, verbeterpunten, spelersvorm)
-3. Genereert advies in het Nederlands
-4. Slaat op in `ai_advice` tabel met 7-daags TTL
-
-**Schema:**
-```typescript
-ai_advice: defineTable({
-  teamId: v.id("teams"),
-  advice: v.string(),
-  generatedAt: v.number(),
-  basedOnMatchCount: v.number(),
-}).index("by_team", ["teamId"]),
-```
-
-**Vereiste:** Minimaal ~5 wedstrijden voor zinvol advies.
-
-**Bestanden:** `convex/schema.ts`, `convex/ai.ts` (nieuw), `src/App.jsx` of aparte component
+**Vereiste (eenmalig):** `npx convex dev` draaien om `ai.ts`, `aiQueries.ts` en schema te deployen naar Convex cloud.
 
 ---
 
@@ -154,11 +142,13 @@ ai_advice: defineTable({
 ✅ Fase 3 — Kleurthema's per team
 ✅ Fase 4 — Statistieken
 🔄 Fase 5 — Code-architectuur (gedeeltelijk)
-⏳ Fase 6 — AI Trainingsadvies  ← VOLGENDE
-⏳ Fase 7 — Commercialisering
+✅ Fase 6 — AI Trainingsadvies
+⏳ Fase 7 — Commercialisering  ← VOLGENDE
 ```
 
-**Aanbevolen volgorde:**
-- Fase 6 kan nu gestart worden (stats zijn goed genoeg als input voor AI)
-- Fase 5 (volledige refactor) is optioneel vóór Fase 6, maar maakt het wel overzichtelijker
-- Fase 7 pas na Fase 6 (AI is de premium feature die abonnementen rechtvaardigt)
+**Openstaande acties voor productie:**
+- `npx convex dev` draaien (eenmalig) om AI-functies naar Convex cloud te deployen
+- Clerk naar Production modus schakelen (verwijdert "Development mode" badge)
+- PR #19 mergen
+
+**Volgende stap:** Fase 7 — Commercialisering via Stripe
