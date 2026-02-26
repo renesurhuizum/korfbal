@@ -9,6 +9,91 @@ import { exportMatchesCSV } from './utils/exportCSV';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { SettingsSheet } from './components/ui/SettingsSheet';
 
+// ─── AIAdviceCard ─────────────────────────────────────────────────────────────
+// Isolated component with its own error boundary so a Convex query failure
+// never crashes the rest of the app.
+class AIAdviceErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <p className="text-sm text-amber-600 dark:text-amber-400">
+          AI-advies tijdelijk niet beschikbaar. Probeer de pagina te herladen.
+        </p>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function AIAdviceInner({ teamId, showFeedback }) {
+  const aiAdvice = useQuery(api.aiQueries.getAdvice, { teamId });
+  const generateAdviceAction = useAction(api.ai.generateTrainingAdvice);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">🤖</span>
+          <h3 className="font-bold text-gray-900 dark:text-white text-lg">Trainingsadvies</h3>
+        </div>
+        <button
+          onClick={async () => {
+            setIsGenerating(true);
+            try {
+              await generateAdviceAction({ teamId });
+              showFeedback('Trainingsadvies gegenereerd!', 'success');
+            } catch (e) {
+              showFeedback(e.message || 'Fout bij genereren advies');
+            } finally {
+              setIsGenerating(false);
+            }
+          }}
+          disabled={isGenerating}
+          className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 flex items-center gap-2"
+        >
+          {isGenerating ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Genereren…
+            </>
+          ) : aiAdvice ? '↻ Vernieuw advies' : '✨ Genereer advies'}
+        </button>
+      </div>
+
+      {isGenerating && <SkeletonCard lines={4} />}
+
+      {aiAdvice && !isGenerating && (
+        <div>
+          <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed text-sm">{aiAdvice.advice}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 border-t border-gray-100 dark:border-gray-700 pt-3">
+            Gegenereerd op {new Date(aiAdvice.generatedAt).toLocaleDateString('nl-NL')} · gebaseerd op {aiAdvice.basedOnMatchCount} wedstrijden
+          </p>
+        </div>
+      )}
+
+      {!aiAdvice && !isGenerating && (
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
+          Klik op "Genereer advies" voor gepersonaliseerde trainingstips op basis van jullie statistieken.
+        </p>
+      )}
+    </>
+  );
+}
+
+function AIAdviceCard({ teamId, showFeedback }) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+      <AIAdviceErrorBoundary>
+        <AIAdviceInner teamId={teamId} showFeedback={showFeedback} />
+      </AIAdviceErrorBoundary>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Error boundary to catch rendering crashes - exported for use in main.jsx
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -253,13 +338,7 @@ export default function KorfbalApp() {
     }
   }, [currentTeamData?.color_theme]);
 
-  // AI training advice
-  const aiAdvice = useQuery(
-    api.aiQueries.getAdvice,
-    currentTeamId ? { teamId: currentTeamId } : "skip"
-  );
-  const generateAdviceAction = useAction(api.ai.generateTrainingAdvice);
-  const [isGenerating, setIsGenerating] = useState(false);
+  // AI training advice — rendered via isolated AIAdviceCard component below
 
   // Views that require authentication
   const authRequiredViews = ['home', 'manage-players', 'setup-match', 'match', 'match-summary', 'statistics'];
@@ -2869,55 +2948,9 @@ export default function KorfbalApp() {
             </div>
           </div>
 
-          {/* AI Trainingsadvies — zichtbaar bij ≥ 5 wedstrijden */}
+          {/* AI Trainingsadvies — zichtbaar bij ≥ 5 wedstrijden, geïsoleerde error boundary */}
           {teamMatches.length >= 5 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">🤖</span>
-                  <h3 className="font-bold text-gray-900 dark:text-white text-lg">Trainingsadvies</h3>
-                </div>
-                <button
-                  onClick={async () => {
-                    setIsGenerating(true);
-                    try {
-                      await generateAdviceAction({ teamId: currentTeamId });
-                      showFeedback('Trainingsadvies gegenereerd!', 'success');
-                    } catch (e) {
-                      showFeedback(e.message || 'Fout bij genereren advies');
-                    } finally {
-                      setIsGenerating(false);
-                    }
-                  }}
-                  disabled={isGenerating}
-                  className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 flex items-center gap-2"
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Genereren…
-                    </>
-                  ) : aiAdvice ? '↻ Vernieuw advies' : '✨ Genereer advies'}
-                </button>
-              </div>
-
-              {isGenerating && <SkeletonCard lines={4} />}
-
-              {aiAdvice && !isGenerating && (
-                <div>
-                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed text-sm">{aiAdvice.advice}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 border-t border-gray-100 dark:border-gray-700 pt-3">
-                    Gegenereerd op {new Date(aiAdvice.generatedAt).toLocaleDateString('nl-NL')} · gebaseerd op {aiAdvice.basedOnMatchCount} wedstrijden
-                  </p>
-                </div>
-              )}
-
-              {!aiAdvice && !isGenerating && (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">
-                  Klik op "Genereer advies" voor gepersonaliseerde trainingstips op basis van jullie statistieken.
-                </p>
-              )}
-            </div>
+            <AIAdviceCard teamId={currentTeamId} showFeedback={showFeedback} />
           )}
           </>
           )}
