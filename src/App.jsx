@@ -255,7 +255,7 @@ export default function KorfbalApp() {
 
   // AI training advice
   const aiAdvice = useQuery(
-    api.ai.getAdvice,
+    api.aiQueries.getAdvice,
     currentTeamId ? { teamId: currentTeamId } : "skip"
   );
   const generateAdviceAction = useAction(api.ai.generateTrainingAdvice);

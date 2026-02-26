@@ -1,20 +1,9 @@
 "use node"; // Required for @anthropic-ai/sdk (npm package)
 
-import { action, internalMutation, query } from "./_generated/server";
+import { action, internalMutation } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import Anthropic from "@anthropic-ai/sdk";
-
-// Read cached advice for a team (called from frontend via useQuery)
-export const getAdvice = query({
-  args: { teamId: v.id("teams") },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("ai_advice")
-      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
-      .first();
-  },
-});
 
 // Persist generated advice — only called internally from the action
 export const saveAdvice = internalMutation({
