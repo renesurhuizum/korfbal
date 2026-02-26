@@ -210,6 +210,10 @@ export default function KorfbalApp() {
     window.history.pushState({ view: newView }, '', `#${newView}`);
   }, []);
 
+  // Clerk auth state — must be declared BEFORE any useQuery that depends on isAuthenticated
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  const { signOut } = useClerk();
+
   // Teams for current Clerk user (drives post-login routing)
   const userTeams = useQuery(
     api.memberships.getUserTeams,
@@ -387,10 +391,6 @@ export default function KorfbalApp() {
   const showFeedback = useCallback((message, type = 'error') => {
     feedbackRef.current?.show(message, type);
   }, []);
-
-  // Clerk auth state
-  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
-  const { signOut } = useClerk();
 
   // Convex mutations
   const loginMutation = useMutation(api.auth.login); // God Mode only
