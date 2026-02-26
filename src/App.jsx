@@ -3483,7 +3483,15 @@ export default function KorfbalApp() {
             if (userTeams.length === 0 || forceOnboarding) {
               return <OnboardingView />;
             }
-            // Has teams but none selected → picker
+            // 1 team → auto-selection useEffect will run immediately; show spinner to avoid flash
+            if (userTeams.length === 1) {
+              return (
+                <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              );
+            }
+            // 2+ teams → picker
             return <TeamPickerView />;
           }
 
