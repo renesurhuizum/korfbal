@@ -37,6 +37,7 @@ export function SettingsSheet({
   );
   const generateInviteMutation = useMutation(api.memberships.generateInvite);
   const removeMemberMutation = useMutation(api.memberships.removeMember);
+  const updateTeamThemeMutation = useMutation(api.teams.updateTeamTheme);
 
   // Is current user an admin of this team?
   const currentUserIsAdmin = teamMembers?.some(m => m.isCurrentUser && m.role === 'admin');
@@ -124,7 +125,12 @@ export function SettingsSheet({
               {THEMES.map(t => (
                 <button
                   key={t.id}
-                  onClick={() => setColorTheme(t.id)}
+                  onClick={() => {
+                    setColorTheme(t.id); // directe visuele feedback (optimistic)
+                    if (currentTeamId) {
+                      updateTeamThemeMutation({ teamId: currentTeamId, theme: t.id });
+                    }
+                  }}
                   aria-pressed={colorTheme === t.id}
                   aria-label={`Thema: ${t.label}`}
                   className="flex flex-col items-center gap-1"

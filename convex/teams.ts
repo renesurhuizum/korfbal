@@ -52,6 +52,18 @@ export const updatePlayers = mutation({
   },
 });
 
+// Update team color theme (requires team membership)
+export const updateTeamTheme = mutation({
+  args: {
+    teamId: v.id("teams"),
+    theme: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
+    await ctx.db.patch(args.teamId, { color_theme: args.theme });
+  },
+});
+
 // Reset password (God mode)
 export const resetPassword = mutation({
   args: {

@@ -246,6 +246,12 @@ export default function KorfbalApp() {
   // Debounce currentMatch to reduce localStorage writes
   const debouncedMatch = useDebounce(currentMatch, 500);
 
+  // Sync color theme from team data — each team has its own theme stored in Convex
+  useEffect(() => {
+    if (currentTeamData?.color_theme) {
+      setColorTheme(currentTeamData.color_theme);
+    }
+  }, [currentTeamData?.color_theme]);
 
   // Views that require authentication
   const authRequiredViews = ['home', 'manage-players', 'setup-match', 'match', 'match-summary', 'statistics'];

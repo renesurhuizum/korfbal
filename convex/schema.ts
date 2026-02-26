@@ -52,6 +52,7 @@ export default defineSchema({
     players: v.array(playerValidator),
     // Track if team has been migrated to Clerk auth
     migrated: v.optional(v.boolean()),
+    color_theme: v.optional(v.string()), // Per-team color theme (red/orange/blue/green/purple)
   })
     .index("by_team_name", ["team_name"]), // For login lookups
 
