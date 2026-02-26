@@ -1,6 +1,20 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+// Auth guard: verify Clerk identity + team membership
+async function requireMember(ctx: any, teamId: any) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Niet ingelogd — log in via je e-mailadres");
+  const member = await ctx.db
+    .query("team_members")
+    .withIndex("by_team_and_user", (q: any) =>
+      q.eq("teamId", teamId).eq("userId", identity.subject)
+    )
+    .first();
+  if (!member) throw new Error("Geen toegang tot dit team");
+  return member;
+}
+
 // Get matches for a team
 export const getTeamMatches = query({
   args: { teamId: v.id("teams") },
@@ -82,6 +96,8 @@ export const createMatch = mutation({
       concededBy: g.concededBy ?? 'Onbekend',
     }));
 
+    await requireMember(ctx, args.teamId);
+
     const matchId = await ctx.db.insert("matches", {
       team_id: args.teamId,
       team_name: args.teamName,
@@ -108,15 +124,13 @@ export const updateMatch = mutation({
     goals: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
+    const match = await ctx.db.get(args.matchId);
+    if (!match) throw new Error("Wedstrijd niet gevonden");
+    await requireMember(ctx, match.team_id);
+
     const updates: any = {};
-
-    if (args.shareable !== undefined) {
-      updates.shareable = args.shareable;
-    }
-
-    if (args.goals !== undefined) {
-      updates.goals = args.goals;
-    }
+    if (args.shareable !== undefined) updates.shareable = args.shareable;
+    if (args.goals !== undefined) updates.goals = args.goals;
 
     await ctx.db.patch(args.matchId, updates);
   },
@@ -126,6 +140,9 @@ export const updateMatch = mutation({
 export const deleteMatch = mutation({
   args: { matchId: v.id("matches") },
   handler: async (ctx, args) => {
+    const match = await ctx.db.get(args.matchId);
+    if (!match) throw new Error("Wedstrijd niet gevonden");
+    await requireMember(ctx, match.team_id);
     await ctx.db.delete(args.matchId);
   },
 });

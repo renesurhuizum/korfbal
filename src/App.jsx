@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun, Cog } from 'lucide-react';
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useConvexAuth } from "convex/react";
+import { useClerk, SignIn } from "@clerk/clerk-react";
 import { api } from "../convex/_generated/api";
 import { SHOT_TYPES } from './constants/shotTypes';
 import { generatePlayerId } from './utils/generatePlayerId';
@@ -166,6 +167,7 @@ export default function KorfbalApp() {
     return localStorage.getItem('korfbal_color_theme') || 'red';
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [forceOnboarding, setForceOnboarding] = useState(false);
   const feedbackRef = useRef(null);
 
   // Apply dark mode class to document
@@ -208,6 +210,12 @@ export default function KorfbalApp() {
     window.history.pushState({ view: newView }, '', `#${newView}`);
   }, []);
 
+  // Teams for current Clerk user (drives post-login routing)
+  const userTeams = useQuery(
+    api.memberships.getUserTeams,
+    isAuthenticated ? {} : "skip"
+  );
+
   // Convex queries - only load god-mode data when needed
   const allTeams = useQuery(api.teams.getAllTeams, showGodMode ? {} : "skip");
   const teams = showGodMode ? (allTeams || []) : [];
@@ -243,10 +251,9 @@ export default function KorfbalApp() {
     const handlePopState = (event) => {
       const targetView = event.state?.view || window.location.hash.substring(1);
       if (targetView) {
-        // Prevent navigating to auth-required views without being logged in
+        // Prevent navigating to auth-required views without a team selected
         if (authRequiredViews.includes(targetView) && !currentTeamId) {
-          setView('login');
-          window.history.replaceState({ view: 'login' }, '', '#login');
+          setView('home'); // Will show onboarding/picker based on auth state
         } else {
           setView(targetView);
         }
@@ -255,12 +262,12 @@ export default function KorfbalApp() {
 
     window.addEventListener('popstate', handlePopState);
 
-    // Set initial state
+    // Set initial state — start at home; Clerk routing handles the rest
     const initialHash = window.location.hash.substring(1);
     if (initialHash && !authRequiredViews.includes(initialHash)) {
       setView(initialHash);
     } else if (!initialHash) {
-      window.history.replaceState({ view: 'login' }, '', '#login');
+      window.history.replaceState({ view: 'home' }, '', '#home');
     }
 
     return () => {
@@ -323,42 +330,51 @@ export default function KorfbalApp() {
     }
   }, [currentTeamId, pendingSavedMatch]);
 
-  // Session persistence - restore login on mount
+  // Check for shared match URL on mount
   useEffect(() => {
-    // Check for shared match in URL first
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('match');
-
     if (matchId) {
       setSharedMatchId(matchId);
-      return; // Don't restore session if loading shared match
     }
-
-    // Normal session restore
-    const savedSession = localStorage.getItem('korfbal_session');
-    if (savedSession) {
-      try {
-        const { teamName, teamId } = JSON.parse(savedSession);
-
-        // Check if this is an old Supabase UUID (format: 8-4-4-4-12 with dashes)
-        const isOldUUID = teamId && teamId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-
-        if (isOldUUID) {
-          localStorage.removeItem('korfbal_session');
-          localStorage.removeItem('korfbal_active_match');
-          showFeedback('Sessie verlopen, log opnieuw in na de migratie naar Convex', 'info');
-          return;
-        }
-
-        setCurrentTeam(teamName);
-        setCurrentTeamId(teamId);
-        navigateTo('home');
-      } catch (e) {
-        console.error('Error restoring session:', e);
-        localStorage.removeItem('korfbal_session');
-      }
-    }
+    // Clean up old localStorage session data (migration from old auth system)
+    localStorage.removeItem('korfbal_session');
   }, []);
+
+  // Clerk-based team auto-selection after login
+  useEffect(() => {
+    if (!isAuthenticated || userTeams === undefined) return; // still loading
+    if (currentTeamId) return; // already have a team selected
+
+    if (userTeams.length === 1) {
+      // Only one team → auto-select
+      setCurrentTeam(userTeams[0].teamName);
+      setCurrentTeamId(userTeams[0].teamId);
+      if (view === 'login' || view === 'onboarding') navigateTo('home');
+    }
+    // 0 teams → OnboardingView (handled in routing)
+    // 2+ teams → TeamPickerView (handled in routing)
+  }, [isAuthenticated, userTeams, currentTeamId]);
+
+  // Handle ?invite=TOKEN URL parameter after Clerk login
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteToken = urlParams.get('invite');
+    if (!inviteToken) return;
+
+    // Clear invite token from URL immediately
+    window.history.replaceState({}, '', window.location.pathname);
+
+    acceptInviteMutation({ token: inviteToken })
+      .then(({ teamId }) => {
+        // Reload userTeams by forcing a re-select on next render
+        setCurrentTeamId(null);
+        setCurrentTeam(null);
+        showFeedback('Welkom bij het team!', 'success');
+      })
+      .catch((e) => showFeedback(e.message || 'Uitnodiging ongeldig', 'error'));
+  }, [isAuthenticated]);
 
   // Handle shared match data once loaded
   useEffect(() => {
@@ -372,9 +388,15 @@ export default function KorfbalApp() {
     feedbackRef.current?.show(message, type);
   }, []);
 
+  // Clerk auth state
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  const { signOut } = useClerk();
+
   // Convex mutations
-  const loginMutation = useMutation(api.auth.login);
-  const registerMutation = useMutation(api.auth.register);
+  const loginMutation = useMutation(api.auth.login); // God Mode only
+  const createTeamMutation = useMutation(api.memberships.createTeam);
+  const claimTeamMutation = useMutation(api.memberships.claimTeam);
+  const acceptInviteMutation = useMutation(api.memberships.acceptInvite);
   const updatePlayersMutation = useMutation(api.teams.updatePlayers);
   const deleteTeamMutation = useMutation(api.teams.deleteTeam);
   const resetPasswordMutation = useMutation(api.teams.resetPassword);
@@ -479,114 +501,163 @@ export default function KorfbalApp() {
       showFeedback('Fout bij verwijderen wedstrijd', 'error');
     }
   };
-  const LoginView = () => {
+  // ─── OnboardingView: create a new team or claim an existing one ───
+  const OnboardingView = () => {
+    const [mode, setMode] = useState('new'); // 'new' | 'claim'
     const [teamName, setTeamName] = useState('');
     const [password, setPassword] = useState('');
-    const [isNewTeam, setIsNewTeam] = useState(false);
+    const [busy, setBusy] = useState(false);
 
-    const handleLogin = async () => {
-      if (!teamName || !password) {
-        showFeedback('Vul beide velden in', 'error');
-        return;
-      }
-      setLoading(true);
+    const handleCreateTeam = async () => {
+      if (!teamName.trim()) { showFeedback('Vul een teamnaam in', 'error'); return; }
+      setBusy(true);
       try {
-        const result = await loginMutation({
-          team_name: teamName,
-          password: password,
-        });
-
-        if (result.isGodMode) {
-          setShowGodMode(true);
-          navigateTo('god-mode');
-        } else {
-          setCurrentTeam(result.teamName);
-          setCurrentTeamId(result.teamId);
-          // Save session to localStorage
-          localStorage.setItem('korfbal_session', JSON.stringify({
-            teamName: result.teamName,
-            teamId: result.teamId
-          }));
-          navigateTo('home');
-          showFeedback(`Welkom ${result.teamName}!`, 'success');
-        }
-      } catch (e) {
-        showFeedback(e.message || 'Fout bij inloggen', 'error');
-      }
-      setLoading(false);
-    };
-
-    const handleRegister = async () => {
-      if (!teamName || !password) {
-        showFeedback('Vul beide velden in', 'error');
-        return;
-      }
-      setLoading(true);
-      try {
-        const result = await registerMutation({
-          team_name: teamName,
-          password: password,
-        });
-
+        const result = await createTeamMutation({ teamName: teamName.trim() });
         setCurrentTeam(result.teamName);
         setCurrentTeamId(result.teamId);
-        // Save session to localStorage
-        localStorage.setItem('korfbal_session', JSON.stringify({
-          teamName: result.teamName,
-          teamId: result.teamId
-        }));
+        setForceOnboarding(false);
         navigateTo('home');
-        showFeedback(`Team "${result.teamName}" succesvol aangemaakt!`, 'success');
+        showFeedback(`Team "${result.teamName}" aangemaakt!`, 'success');
       } catch (e) {
-        showFeedback(e.message || 'Fout bij registreren', 'error');
+        showFeedback(e.message || 'Fout bij aanmaken team', 'error');
       }
-      setLoading(false);
+      setBusy(false);
+    };
+
+    const handleClaimTeam = async () => {
+      if (!teamName.trim() || !password) { showFeedback('Vul teamnaam en wachtwoord in', 'error'); return; }
+      setBusy(true);
+      try {
+        const result = await claimTeamMutation({ teamName: teamName.trim(), password });
+        setCurrentTeam(result.teamName);
+        setCurrentTeamId(result.teamId);
+        setForceOnboarding(false);
+        navigateTo('home');
+        showFeedback(`Team "${result.teamName}" succesvol gekoppeld!`, 'success');
+      } catch (e) {
+        showFeedback(e.message || 'Fout bij koppelen team', 'error');
+      }
+      setBusy(false);
     };
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-8 max-w-md w-full">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
           <div className="text-center mb-8">
             <Trophy className="w-16 h-16 text-primary mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Korfbal Score App</h1>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Welkom!</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Maak een nieuw team aan of koppel een bestaand team.</p>
           </div>
+
+          {/* Mode tabs */}
+          <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 p-1 mb-6">
+            <button
+              onClick={() => setMode('new')}
+              className={`flex-1 py-2 rounded-md text-sm font-medium transition ${mode === 'new' ? 'bg-primary text-white shadow' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            >
+              Nieuw team
+            </button>
+            <button
+              onClick={() => setMode('claim')}
+              className={`flex-1 py-2 rounded-md text-sm font-medium transition ${mode === 'claim' ? 'bg-primary text-white shadow' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            >
+              Bestaand team
+            </button>
+          </div>
+
           <div className="space-y-4">
             <div>
-              <label htmlFor="login-teamname" className="block text-sm font-medium text-gray-700 mb-1">Teamnaam</label>
-              <input id="login-teamname" type="text" placeholder="Vul je teamnaam in" value={teamName} onChange={(e) => setTeamName(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teamnaam</label>
+              <input
+                type="text"
+                placeholder={mode === 'new' ? 'Bijv. KV Winnaars' : 'Naam van je huidige team'}
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && mode === 'new' && handleCreateTeam()}
+                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100"
+                autoFocus
+              />
             </div>
-            <div>
-              <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1">Wachtwoord</label>
-              <input id="login-password" type="password" placeholder="Vul je wachtwoord in" value={password} onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (isNewTeam ? handleRegister() : handleLogin())}
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" />
-            </div>
-            <button onClick={isNewTeam ? handleRegister : handleLogin} disabled={loading}
-              className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-95 transition-all disabled:bg-gray-400 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-              {loading ? 'Laden...' : (isNewTeam ? 'Registreer nieuw team' : 'Inloggen')}
+
+            {mode === 'claim' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Oud wachtwoord</label>
+                <input
+                  type="password"
+                  placeholder="Het wachtwoord van voor de update"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleClaimTeam()}
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100"
+                />
+              </div>
+            )}
+
+            <button
+              onClick={mode === 'new' ? handleCreateTeam : handleClaimTeam}
+              disabled={busy}
+              className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-95 transition-all disabled:opacity-50"
+            >
+              {busy ? 'Bezig...' : (mode === 'new' ? 'Team aanmaken' : 'Team koppelen')}
             </button>
-            <button onClick={() => setIsNewTeam(!isNewTeam)} className="w-full text-primary hover:underline text-sm">
-              {isNewTeam ? 'Al een account? Inloggen' : 'Nieuw team? Registreer hier'}
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-center">
+            <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+              Uitloggen
             </button>
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
-              <p className="text-xs text-gray-500 text-center">💡 Data synchroniseert op al je apparaten</p>
-            </div>
           </div>
         </div>
       </div>
     );
   };
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem('korfbal_session');
+  // ─── TeamPickerView: choose a team when user belongs to multiple ───
+  const TeamPickerView = () => (
+    <div className="min-h-screen bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
+        <div className="text-center mb-6">
+          <Trophy className="w-12 h-12 text-primary mx-auto mb-3" />
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Kies een team</h1>
+        </div>
+        <div className="space-y-3">
+          {(userTeams || []).map((t) => (
+            <button
+              key={t.teamId}
+              onClick={() => {
+                setCurrentTeam(t.teamName);
+                setCurrentTeamId(t.teamId);
+                navigateTo('home');
+              }}
+              className="w-full text-left px-5 py-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition group"
+            >
+              <div className="font-semibold text-gray-800 dark:text-gray-100 group-hover:text-primary">{t.teamName}</div>
+              <div className="text-xs text-gray-400 capitalize mt-0.5">{t.role === 'admin' ? 'Beheerder' : 'Lid'}</div>
+            </button>
+          ))}
+          <button
+            onClick={() => setForceOnboarding(true)}
+            className="w-full py-3 text-sm text-primary hover:underline"
+          >
+            + Nieuw team aanmaken
+          </button>
+        </div>
+        <div className="mt-4 text-center">
+          <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            Uitloggen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const handleLogout = useCallback(async () => {
     localStorage.removeItem('korfbal_active_match');
     setCurrentTeam(null);
     setCurrentTeamId(null);
     setCurrentMatch(null);
-    navigateTo('login');
-    showFeedback('Uitgelogd', 'success');
-  }, [navigateTo, showFeedback]);
+    await signOut();
+  }, [signOut]);
 
   const GodModeView = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -3333,15 +3404,101 @@ export default function KorfbalApp() {
         onFeedback={showFeedback}
       />
       <div key={view} className="page-transition">
-        {view === 'login' && <LoginView />}
-        {view === 'god-mode' && <GodModeView />}
-        {view === 'home' && <HomeView />}
-        {view === 'manage-players' && <ManagePlayersView />}
-        {view === 'setup-match' && <SetupMatchView />}
-        {view === 'match' && <MatchView />}
-        {view === 'match-summary' && <MatchSummaryView />}
-        {view === 'statistics' && <StatisticsView />}
+        {/* Shared match — always public, no auth needed */}
         {view === 'shared-match' && <SharedMatchView />}
+
+        {/* God Mode — special admin access via ADMIN login (bypasses Clerk) */}
+        {view === 'god-mode' && <GodModeView />}
+
+        {/* Auth-gated views */}
+        {view !== 'shared-match' && view !== 'god-mode' && (() => {
+          // Show loading while Clerk is initialising
+          if (authLoading) {
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center">
+                <div className="text-white text-center">
+                  <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-sm opacity-80">Laden...</p>
+                </div>
+              </div>
+            );
+          }
+
+          // Not logged in → Clerk SignIn component
+          if (!isAuthenticated) {
+            return (
+              <div className="min-h-screen bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center p-4">
+                <div className="w-full max-w-md">
+                  <div className="text-center mb-6">
+                    <Trophy className="w-14 h-14 text-white mx-auto mb-3" />
+                    <h1 className="text-2xl font-bold text-white">Korfbal Score App</h1>
+                    <p className="text-white/70 text-sm mt-1">Log in om verder te gaan</p>
+                  </div>
+                  <SignIn
+                    appearance={{
+                      elements: {
+                        rootBox: 'w-full',
+                        card: 'rounded-2xl shadow-2xl',
+                        headerTitle: 'hidden',
+                        headerSubtitle: 'hidden',
+                      }
+                    }}
+                    signUpUrl="/sign-up"
+                  />
+                  {/* God Mode escape hatch — hidden, for admin only */}
+                  <div className="mt-4 text-center">
+                    <button
+                      onClick={async () => {
+                        const pw = window.prompt('God Mode wachtwoord:');
+                        if (!pw) return;
+                        try {
+                          const result = await loginMutation({ team_name: 'ADMIN', password: pw });
+                          if (result.isGodMode) { setShowGodMode(true); navigateTo('god-mode'); }
+                        } catch { /* silent fail */ }
+                      }}
+                      className="text-xs text-white/20 hover:text-white/40 transition"
+                    >
+                      ···
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Logged in — waiting for team data
+          if (userTeams === undefined) {
+            return (
+              <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                <div className="text-center text-gray-400">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-sm">Teams laden...</p>
+                </div>
+              </div>
+            );
+          }
+
+          // No team yet → onboarding OR team picker requested "nieuw team"
+          if (!currentTeamId || forceOnboarding) {
+            if (userTeams.length === 0 || forceOnboarding) {
+              return <OnboardingView />;
+            }
+            // Has teams but none selected → picker
+            return <TeamPickerView />;
+          }
+
+          // Normal authenticated app views
+          return (
+            <>
+              {view === 'home' && <HomeView />}
+              {view === 'manage-players' && <ManagePlayersView />}
+              {view === 'setup-match' && <SetupMatchView />}
+              {view === 'match' && <MatchView />}
+              {view === 'match-summary' && <MatchSummaryView />}
+              {view === 'statistics' && <StatisticsView />}
+            </>
+          );
+        })()}
       </div>
       {showBottomNav && <BottomNav />}
     </div>

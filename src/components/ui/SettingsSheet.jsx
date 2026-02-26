@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Moon, Sun, Eye, EyeOff } from 'lucide-react';
-import { useMutation } from 'convex/react';
+import { X, Moon, Sun, Users, Link, Trash2, Crown, User } from 'lucide-react';
+import { useMutation, useQuery } from 'convex/react';
+import { useClerk } from '@clerk/clerk-react';
 import { api } from '../../../convex/_generated/api';
 
 const THEMES = [
@@ -13,7 +14,7 @@ const THEMES = [
 
 /**
  * Settings bottom sheet.
- * Sections: color theme, dark mode, change password, app info.
+ * Sections: color theme, dark mode, team members, account, app info.
  */
 export function SettingsSheet({
   isOpen,
@@ -26,16 +27,19 @@ export function SettingsSheet({
   onFeedback,
 }) {
   const sheetRef = useRef(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const { openUserProfile } = useClerk();
 
-  // Password change form state
-  const [currentPw, setCurrentPw] = useState('');
-  const [newPw, setNewPw] = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
-  const [showCurrentPw, setShowCurrentPw] = useState(false);
-  const [showNewPw, setShowNewPw] = useState(false);
-  const [pwLoading, setPwLoading] = useState(false);
+  // Convex queries + mutations
+  const teamMembers = useQuery(
+    api.memberships.getTeamMembers,
+    currentTeamId ? { teamId: currentTeamId } : 'skip'
+  );
+  const generateInviteMutation = useMutation(api.memberships.generateInvite);
+  const removeMemberMutation = useMutation(api.memberships.removeMember);
 
-  const changePassword = useMutation(api.auth.changePassword);
+  // Is current user an admin of this team?
+  const currentUserIsAdmin = teamMembers?.some(m => m.isCurrentUser && m.role === 'admin');
 
   // Focus trap + Escape key
   useEffect(() => {
@@ -57,38 +61,29 @@ export function SettingsSheet({
       }
     };
     document.addEventListener('keydown', handleKeyDown);
-    // Focus the close button on open
     setTimeout(() => sheetRef.current?.querySelector('[data-close]')?.focus(), 50);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Clear form when closed
-  useEffect(() => {
-    if (!isOpen) {
-      setCurrentPw(''); setNewPw(''); setConfirmPw('');
-      setShowCurrentPw(false); setShowNewPw(false);
-    }
-  }, [isOpen]);
-
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
-    if (newPw !== confirmPw) {
-      onFeedback('Nieuwe wachtwoorden komen niet overeen', 'error');
-      return;
-    }
-    if (newPw.length < 3) {
-      onFeedback('Nieuw wachtwoord moet minimaal 3 tekens zijn', 'error');
-      return;
-    }
-    setPwLoading(true);
+  const handleGenerateInvite = async () => {
     try {
-      await changePassword({ teamId: currentTeamId, currentPassword: currentPw, newPassword: newPw });
-      onFeedback('Wachtwoord succesvol gewijzigd', 'success');
-      setCurrentPw(''); setNewPw(''); setConfirmPw('');
-    } catch (err) {
-      onFeedback(err.message || 'Fout bij wijzigen wachtwoord', 'error');
-    } finally {
-      setPwLoading(false);
+      const { token } = await generateInviteMutation({ teamId: currentTeamId });
+      const url = `${window.location.origin}?invite=${token}`;
+      await navigator.clipboard.writeText(url);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 3000);
+      onFeedback('Uitnodigingslink gekopieerd!', 'success');
+    } catch (e) {
+      onFeedback(e.message || 'Fout bij genereren link', 'error');
+    }
+  };
+
+  const handleRemoveMember = async (userId) => {
+    try {
+      await removeMemberMutation({ teamId: currentTeamId, targetUserId: userId });
+      onFeedback('Lid verwijderd', 'success');
+    } catch (e) {
+      onFeedback(e.message || 'Fout bij verwijderen lid', 'error');
     }
   };
 
@@ -162,7 +157,6 @@ export function SettingsSheet({
                   {darkMode ? 'Donkere modus' : 'Lichte modus'}
                 </span>
               </div>
-              {/* Toggle pill */}
               <button
                 role="switch"
                 aria-checked={darkMode}
@@ -181,83 +175,88 @@ export function SettingsSheet({
             </div>
           </section>
 
-          {/* Section: Beveiliging */}
+          {/* Section: Teamleden */}
           {currentTeamId && (
             <section>
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-                Beveiliging
+              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4" /> Teamleden
               </h3>
-              <form onSubmit={handleChangePassword} className="space-y-3">
-                {/* Current password */}
-                <div className="relative">
-                  <input
-                    type={showCurrentPw ? 'text' : 'password'}
-                    value={currentPw}
-                    onChange={e => setCurrentPw(e.target.value)}
-                    placeholder="Huidig wachtwoord"
-                    autoComplete="current-password"
-                    required
-                    className="w-full pr-10 px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPw(v => !v)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                    aria-label={showCurrentPw ? 'Verberg wachtwoord' : 'Toon wachtwoord'}
-                  >
-                    {showCurrentPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
 
-                {/* New password */}
-                <div className="relative">
-                  <input
-                    type={showNewPw ? 'text' : 'password'}
-                    value={newPw}
-                    onChange={e => setNewPw(e.target.value)}
-                    placeholder="Nieuw wachtwoord"
-                    autoComplete="new-password"
-                    required
-                    className="w-full pr-10 px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPw(v => !v)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                    aria-label={showNewPw ? 'Verberg wachtwoord' : 'Toon wachtwoord'}
-                  >
-                    {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
+              {/* Member list */}
+              {teamMembers === undefined ? (
+                <p className="text-sm text-gray-400 dark:text-gray-500">Laden...</p>
+              ) : teamMembers.length === 0 ? (
+                <p className="text-sm text-gray-400 dark:text-gray-500">Geen leden gevonden</p>
+              ) : (
+                <ul className="space-y-1 mb-3">
+                  {teamMembers.map((m) => (
+                    <li key={m.userId} className="flex items-center justify-between py-1.5">
+                      <div className="flex items-center gap-2.5">
+                        {m.role === 'admin'
+                          ? <Crown className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                          : <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        }
+                        <div>
+                          <span className="text-sm text-gray-800 dark:text-gray-100">
+                            {m.displayName}
+                            {m.isCurrentUser && <span className="ml-1.5 text-xs text-gray-400">(jij)</span>}
+                          </span>
+                          <div className="text-xs text-gray-400">
+                            {m.role === 'admin' ? 'Beheerder' : 'Lid'}
+                          </div>
+                        </div>
+                      </div>
+                      {currentUserIsAdmin && !m.isCurrentUser && (
+                        <button
+                          onClick={() => handleRemoveMember(m.userId)}
+                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
+                          aria-label={`Verwijder ${m.displayName}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-                {/* Confirm new password */}
-                <input
-                  type="password"
-                  value={confirmPw}
-                  onChange={e => setConfirmPw(e.target.value)}
-                  placeholder="Herhaal nieuw wachtwoord"
-                  autoComplete="new-password"
-                  required
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-                />
-
+              {/* Invite link — admin only */}
+              {currentUserIsAdmin && (
                 <button
-                  type="submit"
-                  disabled={pwLoading || !currentPw || !newPw || !confirmPw}
-                  className="w-full py-2.5 rounded-lg bg-primary hover:bg-primary-dark text-white font-semibold text-sm transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleGenerateInvite}
+                  className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-lg border-2 transition text-sm font-medium ${
+                    copySuccess
+                      ? 'border-green-400 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                      : 'border-primary text-primary hover:bg-primary hover:text-white'
+                  }`}
                 >
-                  {pwLoading ? 'Bezig...' : 'Wachtwoord wijzigen'}
+                  <Link className="w-4 h-4" />
+                  {copySuccess ? 'Gekopieerd! ✓' : 'Kopieer uitnodigingslink (7 dagen geldig)'}
                 </button>
-              </form>
+              )}
             </section>
           )}
+
+          {/* Section: Account */}
+          <section>
+            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+              Account
+            </h3>
+            <button
+              onClick={() => { openUserProfile(); onClose(); }}
+              className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition text-sm text-gray-700 dark:text-gray-300"
+            >
+              Profiel &amp; wachtwoord wijzigen →
+            </button>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">Via Clerk accountbeheer</p>
+          </section>
 
           {/* Section: Over de app */}
           <section className="border-t border-gray-100 dark:border-gray-700 pt-4">
             <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
               Over de app
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Korfbal Score App v1.0</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Korfbal Score App v2.0</p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Bijhouden van korfbalstatistieken</p>
           </section>
         </div>

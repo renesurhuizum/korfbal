@@ -13,6 +13,7 @@ import type * as debug from "../debug.js";
 import type * as importData from "../importData.js";
 import type * as importMatchesDirect from "../importMatchesDirect.js";
 import type * as matches from "../matches.js";
+import type * as memberships from "../memberships.js";
 import type * as stats from "../stats.js";
 import type * as teams from "../teams.js";
 import type * as testInsert from "../testInsert.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   importData: typeof importData;
   importMatchesDirect: typeof importMatchesDirect;
   matches: typeof matches;
+  memberships: typeof memberships;
   stats: typeof stats;
   teams: typeof teams;
   testInsert: typeof testInsert;

@@ -1,6 +1,22 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+// Auth guard: verify Clerk identity + team membership
+async function requireMember(ctx: any, teamId: any, requireAdmin = false) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Niet ingelogd — log in via je e-mailadres");
+  const member = await ctx.db
+    .query("team_members")
+    .withIndex("by_team_and_user", (q: any) =>
+      q.eq("teamId", teamId).eq("userId", identity.subject)
+    )
+    .first();
+  if (!member) throw new Error("Geen toegang tot dit team");
+  if (requireAdmin && member.role !== "admin")
+    throw new Error("Beheerder-rechten vereist");
+  return member;
+}
+
 // Get all teams (God mode)
 export const getAllTeams = query({
   args: {},
@@ -17,7 +33,7 @@ export const getTeam = query({
   },
 });
 
-// Update team players
+// Update team players (requires team membership)
 export const updatePlayers = mutation({
   args: {
     teamId: v.id("teams"),
@@ -29,6 +45,7 @@ export const updatePlayers = mutation({
     ),
   },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     await ctx.db.patch(args.teamId, {
       players: args.players,
     });

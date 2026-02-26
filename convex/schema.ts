@@ -48,9 +48,9 @@ const opponentGoalValidator = v.object({
 export default defineSchema({
   teams: defineTable({
     team_name: v.string(),
-    password_hash: v.string(), // bcrypt hash (see convex/auth.ts)
+    password_hash: v.optional(v.string()), // Optional: only during migration period (PBKDF2 or plaintext)
     players: v.array(playerValidator),
-    // Fase 1 preparation: track if team has been migrated to email auth
+    // Track if team has been migrated to Clerk auth
     migrated: v.optional(v.boolean()),
   })
     .index("by_team_name", ["team_name"]), // For login lookups
@@ -72,45 +72,25 @@ export default defineSchema({
     .index("by_team_and_date", ["team_id", "date"])
     .index("by_shareable", ["shareable"]), // For public match viewing
 
-  // === Fase 1: Email authenticatie (te activeren met @convex-dev/auth) ===
-  // Requires: npm install @convex-dev/auth resend
-  // Requires: npx convex env set AUTH_RESEND_KEY <key>
-
-  users: defineTable({
-    email: v.string(),
-    emailVerified: v.optional(v.boolean()),
-    name: v.optional(v.string()),
-    // User preferences (Fase 3)
-    preferences: v.optional(v.object({
-      theme: v.optional(v.string()),    // "red" | "orange" | "blue" | "green" | "purple"
-      language: v.optional(v.string()), // "nl" | "en" (toekomstig)
-    })),
-  }).index("by_email", ["email"]),
-
-  passwordResetTokens: defineTable({
-    userId: v.id("users"),
-    token: v.string(),
-    expiresAt: v.number(),
-    used: v.boolean(),
-  }).index("by_token", ["token"]),
-
-  // === Fase 2: Multi-user teams ===
+  // === Fase 1+2: Clerk auth + multi-user teams ===
+  // Clerk handles user identity — userId is the Clerk subject (string)
 
   team_members: defineTable({
     teamId: v.id("teams"),
-    userId: v.id("users"),
-    role: v.union(v.literal("admin"), v.literal("member"), v.literal("viewer")),
+    userId: v.string(),         // Clerk subject (identity.subject)
+    role: v.union(v.literal("admin"), v.literal("member")),
     joinedAt: v.number(),
+    displayName: v.optional(v.string()), // Cached from Clerk
   })
-    .index("by_team", ["teamId"])
-    .index("by_user", ["userId"])
+    .index("by_user_id", ["userId"])
+    .index("by_team_id", ["teamId"])
     .index("by_team_and_user", ["teamId", "userId"]),
 
   team_invites: defineTable({
     teamId: v.id("teams"),
     token: v.string(),
-    createdBy: v.id("users"),
-    expiresAt: v.number(),
+    createdBy: v.string(),      // Clerk userId
+    expiresAt: v.number(),      // 7 days from creation
     usedCount: v.number(),
   }).index("by_token", ["token"]),
 
