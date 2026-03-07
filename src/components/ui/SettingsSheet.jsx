@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Moon, Sun, Users, Link, Trash2, Crown, User } from 'lucide-react';
+import { X, Moon, Sun, Users, Link, Trash2, Crown, User, RefreshCw, Plus } from 'lucide-react';
 import { useMutation, useQuery } from 'convex/react';
 import { useClerk } from '@clerk/clerk-react';
 import { api } from '../../../convex/_generated/api';
@@ -25,6 +25,8 @@ export function SettingsSheet({
   toggleDarkMode,
   currentTeamId,
   onFeedback,
+  onSwitchTeam,
+  onAddTeam,
 }) {
   const sheetRef = useRef(null);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -242,6 +244,33 @@ export function SettingsSheet({
               )}
             </section>
           )}
+
+          {/* Section: Teams */}
+          <section>
+            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+              Teams
+            </h3>
+            <div className="space-y-2">
+              {onSwitchTeam && (
+                <button
+                  onClick={onSwitchTeam}
+                  className="flex items-center gap-3 w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition text-sm text-gray-700 dark:text-gray-300"
+                >
+                  <RefreshCw className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  Team wisselen
+                </button>
+              )}
+              {onAddTeam && (
+                <button
+                  onClick={onAddTeam}
+                  className="flex items-center gap-3 w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition text-sm text-gray-700 dark:text-gray-300"
+                >
+                  <Plus className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  Team toevoegen
+                </button>
+              )}
+            </div>
+          </section>
 
           {/* Section: Account */}
           <section>
