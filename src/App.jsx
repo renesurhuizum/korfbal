@@ -253,6 +253,7 @@ export default function KorfbalApp() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [forceOnboarding, setForceOnboarding] = useState(false);
+  const [forcePicker, setForcePicker] = useState(false);
   const feedbackRef = useRef(null);
 
   // Apply dark mode class to document
@@ -442,6 +443,7 @@ export default function KorfbalApp() {
   useEffect(() => {
     if (!isAuthenticated || userTeams === undefined) return; // still loading
     if (currentTeamId) return; // already have a team selected
+    if (forcePicker || forceOnboarding) return; // user explicitly navigating
 
     if (userTeams.length === 1) {
       // Only one team → auto-select
@@ -451,7 +453,7 @@ export default function KorfbalApp() {
     }
     // 0 teams → OnboardingView (handled in routing)
     // 2+ teams → TeamPickerView (handled in routing)
-  }, [isAuthenticated, userTeams, currentTeamId]);
+  }, [isAuthenticated, userTeams, currentTeamId, forcePicker, forceOnboarding]);
 
   // Handle ?invite=TOKEN URL parameter after Clerk login
   useEffect(() => {
@@ -695,7 +697,22 @@ export default function KorfbalApp() {
             </button>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-center">
+          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-center space-y-2">
+            {userTeams && userTeams.length > 0 && (
+              <button
+                onClick={() => {
+                  setForceOnboarding(false);
+                  if (currentTeamId) {
+                    navigateTo('home');
+                  } else {
+                    setForcePicker(true);
+                  }
+                }}
+                className="block w-full text-sm text-primary hover:underline"
+              >
+                ← Terug naar mijn teams
+              </button>
+            )}
             <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
               Uitloggen
             </button>
@@ -720,6 +737,7 @@ export default function KorfbalApp() {
               onClick={() => {
                 setCurrentTeam(t.teamName);
                 setCurrentTeamId(t.teamId);
+                setForcePicker(false);
                 navigateTo('home');
               }}
               className="w-full text-left px-5 py-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition group"
@@ -729,13 +747,21 @@ export default function KorfbalApp() {
             </button>
           ))}
           <button
-            onClick={() => setForceOnboarding(true)}
+            onClick={() => { setForceOnboarding(true); setForcePicker(false); }}
             className="w-full py-3 text-sm text-primary hover:underline"
           >
-            + Nieuw team aanmaken
+            + Team aanmaken of bestaand team koppelen
           </button>
         </div>
-        <div className="mt-4 text-center">
+        <div className="mt-4 text-center space-y-2">
+          {currentTeamId && (
+            <button
+              onClick={() => { setForcePicker(false); navigateTo('home'); }}
+              className="block w-full text-sm text-primary hover:underline"
+            >
+              ← Terug naar huidig team
+            </button>
+          )}
           <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
             Uitloggen
           </button>
@@ -3500,6 +3526,8 @@ export default function KorfbalApp() {
         toggleDarkMode={toggleDarkMode}
         currentTeamId={currentTeamId}
         onFeedback={showFeedback}
+        onSwitchTeam={() => { setShowSettings(false); setForcePicker(true); setForceOnboarding(false); }}
+        onAddTeam={() => { setShowSettings(false); setForceOnboarding(true); setForcePicker(false); }}
       />
       <div key={view} className="page-transition">
         {/* Shared match — always public, no auth needed */}
@@ -3592,21 +3620,21 @@ export default function KorfbalApp() {
             );
           }
 
-          // No team yet → onboarding OR team picker requested "nieuw team"
-          if (!currentTeamId || forceOnboarding) {
+          // No team yet → onboarding OR team picker requested
+          if (!currentTeamId || forceOnboarding || forcePicker) {
             if (userTeams.length === 0 || forceOnboarding) {
               return <OnboardingView />;
             }
-            // 1 team → auto-selection useEffect will run immediately; show spinner to avoid flash
-            if (userTeams.length === 1) {
-              return (
-                <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                </div>
-              );
+            // Explicit picker request (e.g. "Team wisselen") OR 2+ teams
+            if (forcePicker || userTeams.length >= 2) {
+              return <TeamPickerView />;
             }
-            // 2+ teams → picker
-            return <TeamPickerView />;
+            // 1 team → auto-selection useEffect will run immediately; show spinner to avoid flash
+            return (
+              <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            );
           }
 
           // Normal authenticated app views
