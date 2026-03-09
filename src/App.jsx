@@ -1826,7 +1826,7 @@ export default function KorfbalApp() {
             Start wedstrijd
           </button>
             </>
-          )
+          )}
         </div>
       </div>
     );
