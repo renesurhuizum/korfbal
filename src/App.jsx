@@ -1545,6 +1545,7 @@ export default function KorfbalApp() {
     const [historicalScore, setHistoricalScore] = useState(0);
     const [historicalOpponentScore, setHistoricalOpponentScore] = useState(0);
     const [historicalGoals, setHistoricalGoals] = useState({});
+    const [historicalConceded, setHistoricalConceded] = useState({});
     // Default to today's date, formatted for date input (YYYY-MM-DD)
     const [matchDate, setMatchDate] = useState(() => {
       const today = new Date();
@@ -1610,6 +1611,22 @@ export default function KorfbalApp() {
         return;
       }
 
+      // Verify total conceded matches opponent score
+      const totalConceded = Object.values(historicalConceded).reduce((s, v) => s + (v || 0), 0);
+      if (totalConceded !== historicalOpponentScore) {
+        showFeedback(`Tegendoelpunten per speler (${totalConceded}) komen niet overeen met de tegenscore (${historicalOpponentScore})`, 'error');
+        return;
+      }
+
+      // Build opponent_goals array: one entry per conceded goal with concededBy
+      const opponentGoalsList = players.flatMap(p =>
+        Array.from({ length: historicalConceded[p.id] || 0 }, () => ({
+          type: 'other',
+          time: dateISO,
+          concededBy: p.name,
+        }))
+      );
+
       try {
         await createMatchMutation({
           teamId: currentTeamId,
@@ -1619,7 +1636,7 @@ export default function KorfbalApp() {
           players: matchPlayers,
           score: historicalScore,
           opponentScore: historicalOpponentScore,
-          opponentGoals: [],
+          opponentGoals: opponentGoalsList,
           goals: [],
           finished: true,
           historical: true,
@@ -1737,6 +1754,27 @@ export default function KorfbalApp() {
                         <span className="w-6 text-center font-semibold text-gray-800 dark:text-gray-100">{historicalGoals[player.id] || 0}</span>
                         <button onClick={() => setHistoricalGoals(g => ({ ...g, [player.id]: (g[player.id] || 0) + 1 }))}
                           className="w-7 h-7 rounded-full bg-primary text-white font-bold text-base leading-none">+</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Tegendoelpunten per speler */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+                <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-1">Tegendoelpunten per speler</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  Totaal ingevuld: {Object.values(historicalConceded).reduce((s, v) => s + (v || 0), 0)} / {historicalOpponentScore}
+                </p>
+                <div className="space-y-2">
+                  {players.map(player => (
+                    <div key={player.id} className="flex items-center justify-between py-1">
+                      <span className="text-sm text-gray-800 dark:text-gray-200">{player.name}</span>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setHistoricalConceded(g => ({ ...g, [player.id]: Math.max(0, (g[player.id] || 0) - 1) }))}
+                          className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 font-bold text-base leading-none">−</button>
+                        <span className="w-6 text-center font-semibold text-gray-800 dark:text-gray-100">{historicalConceded[player.id] || 0}</span>
+                        <button onClick={() => setHistoricalConceded(g => ({ ...g, [player.id]: (g[player.id] || 0) + 1 }))}
+                          className="w-7 h-7 rounded-full bg-red-500 text-white font-bold text-base leading-none">+</button>
                       </div>
                     </div>
                   ))}
