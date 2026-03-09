@@ -35,8 +35,11 @@ export const getTeamStats = query({
       totalGoalsFor += match.score;
       totalGoalsAgainst += match.opponent_score;
 
-      const { attempts } = matchTotals(match);
-      totalAttempts += attempts;
+      // Exclude historical matches from shot attempt stats (no tracking data available)
+      if (!match.historical) {
+        const { attempts } = matchTotals(match);
+        totalAttempts += attempts;
+      }
 
       if (match.score > match.opponent_score) totalWins++;
       else if (match.score === match.opponent_score) totalDraws++;
@@ -149,7 +152,10 @@ export const getTopPlayers = query({
           const stat = player.stats?.[shotType];
           if (stat) {
             playerStats[id].goals += stat.goals || 0;
-            playerStats[id].attempts += stat.attempts || 0;
+            // Exclude attempts from historical matches (no shot tracking)
+            if (!match.historical) {
+              playerStats[id].attempts += stat.attempts || 0;
+            }
           }
         }
       }
@@ -226,9 +232,9 @@ export const getShotTypeTrend = query({
       .filter((q) => q.eq(q.field("finished"), true))
       .collect();
 
-    const sorted = matches.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    const sorted = matches
+      .filter((m) => !m.historical)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const recentMatches = sorted.slice(0, args.n);
 
     function calcShotStats(matchList: typeof matches) {
@@ -302,9 +308,12 @@ export const getPlayerCareerStats = query({
           const s = player.stats?.[st];
           if (s) {
             players[id].goals += s.goals || 0;
-            players[id].attempts += s.attempts || 0;
             players[id].byType[st].goals += s.goals || 0;
-            players[id].byType[st].attempts += s.attempts || 0;
+            // Exclude attempts from historical matches (no shot tracking)
+            if (!(match as any).historical) {
+              players[id].attempts += s.attempts || 0;
+              players[id].byType[st].attempts += s.attempts || 0;
+            }
           }
         }
       }
