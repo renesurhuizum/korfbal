@@ -2974,8 +2974,8 @@ export default function KorfbalApp() {
             </div>
           </div>
 
-          {/* AI Trainingsadvies — zichtbaar bij ≥ 5 wedstrijden, geïsoleerde error boundary */}
-          {teamMatches.length >= 5 && (
+          {/* AI Trainingsadvies — zichtbaar bij ≥ 3 wedstrijden, geïsoleerde error boundary */}
+          {teamMatches.length >= 3 && (
             <AIAdviceCard teamId={currentTeamId} showFeedback={showFeedback} />
           )}
           </>
