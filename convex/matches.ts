@@ -58,6 +58,7 @@ export const createMatch = mutation({
     goals: v.optional(v.any()),
     finished: v.optional(v.boolean()),
     shareable: v.optional(v.boolean()),
+    historical: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Normalize players to exactly match schema (guards against stale/malformed data)
@@ -110,6 +111,7 @@ export const createMatch = mutation({
       goals,
       finished: args.finished !== false,
       shareable: args.shareable || false,
+      ...(args.historical ? { historical: true } : {}),
     });
 
     return matchId;
