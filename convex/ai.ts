@@ -46,9 +46,9 @@ export const generateTrainingAdvice = action({
     ]);
 
     const totalMatches = (teamStats as any)?.totalMatches ?? 0;
-    if (totalMatches < 5) {
+    if (totalMatches < 3) {
       throw new Error(
-        "Minimaal 5 wedstrijden nodig voor zinvol trainingsadvies"
+        "Minimaal 3 wedstrijden nodig voor zinvol trainingsadvies"
       );
     }
 
