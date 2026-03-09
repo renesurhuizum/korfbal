@@ -1593,19 +1593,20 @@ export default function KorfbalApp() {
       const dateObj = new Date(matchDate + 'T12:00:00');
       const dateISO = dateObj.toISOString();
 
-      // Build players array with goals stored in 'other', attempts = 0 everywhere
+      // Build players array with goals per shot type, attempts = 0 everywhere
       const matchPlayers = players.map(p => ({
         id: p.id,
         name: p.name,
         isStarter: false,
         stats: SHOT_TYPES.reduce((acc, type) => ({
           ...acc,
-          [type.id]: { goals: type.id === 'other' ? (historicalGoals[p.id] || 0) : 0, attempts: 0 }
+          [type.id]: { goals: historicalGoals[p.id]?.[type.id] || 0, attempts: 0 }
         }), {})
       }));
 
       // Verify total player goals matches the entered score
-      const totalPlayerGoals = Object.values(historicalGoals).reduce((s, v) => s + (v || 0), 0);
+      const totalPlayerGoals = players.reduce((sum, p) =>
+        sum + SHOT_TYPES.reduce((s, t) => s + (historicalGoals[p.id]?.[t.id] || 0), 0), 0);
       if (totalPlayerGoals !== historicalScore) {
         showFeedback(`Spelersgoals (${totalPlayerGoals}) komen niet overeen met de score (${historicalScore})`, 'error');
         return;
@@ -1738,25 +1739,42 @@ export default function KorfbalApp() {
                   </div>
                 </div>
               </div>
-              {/* Doelpunten per speler */}
+              {/* Doelpunten per speler per schottype */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
                 <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-1">Doelpunten per speler</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  Totaal ingevuld: {Object.values(historicalGoals).reduce((s, v) => s + (v || 0), 0)} / {historicalScore}
+                  Totaal ingevuld: {players.reduce((sum, p) => sum + SHOT_TYPES.reduce((s, t) => s + (historicalGoals[p.id]?.[t.id] || 0), 0), 0)} / {historicalScore}
                 </p>
-                <div className="space-y-2">
-                  {players.map(player => (
-                    <div key={player.id} className="flex items-center justify-between py-1">
-                      <span className="text-sm text-gray-800 dark:text-gray-200">{player.name}</span>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setHistoricalGoals(g => ({ ...g, [player.id]: Math.max(0, (g[player.id] || 0) - 1) }))}
-                          className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 font-bold text-base leading-none">−</button>
-                        <span className="w-6 text-center font-semibold text-gray-800 dark:text-gray-100">{historicalGoals[player.id] || 0}</span>
-                        <button onClick={() => setHistoricalGoals(g => ({ ...g, [player.id]: (g[player.id] || 0) + 1 }))}
-                          className="w-7 h-7 rounded-full bg-primary text-white font-bold text-base leading-none">+</button>
+                <div className="space-y-4">
+                  {players.map(player => {
+                    const playerTotal = SHOT_TYPES.reduce((s, t) => s + (historicalGoals[player.id]?.[t.id] || 0), 0);
+                    return (
+                      <div key={player.id}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{player.name}</span>
+                          <span className="text-xs font-semibold text-primary">{playerTotal > 0 ? `${playerTotal} doelp.` : ''}</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1">
+                          {SHOT_TYPES.map(type => (
+                            <div key={type.id} className="flex flex-col items-center bg-gray-50 dark:bg-gray-700 rounded p-1">
+                              <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">{type.short}</span>
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => setHistoricalGoals(g => ({
+                                  ...g, [player.id]: { ...(g[player.id] || {}), [type.id]: Math.max(0, (g[player.id]?.[type.id] || 0) - 1) }
+                                }))} className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-600 text-xs font-bold leading-none">−</button>
+                                <span className="w-4 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                  {historicalGoals[player.id]?.[type.id] || 0}
+                                </span>
+                                <button onClick={() => setHistoricalGoals(g => ({
+                                  ...g, [player.id]: { ...(g[player.id] || {}), [type.id]: (g[player.id]?.[type.id] || 0) + 1 }
+                                }))} className="w-5 h-5 rounded-full bg-primary text-white text-xs font-bold leading-none">+</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               {/* Tegendoelpunten per speler */}
