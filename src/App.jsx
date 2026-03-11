@@ -308,9 +308,6 @@ export default function KorfbalApp() {
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const { signOut } = useClerk();
 
-  // Tijdelijk: debug identity info
-  const debugIdentity = useQuery(api.memberships.debugIdentity, isAuthenticated ? {} : "skip");
-
   // Teams for current Clerk user (drives post-login routing)
   const userTeams = useQuery(
     api.memberships.getUserTeams,
@@ -713,16 +710,7 @@ export default function KorfbalApp() {
             </button>
           </div>
 
-          {/* TIJDELIJK: debug God Mode — verwijder na gebruik */}
-          {debugIdentity && (
-            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 rounded-lg text-xs text-left break-all">
-              <div className="font-bold text-yellow-700 dark:text-yellow-400 mb-1">🔑 Debug: Clerk identity</div>
-              <div><span className="font-mono font-semibold">subject:</span> {debugIdentity.subject || '—'}</div>
-              <div><span className="font-mono font-semibold">email:</span> {debugIdentity.email || '—'}</div>
-            </div>
-          )}
-
-          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-center space-y-2">
+<div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-center space-y-2">
             {userTeams && userTeams.length > 0 && (
               <button
                 onClick={() => {
