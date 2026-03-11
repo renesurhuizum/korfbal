@@ -52,9 +52,13 @@ export const getUserTeams = query({
 
     const result = teams.filter(Boolean);
 
-    // God Mode access via email — add pseudo-team if the logged-in email matches
+    // God Mode access via Clerk user ID or email
+    const godModeUserId = process.env.CONVEX_GOD_MODE_USER_ID;
     const godModeEmail = process.env.CONVEX_GOD_MODE_EMAIL;
-    if (godModeEmail && identity.email === godModeEmail) {
+    if (
+      (godModeUserId && identity.subject === godModeUserId) ||
+      (godModeEmail && identity.email === godModeEmail)
+    ) {
       result.unshift({
         teamId: "god-mode" as any,
         teamName: "⚡ God Mode",
