@@ -773,6 +773,20 @@ export default function KorfbalApp() {
           <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
             Uitloggen
           </button>
+          {/* God Mode escape hatch — hidden, for admin only */}
+          <button
+            onClick={async () => {
+              const pw = window.prompt('God Mode wachtwoord:');
+              if (!pw) return;
+              try {
+                const result = await loginMutation({ team_name: 'ADMIN', password: pw });
+                if (result.isGodMode) { setShowGodMode(true); navigateTo('god-mode'); }
+              } catch { /* silent fail */ }
+            }}
+            className="text-xs text-gray-200 dark:text-gray-700 hover:text-gray-400 dark:hover:text-gray-500 transition"
+          >
+            ···
+          </button>
         </div>
       </div>
     </div>
