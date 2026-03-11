@@ -455,9 +455,14 @@ export default function KorfbalApp() {
 
     if (userTeams.length === 1) {
       // Only one team → auto-select
-      setCurrentTeam(userTeams[0].teamName);
-      setCurrentTeamId(userTeams[0].teamId);
-      if (view === 'login' || view === 'onboarding') navigateTo('home');
+      if (userTeams[0].teamId === 'god-mode') {
+        setShowGodMode(true);
+        navigateTo('god-mode');
+      } else {
+        setCurrentTeam(userTeams[0].teamName);
+        setCurrentTeamId(userTeams[0].teamId);
+        if (view === 'login' || view === 'onboarding') navigateTo('home');
+      }
     }
     // 0 teams → OnboardingView (handled in routing)
     // 2+ teams → TeamPickerView (handled in routing)
@@ -743,10 +748,16 @@ export default function KorfbalApp() {
             <button
               key={t.teamId}
               onClick={() => {
-                setCurrentTeam(t.teamName);
-                setCurrentTeamId(t.teamId);
-                setForcePicker(false);
-                navigateTo('home');
+                if (t.teamId === 'god-mode') {
+                  setShowGodMode(true);
+                  setForcePicker(false);
+                  navigateTo('god-mode');
+                } else {
+                  setCurrentTeam(t.teamName);
+                  setCurrentTeamId(t.teamId);
+                  setForcePicker(false);
+                  navigateTo('home');
+                }
               }}
               className="w-full text-left px-5 py-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition group"
             >
@@ -772,6 +783,20 @@ export default function KorfbalApp() {
           )}
           <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
             Uitloggen
+          </button>
+          {/* God Mode escape hatch — hidden, for admin only */}
+          <button
+            onClick={async () => {
+              const pw = window.prompt('God Mode wachtwoord:');
+              if (!pw) return;
+              try {
+                const result = await loginMutation({ team_name: 'ADMIN', password: pw });
+                if (result.isGodMode) { setShowGodMode(true); navigateTo('god-mode'); }
+              } catch { /* silent fail */ }
+            }}
+            className="text-xs text-gray-200 dark:text-gray-700 hover:text-gray-400 dark:hover:text-gray-500 transition"
+          >
+            ···
           </button>
         </div>
       </div>
