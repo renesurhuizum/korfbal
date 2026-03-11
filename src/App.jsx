@@ -455,9 +455,14 @@ export default function KorfbalApp() {
 
     if (userTeams.length === 1) {
       // Only one team → auto-select
-      setCurrentTeam(userTeams[0].teamName);
-      setCurrentTeamId(userTeams[0].teamId);
-      if (view === 'login' || view === 'onboarding') navigateTo('home');
+      if (userTeams[0].teamId === 'god-mode') {
+        setShowGodMode(true);
+        navigateTo('god-mode');
+      } else {
+        setCurrentTeam(userTeams[0].teamName);
+        setCurrentTeamId(userTeams[0].teamId);
+        if (view === 'login' || view === 'onboarding') navigateTo('home');
+      }
     }
     // 0 teams → OnboardingView (handled in routing)
     // 2+ teams → TeamPickerView (handled in routing)
@@ -743,10 +748,16 @@ export default function KorfbalApp() {
             <button
               key={t.teamId}
               onClick={() => {
-                setCurrentTeam(t.teamName);
-                setCurrentTeamId(t.teamId);
-                setForcePicker(false);
-                navigateTo('home');
+                if (t.teamId === 'god-mode') {
+                  setShowGodMode(true);
+                  setForcePicker(false);
+                  navigateTo('god-mode');
+                } else {
+                  setCurrentTeam(t.teamName);
+                  setCurrentTeamId(t.teamId);
+                  setForcePicker(false);
+                  navigateTo('home');
+                }
               }}
               className="w-full text-left px-5 py-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition group"
             >

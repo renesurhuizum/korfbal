@@ -50,7 +50,20 @@ export const getUserTeams = query({
       })
     );
 
-    return teams.filter(Boolean);
+    const result = teams.filter(Boolean);
+
+    // God Mode access via email — add pseudo-team if the logged-in email matches
+    const godModeEmail = process.env.CONVEX_GOD_MODE_EMAIL;
+    if (godModeEmail && identity.email === godModeEmail) {
+      result.unshift({
+        teamId: "god-mode" as any,
+        teamName: "⚡ God Mode",
+        role: "admin" as any,
+        joinedAt: 0,
+      });
+    }
+
+    return result;
   },
 });
 
