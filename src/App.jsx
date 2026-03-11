@@ -262,6 +262,16 @@ export default function KorfbalApp() {
   const [showSettings, setShowSettings] = useState(false);
   const [forceOnboarding, setForceOnboarding] = useState(false);
   const [forcePicker, setForcePicker] = useState(false);
+  // SetupMatchView state — lifted here to survive Convex re-renders
+  const [setupOpponent, setSetupOpponent] = useState('');
+  const [setupSelectedPlayers, setSetupSelectedPlayers] = useState([]);
+  const [setupIsHistorical, setSetupIsHistorical] = useState(false);
+  const [setupHistoricalStep, setSetupHistoricalStep] = useState(1);
+  const [setupHistoricalScore, setSetupHistoricalScore] = useState(0);
+  const [setupHistoricalOpponentScore, setSetupHistoricalOpponentScore] = useState(0);
+  const [setupHistoricalGoals, setSetupHistoricalGoals] = useState({});
+  const [setupHistoricalConceded, setSetupHistoricalConceded] = useState({});
+  const [setupMatchDate, setSetupMatchDate] = useState(() => new Date().toISOString().split('T')[0]);
   const feedbackRef = useRef(null);
 
   // Apply dark mode class to document
@@ -1564,19 +1574,24 @@ export default function KorfbalApp() {
   };
   const SetupMatchView = () => {
     const players = currentTeamData?.players || [];
-    const [opponent, setOpponent] = useState('');
-    const [selectedPlayers, setSelectedPlayers] = useState([]);
-    const [isHistorical, setIsHistorical] = useState(false);
-    const [historicalStep, setHistoricalStep] = useState(1);
-    const [historicalScore, setHistoricalScore] = useState(0);
-    const [historicalOpponentScore, setHistoricalOpponentScore] = useState(0);
-    const [historicalGoals, setHistoricalGoals] = useState({});
-    const [historicalConceded, setHistoricalConceded] = useState({}); // { [playerId]: { [shotTypeId]: count } }
-    // Default to today's date, formatted for date input (YYYY-MM-DD)
-    const [matchDate, setMatchDate] = useState(() => {
-      const today = new Date();
-      return today.toISOString().split('T')[0];
-    });
+    const opponent = setupOpponent;
+    const setOpponent = setSetupOpponent;
+    const selectedPlayers = setupSelectedPlayers;
+    const setSelectedPlayers = setSetupSelectedPlayers;
+    const isHistorical = setupIsHistorical;
+    const setIsHistorical = setSetupIsHistorical;
+    const historicalStep = setupHistoricalStep;
+    const setHistoricalStep = setSetupHistoricalStep;
+    const historicalScore = setupHistoricalScore;
+    const setHistoricalScore = setSetupHistoricalScore;
+    const historicalOpponentScore = setupHistoricalOpponentScore;
+    const setHistoricalOpponentScore = setSetupHistoricalOpponentScore;
+    const historicalGoals = setupHistoricalGoals;
+    const setHistoricalGoals = setSetupHistoricalGoals;
+    const historicalConceded = setupHistoricalConceded; // { [playerId]: { [shotTypeId]: count } }
+    const setHistoricalConceded = setSetupHistoricalConceded;
+    const matchDate = setupMatchDate;
+    const setMatchDate = setSetupMatchDate;
 
     // Show message if no players available
     if (players.length === 0) {
@@ -1672,6 +1687,15 @@ export default function KorfbalApp() {
           historical: true,
         });
         showFeedback('Historische wedstrijd opgeslagen!', 'success');
+        setSetupOpponent('');
+        setSetupSelectedPlayers([]);
+        setSetupIsHistorical(false);
+        setSetupHistoricalStep(1);
+        setSetupHistoricalScore(0);
+        setSetupHistoricalOpponentScore(0);
+        setSetupHistoricalGoals({});
+        setSetupHistoricalConceded({});
+        setSetupMatchDate(new Date().toISOString().split('T')[0]);
         navigateTo('stats');
       } catch (e) {
         showFeedback(e.message || 'Fout bij opslaan', 'error');
@@ -1697,6 +1721,9 @@ export default function KorfbalApp() {
         team: currentTeam, opponent: opponent.trim(), date: dateISO,
         players: allPlayers, score: 0, opponentScore: 0, opponentGoals: [], goals: []
       });
+      setSetupOpponent('');
+      setSetupSelectedPlayers([]);
+      setSetupMatchDate(new Date().toISOString().split('T')[0]);
       navigateTo('match');
       showFeedback('Wedstrijd gestart!', 'success');
     };
