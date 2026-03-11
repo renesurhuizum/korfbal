@@ -1,6 +1,20 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+// Tijdelijke debug-query — verwijder na gebruik
+export const debugIdentity = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return { error: "Niet ingelogd" };
+    return {
+      subject: identity.subject,
+      email: identity.email,
+      name: identity.name,
+    };
+  },
+});
+
 // Helper: get verified identity or throw
 async function requireAuth(ctx: any) {
   const identity = await ctx.auth.getUserIdentity();
@@ -51,6 +65,9 @@ export const getUserTeams = query({
     );
 
     const result = teams.filter(Boolean);
+
+    // Debug: log identity info to Convex logs (tijdelijk)
+    console.log("[GOD MODE DEBUG] identity.subject:", identity.subject, "| identity.email:", identity.email);
 
     // God Mode access via Clerk user ID or email
     const godModeUserId = process.env.CONVEX_GOD_MODE_USER_ID;
