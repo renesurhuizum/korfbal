@@ -1,32 +1,9 @@
 "use node"; // Required for @anthropic-ai/sdk (npm package)
 
-import { action, internalMutation } from "./_generated/server";
+import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import Anthropic from "@anthropic-ai/sdk";
-
-// Persist generated advice — only called internally from the action
-export const saveAdvice = internalMutation({
-  args: {
-    teamId: v.id("teams"),
-    advice: v.string(),
-    matchCount: v.number(),
-  },
-  handler: async (ctx, args) => {
-    // Replace existing advice for this team
-    const existing = await ctx.db
-      .query("ai_advice")
-      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
-      .first();
-    if (existing) await ctx.db.delete(existing._id);
-    await ctx.db.insert("ai_advice", {
-      teamId: args.teamId,
-      advice: args.advice,
-      generatedAt: Date.now(),
-      basedOnMatchCount: args.matchCount,
-    });
-  },
-});
 
 // Generate personalised training advice using Claude
 export const generateTrainingAdvice = action({
@@ -69,7 +46,7 @@ export const generateTrainingAdvice = action({
     const advice = (message.content[0] as { type: string; text: string }).text;
 
     // Persist to database
-    await ctx.runMutation(internal.ai.saveAdvice, {
+    await ctx.runMutation(internal.aiHelpers.saveAdvice, {
       teamId: args.teamId,
       advice,
       matchCount: totalMatches,
