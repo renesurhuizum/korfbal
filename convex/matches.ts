@@ -59,6 +59,7 @@ export const createMatch = mutation({
     finished: v.optional(v.boolean()),
     shareable: v.optional(v.boolean()),
     historical: v.optional(v.boolean()),
+    withAttempts: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Normalize players to exactly match schema (guards against stale/malformed data)
@@ -112,6 +113,7 @@ export const createMatch = mutation({
       finished: args.finished !== false,
       shareable: args.shareable || false,
       ...(args.historical ? { historical: true } : {}),
+      ...(args.withAttempts !== undefined ? { with_attempts: args.withAttempts } : {}),
     });
 
     return matchId;

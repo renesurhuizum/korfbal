@@ -69,6 +69,7 @@ export default defineSchema({
     finished: v.boolean(),
     shareable: v.optional(v.boolean()), // For public sharing
     historical: v.optional(v.boolean()), // True for manually entered past matches (no shot tracking)
+    with_attempts: v.optional(v.boolean()),
   })
     .index("by_team_id", ["team_id"])
     .index("by_team_and_date", ["team_id", "date"])
