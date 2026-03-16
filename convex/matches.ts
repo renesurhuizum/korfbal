@@ -59,6 +59,7 @@ export const createMatch = mutation({
     finished: v.optional(v.boolean()),
     shareable: v.optional(v.boolean()),
     historical: v.optional(v.boolean()),
+    withAttempts: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Normalize players to exactly match schema (guards against stale/malformed data)
@@ -112,6 +113,7 @@ export const createMatch = mutation({
       finished: args.finished !== false,
       shareable: args.shareable || false,
       ...(args.historical ? { historical: true } : {}),
+      ...(args.withAttempts !== undefined ? { with_attempts: args.withAttempts } : {}),
     });
 
     return matchId;
@@ -144,7 +146,7 @@ export const deleteMatch = mutation({
   handler: async (ctx, args) => {
     const match = await ctx.db.get(args.matchId);
     if (!match) throw new Error("Wedstrijd niet gevonden");
-    await requireMember(ctx, match.team_id);
+    await requireMember(ctx, match.team_id, true);
     await ctx.db.delete(args.matchId);
   },
 });

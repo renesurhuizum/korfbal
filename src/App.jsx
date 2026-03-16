@@ -240,6 +240,144 @@ const FeedbackToast = forwardRef(function FeedbackToast(_props, ref) {
   );
 });
 
+// ─── SetupMatchView ───────────────────────────────────────────────────────────
+// Top-level component (outside KorfbalApp) to prevent keyboard dismissal bug
+// caused by component re-definition on every App render.
+function SetupMatchView({
+  currentTeamData, currentTeam,
+  opponent, setOpponent,
+  selectedPlayers, setSelectedPlayers,
+  withAttempts, setWithAttempts,
+  matchDate, setMatchDate,
+  navigateTo, handleLogout,
+  setCurrentMatch, showFeedback
+}) {
+  const players = currentTeamData?.players || [];
+
+  // Show message if no players available
+  if (players.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="bg-primary text-white p-4 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <button onClick={() => navigateTo('home')} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
+              <h1 className="text-xl font-bold">Wedstrijd instellen</h1>
+            </div>
+            <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
+          </div>
+        </div>
+        <div className="max-w-2xl mx-auto p-4 pb-24">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center">
+            <p className="text-gray-600 mb-4">Je hebt nog geen spelers toegevoegd.</p>
+            <button onClick={() => navigateTo('manage-players')}
+              className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition">
+              Spelers toevoegen
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const togglePlayer = (player) => {
+    if (selectedPlayers.find(p => p.id === player.id)) {
+      setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
+    } else if (selectedPlayers.length < 8) {
+      setSelectedPlayers([...selectedPlayers, player]);
+    }
+  };
+
+  const startMatch = () => {
+    if (!opponent.trim()) { showFeedback('Vul de tegenstander in', 'error'); return; }
+    if (opponent.trim().length < 2) { showFeedback('Tegenstander naam moet minimaal 2 tekens zijn', 'error'); return; }
+    if (selectedPlayers.length !== 8) { showFeedback(`Selecteer exact 8 basisspelers (nu: ${selectedPlayers.length})`, 'error'); return; }
+
+    const allPlayers = players.map(p => ({
+      ...p,
+      isStarter: selectedPlayers.find(sp => sp.id === p.id) ? true : false,
+      stats: SHOT_TYPES.reduce((acc, type) => ({ ...acc, [type.id]: { goals: 0, attempts: 0 } }), {})
+    }));
+
+    // Convert date to ISO string (set to noon to avoid timezone issues)
+    const dateObj = new Date(matchDate + 'T12:00:00');
+    const dateISO = dateObj.toISOString();
+
+    setCurrentMatch({
+      team: currentTeam, opponent: opponent.trim(), date: dateISO,
+      players: allPlayers, score: 0, opponentScore: 0, opponentGoals: [], goals: [],
+      withAttempts: withAttempts
+    });
+    setOpponent('');
+    setSelectedPlayers([]);
+    setWithAttempts(true);
+    setMatchDate(new Date().toISOString().split('T')[0]);
+    navigateTo('match');
+    showFeedback('Wedstrijd gestart!', 'success');
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="bg-primary text-white p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <button onClick={() => navigateTo('home')} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
+            <h1 className="text-xl font-bold">Wedstrijd instellen</h1>
+          </div>
+          <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
+        </div>
+      </div>
+      <div className="max-w-2xl mx-auto p-4 pb-24 space-y-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Tegenstander</label>
+          <input type="text" value={opponent} onChange={(e) => setOpponent(e.target.value)}
+            className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base"
+            placeholder="Naam tegenstander" />
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">Datum wedstrijd</label>
+          <input type="date" value={matchDate} onChange={(e) => setMatchDate(e.target.value)}
+            className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base" />
+          <p className="text-xs text-gray-500 mt-1">Selecteer de datum waarop de wedstrijd is/was gespeeld</p>
+        </div>
+        {/* Pogingen bijhouden toggle */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+          <button onClick={() => setWithAttempts(!withAttempts)}
+            className="flex items-center justify-between w-full">
+            <div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 text-left">Pogingen bijhouden</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-left">Schot-pogingen tellen voor percentage berekening</p>
+            </div>
+            <div className={`w-11 h-6 rounded-full transition-colors ${withAttempts ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}>
+              <div className={`w-5 h-5 bg-white rounded-full shadow mt-0.5 transition-transform ${withAttempts ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </div>
+          </button>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+          <h2 className="text-base font-semibold text-gray-800 mb-3">
+            Selecteer 8 basisspelers ({selectedPlayers.length}/8)
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            {players.map(player => (
+              <button key={player.id} onClick={() => togglePlayer(player)}
+                className={`p-3 rounded-lg font-medium transition text-sm ${
+                  selectedPlayers.find(p => p.id === player.id)
+                    ? 'bg-primary text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                }`}>
+                {player.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={startMatch} disabled={!opponent || selectedPlayers.length !== 8}
+          className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all disabled:bg-gray-400 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+          Start wedstrijd
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function KorfbalApp() {
   const [view, setView] = useState('login');
   const [currentTeam, setCurrentTeam] = useState(null);
@@ -265,12 +403,7 @@ export default function KorfbalApp() {
   // SetupMatchView state — lifted here to survive Convex re-renders
   const [setupOpponent, setSetupOpponent] = useState('');
   const [setupSelectedPlayers, setSetupSelectedPlayers] = useState([]);
-  const [setupIsHistorical, setSetupIsHistorical] = useState(false);
-  const [setupHistoricalStep, setSetupHistoricalStep] = useState(1);
-  const [setupHistoricalScore, setSetupHistoricalScore] = useState(0);
-  const [setupHistoricalOpponentScore, setSetupHistoricalOpponentScore] = useState(0);
-  const [setupHistoricalGoals, setSetupHistoricalGoals] = useState({});
-  const [setupHistoricalConceded, setSetupHistoricalConceded] = useState({});
+  const [setupWithAttempts, setSetupWithAttempts] = useState(true);
   const [setupMatchDate, setSetupMatchDate] = useState(() => new Date().toISOString().split('T')[0]);
   const feedbackRef = useRef(null);
 
@@ -340,6 +473,8 @@ export default function KorfbalApp() {
     api.matches.getShareableMatch,
     sharedMatchId ? { matchId: sharedMatchId } : "skip"
   );
+
+  const currentUserIsAdmin = userTeams?.find(t => t.teamId === currentTeamId)?.role === 'admin';
 
   // Current team query - for getting players
   const currentTeamData = useQuery(
@@ -1572,420 +1707,8 @@ export default function KorfbalApp() {
       </div>
     );
   };
-  const SetupMatchView = () => {
-    const players = currentTeamData?.players || [];
-    const opponent = setupOpponent;
-    const setOpponent = setSetupOpponent;
-    const selectedPlayers = setupSelectedPlayers;
-    const setSelectedPlayers = setSetupSelectedPlayers;
-    const isHistorical = setupIsHistorical;
-    const setIsHistorical = setSetupIsHistorical;
-    const historicalStep = setupHistoricalStep;
-    const setHistoricalStep = setSetupHistoricalStep;
-    const historicalScore = setupHistoricalScore;
-    const setHistoricalScore = setSetupHistoricalScore;
-    const historicalOpponentScore = setupHistoricalOpponentScore;
-    const setHistoricalOpponentScore = setSetupHistoricalOpponentScore;
-    const historicalGoals = setupHistoricalGoals;
-    const setHistoricalGoals = setSetupHistoricalGoals;
-    const historicalConceded = setupHistoricalConceded; // { [playerId]: { [shotTypeId]: count } }
-    const setHistoricalConceded = setSetupHistoricalConceded;
-    const matchDate = setupMatchDate;
-    const setMatchDate = setSetupMatchDate;
-
-    // Show message if no players available
-    if (players.length === 0) {
-      return (
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-          <div className="bg-primary text-white p-4 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <button onClick={() => navigateTo('home')} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
-                <h1 className="text-xl font-bold">Wedstrijd instellen</h1>
-              </div>
-              <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
-            </div>
-          </div>
-          <div className="max-w-2xl mx-auto p-4 pb-24">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center">
-              <p className="text-gray-600 mb-4">Je hebt nog geen spelers toegevoegd.</p>
-              <button onClick={() => navigateTo('manage-players')}
-                className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition">
-                Spelers toevoegen
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    const togglePlayer = (player) => {
-      if (selectedPlayers.find(p => p.id === player.id)) {
-        setSelectedPlayers(selectedPlayers.filter(p => p.id !== player.id));
-      } else if (selectedPlayers.length < 8) {
-        setSelectedPlayers([...selectedPlayers, player]);
-      }
-    };
-
-    const saveHistoricalMatch = async () => {
-      if (!opponent.trim()) { showFeedback('Vul de tegenstander in', 'error'); return; }
-      if (opponent.trim().length < 2) { showFeedback('Tegenstander naam moet minimaal 2 tekens zijn', 'error'); return; }
-
-      const dateObj = new Date(matchDate + 'T12:00:00');
-      const dateISO = dateObj.toISOString();
-
-      // Build players array with goals per shot type, attempts = 0 everywhere
-      const matchPlayers = players.map(p => ({
-        id: p.id,
-        name: p.name,
-        isStarter: false,
-        stats: SHOT_TYPES.reduce((acc, type) => ({
-          ...acc,
-          [type.id]: { goals: historicalGoals[p.id]?.[type.id] || 0, attempts: 0 }
-        }), {})
-      }));
-
-      // Verify total player goals matches the entered score
-      const totalPlayerGoals = players.reduce((sum, p) =>
-        sum + SHOT_TYPES.reduce((s, t) => s + (historicalGoals[p.id]?.[t.id] || 0), 0), 0);
-      if (totalPlayerGoals !== historicalScore) {
-        showFeedback(`Spelersgoals (${totalPlayerGoals}) komen niet overeen met de score (${historicalScore})`, 'error');
-        return;
-      }
-
-      // Verify total conceded matches opponent score
-      const totalConceded = Object.values(historicalConceded).reduce((s, types) =>
-        s + Object.values(types || {}).reduce((a, b) => a + (b || 0), 0), 0);
-      if (totalConceded !== historicalOpponentScore) {
-        showFeedback(`Tegendoelpunten per speler (${totalConceded}) komen niet overeen met de tegenscore (${historicalOpponentScore})`, 'error');
-        return;
-      }
-
-      // Build opponent_goals array: one entry per conceded goal per shot type with concededBy
-      const opponentGoalsList = players.flatMap(p =>
-        SHOT_TYPES.flatMap(type =>
-          Array.from({ length: historicalConceded[p.id]?.[type.id] || 0 }, () => ({
-            type: type.id,
-            time: dateISO,
-            concededBy: p.name,
-          }))
-        )
-      );
-
-      try {
-        await createMatchMutation({
-          teamId: currentTeamId,
-          teamName: currentTeam,
-          opponent: opponent.trim(),
-          date: dateISO,
-          players: matchPlayers,
-          score: historicalScore,
-          opponentScore: historicalOpponentScore,
-          opponentGoals: opponentGoalsList,
-          goals: [],
-          finished: true,
-          historical: true,
-        });
-        showFeedback('Historische wedstrijd opgeslagen!', 'success');
-        setSetupOpponent('');
-        setSetupSelectedPlayers([]);
-        setSetupIsHistorical(false);
-        setSetupHistoricalStep(1);
-        setSetupHistoricalScore(0);
-        setSetupHistoricalOpponentScore(0);
-        setSetupHistoricalGoals({});
-        setSetupHistoricalConceded({});
-        setSetupMatchDate(new Date().toISOString().split('T')[0]);
-        navigateTo('stats');
-      } catch (e) {
-        showFeedback(e.message || 'Fout bij opslaan', 'error');
-      }
-    };
-
-    const startMatch = () => {
-      if (!opponent.trim()) { showFeedback('Vul de tegenstander in', 'error'); return; }
-      if (opponent.trim().length < 2) { showFeedback('Tegenstander naam moet minimaal 2 tekens zijn', 'error'); return; }
-      if (selectedPlayers.length !== 8) { showFeedback(`Selecteer exact 8 basisspelers (nu: ${selectedPlayers.length})`, 'error'); return; }
-
-      const allPlayers = players.map(p => ({
-        ...p,
-        isStarter: selectedPlayers.find(sp => sp.id === p.id) ? true : false,
-        stats: SHOT_TYPES.reduce((acc, type) => ({ ...acc, [type.id]: { goals: 0, attempts: 0 } }), {})
-      }));
-
-      // Convert date to ISO string (set to noon to avoid timezone issues)
-      const dateObj = new Date(matchDate + 'T12:00:00');
-      const dateISO = dateObj.toISOString();
-
-      setCurrentMatch({
-        team: currentTeam, opponent: opponent.trim(), date: dateISO,
-        players: allPlayers, score: 0, opponentScore: 0, opponentGoals: [], goals: []
-      });
-      setSetupOpponent('');
-      setSetupSelectedPlayers([]);
-      setSetupMatchDate(new Date().toISOString().split('T')[0]);
-      navigateTo('match');
-      showFeedback('Wedstrijd gestart!', 'success');
-    };
-
-    return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-primary text-white p-4 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <button onClick={() => navigateTo('home')} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
-              <h1 className="text-xl font-bold">Wedstrijd instellen</h1>
-            </div>
-            <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
-          </div>
-        </div>
-        <div className="max-w-2xl mx-auto p-4 pb-24 space-y-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Tegenstander</label>
-            <input type="text" value={opponent} onChange={(e) => setOpponent(e.target.value)}
-              className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base"
-              placeholder="Naam tegenstander" />
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Datum wedstrijd</label>
-            <input type="date" value={matchDate} onChange={(e) => setMatchDate(e.target.value)}
-              className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base" />
-            <p className="text-xs text-gray-500 mt-1">Selecteer de datum waarop de wedstrijd is/was gespeeld</p>
-          </div>
-          {/* Historische wedstrijd toggle */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-            <button onClick={() => setIsHistorical(!isHistorical)}
-              className="flex items-center justify-between w-full">
-              <div>
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 text-left">Historische wedstrijd</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-left">Alleen eindstand + scorers — geen schot-tracking</p>
-              </div>
-              <div className={`w-11 h-6 rounded-full transition-colors ${isHistorical ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                <div className={`w-5 h-5 bg-white rounded-full shadow mt-0.5 transition-transform ${isHistorical ? 'translate-x-5' : 'translate-x-0.5'}`} />
-              </div>
-            </button>
-          </div>
-
-          {isHistorical ? (
-            <>
-              {/* Stap-indicator */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-3">
-                <div className="flex items-start justify-between text-xs">
-                  {['Eindstand', 'Doelpunten', 'Tegendoelpunten', 'Opslaan'].map((label, i) => (
-                    <div key={i} className="flex flex-col items-center flex-1">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center mb-1 text-xs font-bold transition-colors ${
-                        historicalStep === i + 1 ? 'bg-primary text-white' :
-                        historicalStep > i + 1 ? 'bg-green-500 text-white' :
-                        'bg-gray-200 dark:bg-gray-600 text-gray-500'
-                      }`}>
-                        {historicalStep > i + 1 ? '✓' : i + 1}
-                      </div>
-                      <span className={`text-center leading-tight ${historicalStep === i + 1 ? 'text-primary font-semibold' : 'text-gray-400'}`}>{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Stap 1 – Eindstand */}
-              {historicalStep === 1 && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-                  <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-4">Eindstand invoeren</h2>
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1 text-center">
-                      <p className="text-xs text-gray-500 mb-2">{currentTeam || 'Jouw team'}</p>
-                      <div className="flex items-center justify-center gap-3">
-                        <button onClick={() => setHistoricalScore(Math.max(0, historicalScore - 1))}
-                          className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 font-bold text-xl leading-none active:scale-95 transition-transform">−</button>
-                        <span className="text-5xl font-bold text-primary w-14 text-center">{historicalScore}</span>
-                        <button onClick={() => setHistoricalScore(historicalScore + 1)}
-                          className="w-10 h-10 rounded-full bg-primary text-white font-bold text-xl leading-none active:scale-95 transition-transform">+</button>
-                      </div>
-                    </div>
-                    <span className="text-3xl font-bold text-gray-300 dark:text-gray-600">–</span>
-                    <div className="flex-1 text-center">
-                      <p className="text-xs text-gray-500 mb-2">Tegenstander</p>
-                      <div className="flex items-center justify-center gap-3">
-                        <button onClick={() => setHistoricalOpponentScore(Math.max(0, historicalOpponentScore - 1))}
-                          className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 font-bold text-xl leading-none active:scale-95 transition-transform">−</button>
-                        <span className="text-5xl font-bold text-gray-600 dark:text-gray-300 w-14 text-center">{historicalOpponentScore}</span>
-                        <button onClick={() => setHistoricalOpponentScore(historicalOpponentScore + 1)}
-                          className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 font-bold text-xl leading-none active:scale-95 transition-transform">+</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Stap 2 – Doelpunten per speler */}
-              {historicalStep === 2 && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-                  <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-1">Doelpunten per speler</h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    Totaal ingevuld: <span className={`font-semibold ${players.reduce((sum, p) => sum + SHOT_TYPES.reduce((s, t) => s + (historicalGoals[p.id]?.[t.id] || 0), 0), 0) === historicalScore ? 'text-green-600' : 'text-orange-500'}`}>
-                      {players.reduce((sum, p) => sum + SHOT_TYPES.reduce((s, t) => s + (historicalGoals[p.id]?.[t.id] || 0), 0), 0)}
-                    </span> / {historicalScore}
-                  </p>
-                  <div className="space-y-4">
-                    {players.map(player => {
-                      const playerTotal = SHOT_TYPES.reduce((s, t) => s + (historicalGoals[player.id]?.[t.id] || 0), 0);
-                      return (
-                        <div key={player.id}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{player.name}</span>
-                            <span className="text-xs font-semibold text-primary">{playerTotal > 0 ? `${playerTotal} doelp.` : ''}</span>
-                          </div>
-                          <div className="grid grid-cols-4 gap-1">
-                            {SHOT_TYPES.map(type => (
-                              <div key={type.id} className="flex flex-col items-center bg-gray-50 dark:bg-gray-700 rounded p-1">
-                                <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">{type.short}</span>
-                                <div className="flex items-center gap-1">
-                                  <button onClick={() => setHistoricalGoals(g => ({
-                                    ...g, [player.id]: { ...(g[player.id] || {}), [type.id]: Math.max(0, (g[player.id]?.[type.id] || 0) - 1) }
-                                  }))} className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-600 text-xs font-bold leading-none">−</button>
-                                  <span className="w-4 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
-                                    {historicalGoals[player.id]?.[type.id] || 0}
-                                  </span>
-                                  <button onClick={() => setHistoricalGoals(g => ({
-                                    ...g, [player.id]: { ...(g[player.id] || {}), [type.id]: (g[player.id]?.[type.id] || 0) + 1 }
-                                  }))} className="w-5 h-5 rounded-full bg-primary text-white text-xs font-bold leading-none">+</button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Stap 3 – Tegendoelpunten per speler per type */}
-              {historicalStep === 3 && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-                  <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-1">Tegendoelpunten per speler</h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                    Totaal ingevuld: <span className={`font-semibold ${Object.values(historicalConceded).reduce((s, types) => s + Object.values(types || {}).reduce((a, b) => a + (b || 0), 0), 0) === historicalOpponentScore ? 'text-green-600' : 'text-orange-500'}`}>
-                      {Object.values(historicalConceded).reduce((s, types) => s + Object.values(types || {}).reduce((a, b) => a + (b || 0), 0), 0)}
-                    </span> / {historicalOpponentScore}
-                  </p>
-                  <div className="space-y-4">
-                    {players.map(player => {
-                      const playerTotal = SHOT_TYPES.reduce((s, t) => s + (historicalConceded[player.id]?.[t.id] || 0), 0);
-                      return (
-                        <div key={player.id}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{player.name}</span>
-                            <span className="text-xs font-semibold text-red-500">{playerTotal > 0 ? `${playerTotal} teg.` : ''}</span>
-                          </div>
-                          <div className="grid grid-cols-4 gap-1">
-                            {SHOT_TYPES.map(type => (
-                              <div key={type.id} className="flex flex-col items-center bg-red-50 dark:bg-gray-700 rounded p-1">
-                                <span className="text-xs text-gray-500 dark:text-gray-400 mb-1">{type.short}</span>
-                                <div className="flex items-center gap-1">
-                                  <button onClick={() => setHistoricalConceded(g => ({
-                                    ...g, [player.id]: { ...(g[player.id] || {}), [type.id]: Math.max(0, (g[player.id]?.[type.id] || 0) - 1) }
-                                  }))} className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-600 text-xs font-bold leading-none">−</button>
-                                  <span className="w-4 text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
-                                    {historicalConceded[player.id]?.[type.id] || 0}
-                                  </span>
-                                  <button onClick={() => setHistoricalConceded(g => ({
-                                    ...g, [player.id]: { ...(g[player.id] || {}), [type.id]: (g[player.id]?.[type.id] || 0) + 1 }
-                                  }))} className="w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold leading-none">+</button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Stap 4 – Samenvatting & opslaan */}
-              {historicalStep === 4 && (() => {
-                const totalGoals = players.reduce((sum, p) => sum + SHOT_TYPES.reduce((s, t) => s + (historicalGoals[p.id]?.[t.id] || 0), 0), 0);
-                const totalConceded = Object.values(historicalConceded).reduce((s, types) => s + Object.values(types || {}).reduce((a, b) => a + (b || 0), 0), 0);
-                const goalsOk = totalGoals === historicalScore;
-                const concededOk = totalConceded === historicalOpponentScore;
-                return (
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 space-y-3">
-                    <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Overzicht</h2>
-                    <div className="flex items-center justify-center gap-6 py-2">
-                      <div className="text-center">
-                        <div className="text-4xl font-bold text-primary">{historicalScore}</div>
-                        <div className="text-xs text-gray-500 mt-1">{currentTeam || 'Jouw team'}</div>
-                      </div>
-                      <div className="text-2xl text-gray-300">–</div>
-                      <div className="text-center">
-                        <div className="text-4xl font-bold text-gray-600 dark:text-gray-300">{historicalOpponentScore}</div>
-                        <div className="text-xs text-gray-500 mt-1">Tegenstander</div>
-                      </div>
-                    </div>
-                    <div className={`flex items-center gap-2 text-sm p-2 rounded ${goalsOk ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'}`}>
-                      <span>{goalsOk ? '✓' : '⚠'}</span>
-                      <span>Doelpunten: {totalGoals}/{historicalScore} ingevuld</span>
-                    </div>
-                    <div className={`flex items-center gap-2 text-sm p-2 rounded ${concededOk ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'}`}>
-                      <span>{concededOk ? '✓' : '⚠'}</span>
-                      <span>Tegendoelpunten: {totalConceded}/{historicalOpponentScore} ingevuld</span>
-                    </div>
-                    {(!goalsOk || !concededOk) && (
-                      <p className="text-xs text-orange-600 dark:text-orange-400">Ga terug en corrigeer de aantallen voor je opslaat.</p>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Navigatieknoppen */}
-              <div className="flex gap-3">
-                {historicalStep > 1 && (
-                  <button onClick={() => setHistoricalStep(s => s - 1)}
-                    className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 py-3 rounded-lg font-semibold active:scale-[0.98] transition-all">
-                    ← Vorige
-                  </button>
-                )}
-                {historicalStep < 4 ? (
-                  <button onClick={() => setHistoricalStep(s => s + 1)}
-                    className="flex-1 bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all">
-                    Volgende →
-                  </button>
-                ) : (
-                  <button onClick={saveHistoricalMatch} disabled={!opponent}
-                    className="flex-1 bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all disabled:bg-gray-400 disabled:cursor-not-allowed">
-                    Wedstrijd opslaan
-                  </button>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-            <h2 className="text-base font-semibold text-gray-800 mb-3">
-              Selecteer 8 basisspelers ({selectedPlayers.length}/8)
-            </h2>
-            <div className="grid grid-cols-2 gap-2">
-              {players.map(player => (
-                <button key={player.id} onClick={() => togglePlayer(player)}
-                  className={`p-3 rounded-lg font-medium transition text-sm ${
-                    selectedPlayers.find(p => p.id === player.id)
-                      ? 'bg-primary text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                  }`}>
-                  {player.name}
-                </button>
-              ))}
-            </div>
-          </div>
-          <button onClick={startMatch} disabled={!opponent || selectedPlayers.length !== 8}
-            className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all disabled:bg-gray-400 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-            Start wedstrijd
-          </button>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
+  // SetupMatchView is defined as a top-level component above KorfbalApp
+  // It receives all needed state as props (keyboard bug fix)
 
   const MatchView = () => {
     const [showGoalModal, setShowGoalModal] = useState(null);
@@ -2177,13 +1900,15 @@ export default function KorfbalApp() {
                 className="bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
                 Goal
               </button>
-              <button onClick={() => setShowAttemptModal(player)} disabled={isModalOpen}
-                className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                Poging
-              </button>
+              {currentMatch?.withAttempts !== false && (
+                <button onClick={() => setShowAttemptModal(player)} disabled={isModalOpen}
+                  className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 active:scale-95 transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                  Poging
+                </button>
+              )}
             </div>
           </div>
-          {isExpanded && hasStats && (
+          {isExpanded && hasStats && currentMatch?.withAttempts !== false && (
             <div className="flex flex-wrap gap-1 text-xs mt-1 pl-1">
               {SHOT_TYPES.map(type => {
                 const stat = getStat(player, type.id);
@@ -2492,14 +2217,18 @@ export default function KorfbalApp() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">📊 Wedstrijdstatistieken</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="text-center p-3 bg-red-50 rounded-lg">
-                <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
-              </div>
-              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <div className="text-3xl font-bold text-blue-600">{totalAttempts}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Totaal pogingen</div>
-              </div>
+              {match?.withAttempts !== false && totalAttempts > 0 && (
+                <div className="text-center p-3 bg-red-50 rounded-lg">
+                  <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
+                </div>
+              )}
+              {match?.withAttempts !== false && (
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <div className="text-3xl font-bold text-blue-600">{totalAttempts}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Totaal pogingen</div>
+                </div>
+              )}
               <div className="text-center p-3 bg-green-50 rounded-lg">
                 <div className="text-3xl font-bold text-green-600">{totalGoals}</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Doelpunten</div>
@@ -2582,7 +2311,7 @@ export default function KorfbalApp() {
                 <div key={player.id} className="border-b border-gray-200 dark:border-gray-600 py-4 last:border-0">
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-lg">{player.name}</span>
-                    <span className="text-gray-600 dark:text-gray-400">{totalGoals} doelpunten / {totalAttempts} pogingen ({percentage}%)</span>
+                    <span className="text-gray-600 dark:text-gray-400">{totalGoals} doelpunten{match?.withAttempts !== false && totalAttempts > 0 ? ` / ${totalAttempts} pogingen (${percentage}%)` : ''}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 text-sm">
                     {SHOT_TYPES.map(type => {
@@ -3107,6 +2836,7 @@ export default function KorfbalApp() {
                     </div>
 
                     {/* Progress bar voor score percentage */}
+                    {stats.attempts > 0 && (
                     <div className="mb-3">
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-600 dark:text-gray-400">Scorepercentage</span>
@@ -3122,6 +2852,7 @@ export default function KorfbalApp() {
                         {stats.goals} van {stats.attempts} pogingen
                       </div>
                     </div>
+                    )}
 
                     {/* Shot type details — uitklapbaar */}
                     {isExpanded && (
@@ -3322,8 +3053,10 @@ export default function KorfbalApp() {
                       >
                         📤
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteMatch(match); }}
-                        className="text-primary hover:text-red-800 text-sm font-medium min-h-[44px] min-w-[44px] flex items-center justify-center" title="Verwijder wedstrijd" aria-label="Verwijder wedstrijd">✕</button>
+                      {currentUserIsAdmin && (
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteMatch(match); }}
+                          className="text-primary hover:text-red-800 text-sm font-medium min-h-[44px] min-w-[44px] flex items-center justify-center" title="Verwijder wedstrijd" aria-label="Verwijder wedstrijd">✕</button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3448,14 +3181,18 @@ export default function KorfbalApp() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">📊 Wedstrijdstatistieken</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="text-center p-3 bg-red-50 rounded-lg">
-                <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
-              </div>
-              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <div className="text-3xl font-bold text-blue-600">{totalAttempts}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Totaal pogingen</div>
-              </div>
+              {match?.withAttempts !== false && totalAttempts > 0 && (
+                <div className="text-center p-3 bg-red-50 rounded-lg">
+                  <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
+                </div>
+              )}
+              {match?.withAttempts !== false && (
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <div className="text-3xl font-bold text-blue-600">{totalAttempts}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Totaal pogingen</div>
+                </div>
+              )}
               <div className="text-center p-3 bg-green-50 rounded-lg">
                 <div className="text-3xl font-bold text-green-600">{totalGoals}</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Doelpunten</div>
@@ -3542,7 +3279,7 @@ export default function KorfbalApp() {
                 <div key={player.id} className="border-b border-gray-200 dark:border-gray-600 py-4 last:border-0">
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-lg">{player.name}</span>
-                    <span className="text-gray-600 dark:text-gray-400">{totalGoals} doelpunten / {totalAttempts} pogingen ({percentage}%)</span>
+                    <span className="text-gray-600 dark:text-gray-400">{totalGoals} doelpunten{match?.withAttempts !== false && totalAttempts > 0 ? ` / ${totalAttempts} pogingen (${percentage}%)` : ''}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 text-sm">
                     {SHOT_TYPES.map(type => {
@@ -3664,14 +3401,18 @@ export default function KorfbalApp() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">📊 Wedstrijdstatistieken</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="text-center p-3 bg-red-50 rounded-lg">
-                <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
-              </div>
-              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <div className="text-3xl font-bold text-blue-600">{totalAttempts}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Totaal pogingen</div>
-              </div>
+              {match?.withAttempts !== false && totalAttempts > 0 && (
+                <div className="text-center p-3 bg-red-50 rounded-lg">
+                  <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
+                </div>
+              )}
+              {match?.withAttempts !== false && (
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <div className="text-3xl font-bold text-blue-600">{totalAttempts}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Totaal pogingen</div>
+                </div>
+              )}
               <div className="text-center p-3 bg-green-50 rounded-lg">
                 <div className="text-3xl font-bold text-green-600">{totalGoals}</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">Doelpunten</div>
@@ -3758,7 +3499,7 @@ export default function KorfbalApp() {
                 <div key={player.id} className="border-b border-gray-200 dark:border-gray-600 py-4 last:border-0">
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-lg">{player.name}</span>
-                    <span className="text-gray-600 dark:text-gray-400">{totalGoals} doelpunten / {totalAttempts} pogingen ({percentage}%)</span>
+                    <span className="text-gray-600 dark:text-gray-400">{totalGoals} doelpunten{match?.withAttempts !== false && totalAttempts > 0 ? ` / ${totalAttempts} pogingen (${percentage}%)` : ''}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 text-sm">
                     {SHOT_TYPES.map(type => {
@@ -3820,10 +3561,12 @@ export default function KorfbalApp() {
             📤 Deel wedstrijd met team
           </button>
 
-          <button onClick={onDelete}
-            className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark transition">
-            Wedstrijd verwijderen
-          </button>
+          {currentUserIsAdmin && (
+            <button onClick={onDelete}
+              className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark transition">
+              Wedstrijd verwijderen
+            </button>
+          )}
         </div>
       </div>
     );
@@ -4008,7 +3751,22 @@ export default function KorfbalApp() {
             <>
               {view === 'home' && <HomeView />}
               {view === 'manage-players' && <ManagePlayersView />}
-              {view === 'setup-match' && <SetupMatchView />}
+              {view === 'setup-match' && <SetupMatchView
+                currentTeamData={currentTeamData}
+                currentTeam={currentTeam}
+                opponent={setupOpponent}
+                setOpponent={setSetupOpponent}
+                selectedPlayers={setupSelectedPlayers}
+                setSelectedPlayers={setSetupSelectedPlayers}
+                withAttempts={setupWithAttempts}
+                setWithAttempts={setSetupWithAttempts}
+                matchDate={setupMatchDate}
+                setMatchDate={setSetupMatchDate}
+                navigateTo={navigateTo}
+                handleLogout={handleLogout}
+                setCurrentMatch={setCurrentMatch}
+                showFeedback={showFeedback}
+              />}
               {view === 'match' && <MatchView />}
               {view === 'match-summary' && <MatchSummaryView />}
               {view === 'statistics' && <StatisticsView />}
