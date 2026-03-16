@@ -474,6 +474,8 @@ export default function KorfbalApp() {
     sharedMatchId ? { matchId: sharedMatchId } : "skip"
   );
 
+  const currentUserIsAdmin = userTeams?.find(t => t.teamId === currentTeamId)?.role === 'admin';
+
   // Current team query - for getting players
   const currentTeamData = useQuery(
     api.teams.getTeam,
@@ -3051,8 +3053,10 @@ export default function KorfbalApp() {
                       >
                         📤
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDeleteMatch(match); }}
-                        className="text-primary hover:text-red-800 text-sm font-medium min-h-[44px] min-w-[44px] flex items-center justify-center" title="Verwijder wedstrijd" aria-label="Verwijder wedstrijd">✕</button>
+                      {currentUserIsAdmin && (
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteMatch(match); }}
+                          className="text-primary hover:text-red-800 text-sm font-medium min-h-[44px] min-w-[44px] flex items-center justify-center" title="Verwijder wedstrijd" aria-label="Verwijder wedstrijd">✕</button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3557,10 +3561,12 @@ export default function KorfbalApp() {
             📤 Deel wedstrijd met team
           </button>
 
-          <button onClick={onDelete}
-            className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark transition">
-            Wedstrijd verwijderen
-          </button>
+          {currentUserIsAdmin && (
+            <button onClick={onDelete}
+              className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark transition">
+              Wedstrijd verwijderen
+            </button>
+          )}
         </div>
       </div>
     );

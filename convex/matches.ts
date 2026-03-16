@@ -146,7 +146,7 @@ export const deleteMatch = mutation({
   handler: async (ctx, args) => {
     const match = await ctx.db.get(args.matchId);
     if (!match) throw new Error("Wedstrijd niet gevonden");
-    await requireMember(ctx, match.team_id);
+    await requireMember(ctx, match.team_id, true);
     await ctx.db.delete(args.matchId);
   },
 });
