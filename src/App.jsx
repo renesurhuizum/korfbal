@@ -2570,21 +2570,34 @@ export default function KorfbalApp() {
 
       teamMatches.forEach(match => {
         if (!match.players || !Array.isArray(match.players)) return;
+        const hasAttempts = match.with_attempts !== false;
         match.players.forEach(player => {
           if (!player || !player.name) return;
           if (!stats[player.name]) {
             stats[player.name] = {
-              matches: 0, goals: 0, attempts: 0,
-              byType: SHOT_TYPES.reduce((acc, type) => ({ ...acc, [type.id]: { goals: 0, attempts: 0 } }), {})
+              matches: 0,
+              goals: 0,         // alle doelpunten (compleet)
+              attemptGoals: 0,  // doelpunten alleen uit wedstrijden met pogingen
+              attempts: 0,      // pogingen alleen uit wedstrijden met pogingen
+              byType: SHOT_TYPES.reduce((acc, type) => ({
+                ...acc,
+                [type.id]: { goals: 0, attemptGoals: 0, attempts: 0 }
+              }), {})
             };
           }
           stats[player.name].matches++;
           SHOT_TYPES.forEach(type => {
             const typeStats = player.stats?.[type.id] || { goals: 0, attempts: 0 };
-            stats[player.name].goals += typeStats.goals || 0;
-            stats[player.name].attempts += typeStats.attempts || 0;
-            stats[player.name].byType[type.id].goals += typeStats.goals || 0;
-            stats[player.name].byType[type.id].attempts += typeStats.attempts || 0;
+            const g = typeStats.goals || 0;
+            const a = typeStats.attempts || 0;
+            stats[player.name].goals += g;
+            stats[player.name].byType[type.id].goals += g;
+            if (hasAttempts) {
+              stats[player.name].attemptGoals += g;
+              stats[player.name].attempts += a;
+              stats[player.name].byType[type.id].attemptGoals += g;
+              stats[player.name].byType[type.id].attempts += a;
+            }
           });
         });
       });
@@ -2996,7 +3009,7 @@ export default function KorfbalApp() {
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Speler statistieken</h2>
             <div className="space-y-4">
               {Object.entries(playerStats).sort(([, a], [, b]) => b.goals - a.goals).map(([name, stats], index) => {
-                const percentage = stats.attempts > 0 ? Math.round((stats.goals / stats.attempts) * 100) : 0;
+                const percentage = stats.attempts > 0 ? Math.round((stats.attemptGoals / stats.attempts) * 100) : 0;
                 const avgPerMatch = stats.matches > 0 ? (stats.goals / stats.matches).toFixed(1) : 0;
 
                 // Bepaal kleur op basis van percentage
@@ -3071,7 +3084,7 @@ export default function KorfbalApp() {
                         ></div>
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        {stats.goals} van {stats.attempts} pogingen
+                        {stats.attemptGoals} van {stats.attempts} pogingen
                       </div>
                     </div>
                     )}
@@ -3082,7 +3095,7 @@ export default function KorfbalApp() {
                         {SHOT_TYPES.map(type => {
                           const typeStat = stats.byType[type.id];
                           if (typeStat.attempts === 0) return null;
-                          const typePercentage = Math.round((typeStat.goals / typeStat.attempts) * 100);
+                          const typePercentage = Math.round((typeStat.attemptGoals / typeStat.attempts) * 100);
 
                           let typeColor = 'bg-gray-100 border-gray-300 dark:border-gray-600';
                           if (typePercentage >= 70) typeColor = 'bg-green-50 border-green-300';
@@ -3093,7 +3106,7 @@ export default function KorfbalApp() {
                           return (
                             <div key={type.id} className={`${typeColor} border px-2 py-1 rounded text-xs`}>
                               <div className="font-semibold">{type.short}</div>
-                              <div>{typeStat.goals}/{typeStat.attempts} ({typePercentage}%)</div>
+                              <div>{typeStat.attemptGoals}/{typeStat.attempts} ({typePercentage}%)</div>
                             </div>
                           );
                         })}
