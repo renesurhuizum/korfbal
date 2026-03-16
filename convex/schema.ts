@@ -70,10 +70,19 @@ export default defineSchema({
     shareable: v.optional(v.boolean()), // For public sharing
     historical: v.optional(v.boolean()), // True for manually entered past matches (no shot tracking)
     with_attempts: v.optional(v.boolean()),
+    season_id: v.optional(v.id("seasons")),
+    competition: v.optional(v.string()), // "veld" | "zaal"
   })
     .index("by_team_id", ["team_id"])
     .index("by_team_and_date", ["team_id", "date"])
     .index("by_shareable", ["shareable"]), // For public match viewing
+
+  seasons: defineTable({
+    teamId: v.id("teams"),
+    name: v.string(),        // bijv. "2024-2025"
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  }).index("by_team_id", ["teamId"]),
 
   // === Fase 1+2: Clerk auth + multi-user teams ===
   // Clerk handles user identity — userId is the Clerk subject (string)
