@@ -249,6 +249,8 @@ function SetupMatchView({
   selectedPlayers, setSelectedPlayers,
   withAttempts, setWithAttempts,
   matchDate, setMatchDate,
+  seasons, seasonId, setSeasonId,
+  competition, setCompetition,
   navigateTo, handleLogout,
   setCurrentMatch, showFeedback
 }) {
@@ -306,12 +308,15 @@ function SetupMatchView({
     setCurrentMatch({
       team: currentTeam, opponent: opponent.trim(), date: dateISO,
       players: allPlayers, score: 0, opponentScore: 0, opponentGoals: [], goals: [],
-      withAttempts: withAttempts
+      withAttempts: withAttempts,
+      ...(seasonId ? { seasonId, competition } : {})
     });
     setOpponent('');
     setSelectedPlayers([]);
     setWithAttempts(true);
     setMatchDate(new Date().toISOString().split('T')[0]);
+    setSeasonId(null);
+    setCompetition('veld');
     navigateTo('match');
     showFeedback('Wedstrijd gestart!', 'success');
   };
@@ -353,6 +358,46 @@ function SetupMatchView({
             </div>
           </button>
         </div>
+        {/* Seizoen picker */}
+        {seasons && seasons.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 space-y-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Seizoen</label>
+              <select
+                value={seasonId || ''}
+                onChange={e => setSeasonId(e.target.value || null)}
+                className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base"
+              >
+                <option value="">Geen seizoen</option>
+                {seasons.map(s => (
+                  <option key={s._id} value={s._id}>
+                    {s.name}{s.isActive ? ' (actief)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {seasonId && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Competitie</label>
+                <div className="flex gap-2">
+                  {['veld', 'zaal'].map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setCompetition(type)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-semibold capitalize transition ${
+                        competition === type
+                          ? 'bg-primary text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
           <h2 className="text-base font-semibold text-gray-800 mb-3">
             Selecteer 8 basisspelers ({selectedPlayers.length}/8)
@@ -405,6 +450,8 @@ export default function KorfbalApp() {
   const [setupSelectedPlayers, setSetupSelectedPlayers] = useState([]);
   const [setupWithAttempts, setSetupWithAttempts] = useState(true);
   const [setupMatchDate, setSetupMatchDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [setupSeasonId, setSetupSeasonId] = useState(null);   // null = geen seizoen
+  const [setupCompetition, setSetupCompetition] = useState('veld');
   const feedbackRef = useRef(null);
 
   // Apply dark mode class to document
@@ -482,6 +529,12 @@ export default function KorfbalApp() {
     currentTeamId && !showGodMode ? { teamId: currentTeamId } : "skip"
   );
 
+  // Seasons query
+  const seasons = useQuery(
+    api.seasons.getSeasons,
+    currentTeamId && !showGodMode ? { teamId: currentTeamId } : "skip"
+  );
+
   // Debounce currentMatch to reduce localStorage writes
   const debouncedMatch = useDebounce(currentMatch, 500);
 
@@ -491,6 +544,14 @@ export default function KorfbalApp() {
       setColorTheme(currentTeamData.color_theme);
     }
   }, [currentTeamData?.color_theme]);
+
+  // Auto-select active season for new matches
+  useEffect(() => {
+    if (seasons && seasons.length > 0) {
+      const active = seasons.find(s => s.isActive);
+      if (active) setSetupSeasonId(active._id);
+    }
+  }, [seasons]);
 
   // AI training advice — rendered via isolated AIAdviceCard component below
 
@@ -531,7 +592,7 @@ export default function KorfbalApp() {
 
   // Auto-save currentMatch to localStorage (debounced)
   useEffect(() => {
-    if (debouncedMatch && currentTeamId) {
+    if (debouncedMatch && currentTeamId && !debouncedMatch._id) {
       const matchData = {
         match: debouncedMatch,
         teamId: currentTeamId,
@@ -659,6 +720,8 @@ export default function KorfbalApp() {
   const createMatchMutation = useMutation(api.matches.createMatch);
   const updateMatchMutation = useMutation(api.matches.updateMatch);
   const deleteMatchMutation = useMutation(api.matches.deleteMatch);
+  const createSeasonMutation = useMutation(api.seasons.createSeason);
+  const closeSeasonMutation = useMutation(api.seasons.closeSeason);
 
   const saveTeamPlayers = async (teamId, players) => {
     try {
@@ -727,6 +790,7 @@ export default function KorfbalApp() {
         goals: normalizedGoals,
         finished: true,
         shareable: false,
+        ...(match.seasonId ? { seasonId: match.seasonId, competition: match.competition } : {}),
       };
       console.error('saveMatch payload:', JSON.stringify(payload, null, 2));
       const matchId = await createMatchMutation(payload);
@@ -1284,6 +1348,43 @@ export default function KorfbalApp() {
   const HomeView = () => {
     const teamMatches = matches.filter(m => m.team_id === currentTeamId);
     const [savedMatchInfo, setSavedMatchInfo] = useState(null);
+    const [showNewSeasonForm, setShowNewSeasonForm] = useState(false);
+    const [newSeasonName, setNewSeasonName] = useState('');
+
+    const activeSeason = (seasons || []).find(s => s.isActive) || null;
+
+    const handleCreateSeason = async () => {
+      if (!newSeasonName.trim() || newSeasonName.trim().length < 2) {
+        showFeedback('Vul een seizoensnaam in (bijv. "2025-2026")', 'error');
+        return;
+      }
+      try {
+        await createSeasonMutation({ teamId: currentTeamId, name: newSeasonName.trim() });
+        showFeedback(`Seizoen "${newSeasonName.trim()}" gestart!`, 'success');
+        setNewSeasonName('');
+        setShowNewSeasonForm(false);
+      } catch (e) {
+        showFeedback('Fout bij aanmaken seizoen', 'error');
+      }
+    };
+
+    const handleCloseSeason = () => {
+      if (!activeSeason) return;
+      showConfirm({
+        title: 'Seizoen afsluiten',
+        message: `Seizoen "${activeSeason.name}" afsluiten? Je kunt het daarna niet meer als actief seizoen gebruiken.`,
+        confirmLabel: 'Afsluiten',
+        variant: 'danger',
+        onConfirm: async () => {
+          try {
+            await closeSeasonMutation({ seasonId: activeSeason._id });
+            showFeedback(`Seizoen "${activeSeason.name}" afgesloten`, 'success');
+          } catch (e) {
+            showFeedback('Fout bij afsluiten seizoen', 'error');
+          }
+        }
+      });
+    };
 
     // Check for saved match when HomeView loads
     useEffect(() => {
@@ -1419,6 +1520,78 @@ export default function KorfbalApp() {
               <p className="text-sm text-gray-600 dark:text-gray-400">{teamMatches.length} wedstrijden gespeeld</p>
             </div>
           </button>
+
+          {/* Seizoenbeheer */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Seizoen</h2>
+              {activeSeason ? (
+                <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full font-medium">
+                  Actief
+                </span>
+              ) : (
+                <span className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 px-2 py-1 rounded-full font-medium">
+                  Geen actief seizoen
+                </span>
+              )}
+            </div>
+            {activeSeason ? (
+              <div className="space-y-3">
+                <p className="text-gray-700 dark:text-gray-300 font-semibold">{activeSeason.name}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setShowNewSeasonForm(true); setNewSeasonName(''); }}
+                    className="flex-1 bg-primary text-white py-2 px-3 rounded-lg text-sm font-semibold hover:bg-primary-dark transition"
+                  >
+                    Nieuw seizoen
+                  </button>
+                  <button
+                    onClick={handleCloseSeason}
+                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 px-3 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                  >
+                    Afsluiten
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Start een seizoen om wedstrijden en statistieken per seizoen bij te houden.</p>
+                <button
+                  onClick={() => { setShowNewSeasonForm(true); setNewSeasonName(''); }}
+                  className="w-full bg-primary text-white py-2 px-3 rounded-lg text-sm font-semibold hover:bg-primary-dark transition"
+                >
+                  Nieuw seizoen starten
+                </button>
+              </div>
+            )}
+            {showNewSeasonForm && (
+              <div className="mt-3 space-y-2">
+                <input
+                  type="text"
+                  value={newSeasonName}
+                  onChange={e => setNewSeasonName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCreateSeason(); if (e.key === 'Escape') setShowNewSeasonForm(false); }}
+                  placeholder='bijv. "2025-2026"'
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCreateSeason}
+                    className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-semibold hover:bg-primary-dark transition"
+                  >
+                    Starten
+                  </button>
+                  <button
+                    onClick={() => setShowNewSeasonForm(false)}
+                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                  >
+                    Annuleren
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -1934,16 +2107,15 @@ export default function KorfbalApp() {
           </div>
           <div className="flex justify-between items-center mb-2">
             <h1 className="text-xl font-bold">{currentMatch.team} - {currentMatch.opponent}</h1>
-            {actionHistory.length > 0 && (
-              <button
-                onClick={undoLastAction}
-                className="bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-lg text-sm font-semibold transition flex items-center gap-1"
-                aria-label="Laatste actie ongedaan maken"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Undo
-              </button>
-            )}
+            <button
+              onClick={undoLastAction}
+              disabled={actionHistory.length === 0}
+              className="bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-lg text-sm font-semibold transition flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Laatste actie ongedaan maken"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Terug
+            </button>
           </div>
           <div className="text-center">
             <div key={scoreAnimKey} className="text-5xl font-bold score-pop">{currentMatch.score} - {currentMatch.opponentScore}</div>
@@ -2369,6 +2541,8 @@ export default function KorfbalApp() {
     const [comparePlayer1, setComparePlayer1] = useState('');
     const [comparePlayer2, setComparePlayer2] = useState('');
     const [expandedPlayer, setExpandedPlayer] = useState(null);
+    const [filterSeasonId, setFilterSeasonId] = useState(null); // null = alle seizoenen
+    const [filterCompetition, setFilterCompetition] = useState(null); // null = beide
 
     // Server-side stats queries
     const formLast5 = useQuery(api.stats.getFormLastN, currentTeamId ? { teamId: currentTeamId, n: 5 } : 'skip');
@@ -2380,10 +2554,15 @@ export default function KorfbalApp() {
     const shotTypeTrend = useQuery(api.stats.getShotTypeTrend, currentTeamId ? { teamId: currentTeamId, n: 10 } : 'skip');
     const careerStats = useQuery(api.stats.getPlayerCareerStats, currentTeamId ? { teamId: currentTeamId } : 'skip');
 
-    // Memoize team matches filter
+    // Memoize team matches filter (with optional season/competition filter)
     const teamMatches = useMemo(() => {
-      return matches.filter(m => m.team_id === currentTeamId);
-    }, [matches, currentTeamId]);
+      return matches.filter(m => {
+        if (m.team_id !== currentTeamId) return false;
+        if (filterSeasonId && m.season_id !== filterSeasonId) return false;
+        if (filterCompetition && m.competition !== filterCompetition) return false;
+        return true;
+      });
+    }, [matches, currentTeamId, filterSeasonId, filterCompetition]);
 
     // Memoize expensive player stats calculation
     const playerStats = useMemo(() => {
@@ -2469,6 +2648,41 @@ export default function KorfbalApp() {
           </div>
         </div>
         <div className="max-w-4xl mx-auto p-6 pb-24 space-y-6">
+          {/* Seizoen / competitie filter */}
+          {seasons && seasons.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 flex flex-wrap gap-2 items-center">
+              <span className="text-sm font-semibold text-gray-600 dark:text-gray-400 mr-1">Seizoen:</span>
+              <button
+                onClick={() => { setFilterSeasonId(null); setFilterCompetition(null); }}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition ${!filterSeasonId ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
+              >
+                Alle
+              </button>
+              {seasons.map(s => (
+                <button
+                  key={s._id}
+                  onClick={() => { setFilterSeasonId(s._id); setFilterCompetition(null); }}
+                  className={`px-3 py-1 rounded-full text-sm font-medium transition ${filterSeasonId === s._id ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
+                >
+                  {s.name}
+                </button>
+              ))}
+              {filterSeasonId && (
+                <>
+                  <span className="text-gray-300 dark:text-gray-600">|</span>
+                  {[null, 'veld', 'zaal'].map(type => (
+                    <button
+                      key={type ?? 'all'}
+                      onClick={() => setFilterCompetition(type)}
+                      className={`px-3 py-1 rounded-full text-sm font-medium capitalize transition ${filterCompetition === type ? 'bg-gray-700 text-white dark:bg-gray-200 dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
+                    >
+                      {type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Alle competities'}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
           {teamMatches === undefined ? (
             <>
               <SkeletonCard lines={4} />
@@ -2478,12 +2692,20 @@ export default function KorfbalApp() {
           ) : teamMatches.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
               <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h2 className="text-xl font-bold text-gray-800 mb-2">Nog geen statistieken</h2>
-              <p className="text-gray-500 mb-6">Speel je eerste wedstrijd om statistieken te verzamelen</p>
-              <button onClick={() => navigateTo('setup-match')}
-                className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-95 transition-all">
-                Nieuwe wedstrijd starten
-              </button>
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                {filterSeasonId ? 'Geen wedstrijden in deze selectie' : 'Nog geen statistieken'}
+              </h2>
+              <p className="text-gray-500 mb-6">
+                {filterSeasonId
+                  ? 'Er zijn geen wedstrijden gevonden voor het geselecteerde seizoen of competitie.'
+                  : 'Speel je eerste wedstrijd om statistieken te verzamelen'}
+              </p>
+              {!filterSeasonId && (
+                <button onClick={() => navigateTo('setup-match')}
+                  className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-95 transition-all">
+                  Nieuwe wedstrijd starten
+                </button>
+              )}
             </div>
           ) : (
           <>
@@ -3762,6 +3984,11 @@ export default function KorfbalApp() {
                 setWithAttempts={setSetupWithAttempts}
                 matchDate={setupMatchDate}
                 setMatchDate={setSetupMatchDate}
+                seasons={seasons || []}
+                seasonId={setupSeasonId}
+                setSeasonId={setSetupSeasonId}
+                competition={setupCompetition}
+                setCompetition={setSetupCompetition}
                 navigateTo={navigateTo}
                 handleLogout={handleLogout}
                 setCurrentMatch={setCurrentMatch}
