@@ -1916,10 +1916,8 @@ export default function KorfbalApp() {
     const addGoal = (playerId, shotType) => {
       // Haptic feedback on supported devices
       if (navigator.vibrate) navigator.vibrate(50);
+      setActionHistory(prev => [...prev, { type: 'goal', match: currentMatch }]);
       setCurrentMatch(prevMatch => {
-        // Save current state to history
-        setActionHistory(prev => [...prev, { type: 'goal', match: prevMatch }]);
-
         const updatedPlayers = prevMatch.players.map(p => {
           if (p.id === playerId) {
             const newStats = {
@@ -1954,10 +1952,8 @@ export default function KorfbalApp() {
     };
 
     const addAttempt = (playerId, shotType) => {
+      setActionHistory(prev => [...prev, { type: 'attempt', match: currentMatch }]);
       setCurrentMatch(prevMatch => {
-        // Save current state to history
-        setActionHistory(prev => [...prev, { type: 'attempt', match: prevMatch }]);
-
         const updatedPlayers = prevMatch.players.map(p => {
           if (p.id === playerId) {
             const newStats = {
@@ -1985,10 +1981,8 @@ export default function KorfbalApp() {
 
     const addOpponentGoalWithPlayer = (playerId, shotType) => {
       if (navigator.vibrate) navigator.vibrate([30, 30, 30]);
+      setActionHistory(prev => [...prev, { type: 'opponent_goal', match: currentMatch }]);
       setCurrentMatch(prevMatch => {
-        // Save current state to history
-        setActionHistory(prev => [...prev, { type: 'opponent_goal', match: prevMatch }]);
-
         const player = prevMatch.players.find(p => p.id === playerId);
         showFeedback(`Tegendoelpunt tegen ${player?.name || 'Onbekend'}`, 'error');
 
