@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun, Cog, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun, Cog, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { useMutation, useQuery, useAction, useConvexAuth } from "convex/react";
 import { useClerk, SignIn, SignUp } from "@clerk/clerk-react";
 import { api } from "../convex/_generated/api";
@@ -2113,8 +2113,8 @@ export default function KorfbalApp() {
               className="bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-lg text-sm font-semibold transition flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
               aria-label="Laatste actie ongedaan maken"
             >
-              <ArrowLeft className="w-4 h-4" />
-              Terug
+              <RotateCcw className="w-4 h-4" />
+              Ongedaan
             </button>
           </div>
           <div className="text-center">
