@@ -311,6 +311,7 @@ function SetupMatchView({
       withAttempts: withAttempts,
       ...(seasonId ? { seasonId, competition } : {})
     });
+    setMatchActionHistory([]);
     setOpponent('');
     setSelectedPlayers([]);
     setWithAttempts(true);
@@ -428,6 +429,7 @@ export default function KorfbalApp() {
   const [currentTeam, setCurrentTeam] = useState(null);
   const [currentTeamId, setCurrentTeamId] = useState(null);
   const [currentMatch, setCurrentMatch] = useState(null);
+  const [matchActionHistory, setMatchActionHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showGodMode, setShowGodMode] = useState(false);
   const [sharedMatchId, setSharedMatchId] = useState(null);
@@ -1888,7 +1890,8 @@ export default function KorfbalApp() {
     const [showAttemptModal, setShowAttemptModal] = useState(null);
     const [showOpponentModal, setShowOpponentModal] = useState(false);
     const [showOpponentPlayerModal, setShowOpponentPlayerModal] = useState(null);
-    const [actionHistory, setActionHistory] = useState([]);
+    const actionHistory = matchActionHistory;
+    const setActionHistory = setMatchActionHistory;
     const [scoreAnimKey, setScoreAnimKey] = useState(0);
     const [expandedPlayers, setExpandedPlayers] = useState(new Set());
 
