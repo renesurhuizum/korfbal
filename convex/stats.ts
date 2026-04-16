@@ -19,13 +19,19 @@ function matchTotals(match: any) {
 
 // Team season summary stats
 export const getTeamStats = query({
-  args: { teamId: v.id("teams") },
+  args: {
+    teamId: v.id("teams"),
+    seasonId: v.optional(v.id("seasons")),
+    competition: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const matches = await ctx.db
+    let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
       .filter((q) => q.eq(q.field("finished"), true))
       .collect();
+    if (args.seasonId) matches = matches.filter((m) => m.season_id === args.seasonId);
+    if (args.competition) matches = matches.filter((m) => m.competition === args.competition);
 
     let totalWins = 0, totalDraws = 0, totalLosses = 0;
     let totalGoalsFor = 0, totalGoalsAgainst = 0;
@@ -67,13 +73,20 @@ export const getTeamStats = query({
 
 // Last N matches as W/D/V form
 export const getFormLastN = query({
-  args: { teamId: v.id("teams"), n: v.number() },
+  args: {
+    teamId: v.id("teams"),
+    n: v.number(),
+    seasonId: v.optional(v.id("seasons")),
+    competition: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const matches = await ctx.db
+    let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_and_date", (q) => q.eq("team_id", args.teamId))
       .filter((q) => q.eq(q.field("finished"), true))
       .collect();
+    if (args.seasonId) matches = matches.filter((m) => m.season_id === args.seasonId);
+    if (args.competition) matches = matches.filter((m) => m.competition === args.competition);
 
     const sorted = matches.sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -99,13 +112,19 @@ export const getFormLastN = query({
 
 // Goals per month for trend chart
 export const getTrendByMonth = query({
-  args: { teamId: v.id("teams") },
+  args: {
+    teamId: v.id("teams"),
+    seasonId: v.optional(v.id("seasons")),
+    competition: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const matches = await ctx.db
+    let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
       .filter((q) => q.eq(q.field("finished"), true))
       .collect();
+    if (args.seasonId) matches = matches.filter((m) => m.season_id === args.seasonId);
+    if (args.competition) matches = matches.filter((m) => m.competition === args.competition);
 
     const byMonth: Record<string, { month: string; goalsFor: number; goalsAgainst: number; matches: number; wins: number }> = {};
 
@@ -131,13 +150,20 @@ export const getTrendByMonth = query({
 
 // Top players by goals
 export const getTopPlayers = query({
-  args: { teamId: v.id("teams"), limit: v.number() },
+  args: {
+    teamId: v.id("teams"),
+    limit: v.number(),
+    seasonId: v.optional(v.id("seasons")),
+    competition: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const matches = await ctx.db
+    let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
       .filter((q) => q.eq(q.field("finished"), true))
       .collect();
+    if (args.seasonId) matches = matches.filter((m) => m.season_id === args.seasonId);
+    if (args.competition) matches = matches.filter((m) => m.competition === args.competition);
 
     const playerStats: Record<string, { name: string; goals: number; attempts: number; matches: number }> = {};
 
@@ -178,13 +204,19 @@ export const getTopPlayers = query({
 
 // Win percentage per opponent
 export const getOpponentStats = query({
-  args: { teamId: v.id("teams") },
+  args: {
+    teamId: v.id("teams"),
+    seasonId: v.optional(v.id("seasons")),
+    competition: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
-    const matches = await ctx.db
+    let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
       .filter((q) => q.eq(q.field("finished"), true))
       .collect();
+    if (args.seasonId) matches = matches.filter((m) => m.season_id === args.seasonId);
+    if (args.competition) matches = matches.filter((m) => m.competition === args.competition);
 
     const opponents: Record<string, { name: string; played: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number }> = {};
 
@@ -388,5 +420,48 @@ export const getPlayerOfMonth = query({
       .sort((a, b) => b.goals - a.goals);
 
     return ranked[0] || null;
+  },
+});
+
+// Current win/loss streak
+export const getCurrentStreak = query({
+  args: {
+    teamId: v.id("teams"),
+    seasonId: v.optional(v.id("seasons")),
+    competition: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let matches = await ctx.db
+      .query("matches")
+      .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
+      .filter((q) => q.eq(q.field("finished"), true))
+      .collect();
+    if (args.seasonId) matches = matches.filter((m) => m.season_id === args.seasonId);
+    if (args.competition) matches = matches.filter((m) => m.competition === args.competition);
+
+    const sorted = matches.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    if (sorted.length === 0) return null;
+
+    const getResult = (m: any): "W" | "D" | "V" => {
+      if (m.score > m.opponent_score) return "W";
+      if (m.score === m.opponent_score) return "D";
+      return "V";
+    };
+
+    const firstResult = getResult(sorted[0]);
+    let count = 1;
+
+    for (let i = 1; i < sorted.length; i++) {
+      if (getResult(sorted[i]) === firstResult) {
+        count++;
+      } else {
+        break;
+      }
+    }
+
+    return { type: firstResult, count };
   },
 });

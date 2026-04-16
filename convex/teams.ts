@@ -25,10 +25,11 @@ export const getAllTeams = query({
   },
 });
 
-// Get team by ID
+// Get team by ID (requires membership)
 export const getTeam = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     return await ctx.db.get(args.teamId);
   },
 });
@@ -207,7 +208,7 @@ export const cleanDuplicateTeams = mutation({
   },
 });
 
-// Delete team (God mode) - also deletes all matches
+// Delete team (God mode) - also deletes all matches, members, invites and seasons
 export const deleteTeam = mutation({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
@@ -216,9 +217,35 @@ export const deleteTeam = mutation({
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
       .collect();
-
     for (const match of matches) {
       await ctx.db.delete(match._id);
+    }
+
+    // Cascade delete: team members
+    const members = await ctx.db
+      .query("team_members")
+      .withIndex("by_team_id", (q) => q.eq("teamId", args.teamId))
+      .collect();
+    for (const member of members) {
+      await ctx.db.delete(member._id);
+    }
+
+    // Cascade delete: team invites
+    const invites = await ctx.db
+      .query("team_invites")
+      .filter((q) => q.eq(q.field("teamId"), args.teamId))
+      .collect();
+    for (const invite of invites) {
+      await ctx.db.delete(invite._id);
+    }
+
+    // Cascade delete: seasons
+    const seasons = await ctx.db
+      .query("seasons")
+      .withIndex("by_team_id", (q) => q.eq("teamId", args.teamId))
+      .collect();
+    for (const season of seasons) {
+      await ctx.db.delete(season._id);
     }
 
     // Delete team

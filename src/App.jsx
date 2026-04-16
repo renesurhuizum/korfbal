@@ -780,6 +780,14 @@ export default function KorfbalApp() {
         concededBy: g.concededBy ?? 'Onbekend',
       }));
 
+      const normalizedSubstitutions = (match.substitutions || []).map(s => ({
+        outPlayerId:   s.outPlayerId,
+        outPlayerName: s.outPlayerName ?? 'Onbekend',
+        inPlayerId:    s.inPlayerId,
+        inPlayerName:  s.inPlayerName ?? 'Onbekend',
+        timestamp:     s.timestamp ?? new Date().toISOString(),
+      }));
+
       const payload = {
         teamId: currentTeamId,
         teamName: currentTeam ?? '',
@@ -790,11 +798,11 @@ export default function KorfbalApp() {
         opponentScore: Number(match.opponentScore) || 0,
         opponentGoals: normalizedOpponentGoals,
         goals: normalizedGoals,
+        ...(normalizedSubstitutions.length > 0 ? { substitutions: normalizedSubstitutions } : {}),
         finished: true,
         shareable: false,
         ...(match.seasonId ? { seasonId: match.seasonId, competition: match.competition } : {}),
       };
-      console.error('saveMatch payload:', JSON.stringify(payload, null, 2));
       const matchId = await createMatchMutation(payload);
       // Update currentMatch with database ID to prevent duplicate creation
       setCurrentMatch(prev => prev ? { ...prev, _id: matchId } : prev);
@@ -803,10 +811,8 @@ export default function KorfbalApp() {
       showFeedback('Wedstrijd opgeslagen', 'success');
       return true;
     } catch (e) {
-      console.error('saveMatch fout – message:', e.message);
-      console.error('saveMatch fout – data:', e.data);
-      console.error('saveMatch fout – full:', e);
-      showFeedback('Fout bij opslaan – zie browser console (F12)', 'error');
+      console.error('saveMatch fout:', e);
+      showFeedback(`Fout bij opslaan: ${e.message || 'Onbekende fout'}`, 'error');
       return false;
     }
   };
@@ -1890,10 +1896,32 @@ export default function KorfbalApp() {
     const [showAttemptModal, setShowAttemptModal] = useState(null);
     const [showOpponentModal, setShowOpponentModal] = useState(false);
     const [showOpponentPlayerModal, setShowOpponentPlayerModal] = useState(null);
+    const [showSubstitutionModal, setShowSubstitutionModal] = useState(false);
     const actionHistory = matchActionHistory;
     const setActionHistory = setMatchActionHistory;
     const [scoreAnimKey, setScoreAnimKey] = useState(0);
     const [expandedPlayers, setExpandedPlayers] = useState(new Set());
+
+    // ── Live timer ──────────────────────────────────────────────────────────
+    const [timerSeconds, setTimerSeconds] = useState(0);
+    const [timerRunning, setTimerRunning] = useState(true);
+    const timerRef = useRef(null);
+
+    useEffect(() => {
+      if (timerRunning) {
+        timerRef.current = setInterval(() => setTimerSeconds(s => s + 1), 1000);
+      } else {
+        clearInterval(timerRef.current);
+      }
+      return () => clearInterval(timerRef.current);
+    }, [timerRunning]);
+
+    const formatTimer = (s) => {
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    };
+    // ────────────────────────────────────────────────────────────────────────
 
     const togglePlayerExpand = (playerId) => {
       setExpandedPlayers(prev => {
@@ -2020,6 +2048,34 @@ export default function KorfbalApp() {
       showFeedback('Actie ongedaan gemaakt', 'success');
     };
 
+    const registerSubstitution = (outPlayerId, inPlayerId) => {
+      setActionHistory(prev => [...prev, { type: 'substitution', match: currentMatch }]);
+      setCurrentMatch(prevMatch => {
+        const outPlayer = prevMatch.players.find(p => p.id === outPlayerId);
+        const inPlayer = prevMatch.players.find(p => p.id === inPlayerId);
+        if (!outPlayer || !inPlayer) return prevMatch;
+        const updatedPlayers = prevMatch.players.map(p => {
+          if (p.id === outPlayerId) return { ...p, isStarter: false };
+          if (p.id === inPlayerId) return { ...p, isStarter: true };
+          return p;
+        });
+        const newSubstitution = {
+          outPlayerId,
+          outPlayerName: outPlayer.name,
+          inPlayerId,
+          inPlayerName: inPlayer.name,
+          timestamp: new Date().toISOString(),
+        };
+        showFeedback(`Wissel: ${inPlayer.name} vervangt ${outPlayer.name}`, 'success');
+        return {
+          ...prevMatch,
+          players: updatedPlayers,
+          substitutions: [...(prevMatch.substitutions || []), newSubstitution],
+        };
+      });
+      setShowSubstitutionModal(false);
+    };
+
     const finishMatch = () => {
       if (!currentMatch) {
         showFeedback('Geen wedstrijd gevonden', 'error');
@@ -2117,6 +2173,17 @@ export default function KorfbalApp() {
           <div className="text-center">
             <div key={scoreAnimKey} className="text-5xl font-bold score-pop">{currentMatch.score} - {currentMatch.opponentScore}</div>
           </div>
+          {/* Timer */}
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <span className="font-mono text-lg font-semibold opacity-90">{formatTimer(timerSeconds)}</span>
+            <button
+              onClick={() => setTimerRunning(r => !r)}
+              className="bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-lg text-xs font-semibold transition"
+              aria-label={timerRunning ? 'Timer pauzeren' : 'Timer hervatten'}
+            >
+              {timerRunning ? '⏸ Pauze' : '▶ Verder'}
+            </button>
+          </div>
         </div>
         <div className="max-w-4xl mx-auto p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-4">
@@ -2127,10 +2194,16 @@ export default function KorfbalApp() {
             <h2 className="font-bold text-lg mb-3 text-gray-800 dark:text-gray-100">Wisselspelers</h2>
             {currentMatch.players.filter(p => !p.isStarter).map(player => <PlayerRow key={player.id} player={player} />)}
           </div>
-          <button onClick={() => setShowOpponentModal(true)}
-            className="w-full bg-gray-800 text-white py-4 rounded-lg font-semibold hover:bg-gray-900 active:scale-[0.98] transition-all mb-4 focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2">
-            + Tegendoelpunt
-          </button>
+          <div className="flex gap-3 mb-4">
+            <button onClick={() => setShowOpponentModal(true)}
+              className="flex-1 bg-gray-800 text-white py-4 rounded-lg font-semibold hover:bg-gray-900 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2">
+              + Tegendoelpunt
+            </button>
+            <button onClick={() => setShowSubstitutionModal(true)}
+              className="flex-1 bg-blue-700 text-white py-4 rounded-lg font-semibold hover:bg-blue-800 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+              ↔ Wissel
+            </button>
+          </div>
           <button onClick={finishMatch}
             className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             Wedstrijd beëindigen
@@ -2145,6 +2218,10 @@ export default function KorfbalApp() {
         {showOpponentPlayerModal && <PlayerSelectModal title="Wie kreeg doelpunt tegen?" players={currentMatch.players}
           onSelect={(playerId) => addOpponentGoalWithPlayer(playerId, showOpponentPlayerModal)}
           onClose={() => setShowOpponentPlayerModal(null)} />}
+        {showSubstitutionModal && <SubstitutionModal
+          players={currentMatch.players}
+          onSubstitute={registerSubstitution}
+          onClose={() => setShowSubstitutionModal(false)} />}
       </div>
     );
   };
@@ -2230,6 +2307,70 @@ export default function KorfbalApp() {
       </div>
     );
   };
+
+  // ─── SubstitutionModal ────────────────────────────────────────────────────────
+  const SubstitutionModal = ({ players, onSubstitute, onClose }) => {
+    const [outPlayer, setOutPlayer] = useState(null);
+    const modalRef = useRef(null);
+
+    const starters = players.filter(p => p.isStarter);
+    const bench = players.filter(p => !p.isStarter);
+
+    useEffect(() => {
+      const handleKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
+      document.addEventListener('keydown', handleKeyDown);
+      setTimeout(() => modalRef.current?.querySelector('button')?.focus(), 50);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-4"
+        role="dialog" aria-modal="true" aria-label="Wissel registreren" ref={modalRef}>
+        <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl p-5 max-w-sm w-full max-h-[80vh] overflow-y-auto shadow-xl">
+          <h2 className="text-lg font-bold mb-1 text-gray-800 dark:text-gray-100">↔ Wissel registreren</h2>
+          {!outPlayer ? (
+            <>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Wie gaat eraf? (basisspeler)</p>
+              <div className="space-y-2">
+                {starters.map(p => (
+                  <button key={p.id} onClick={() => setOutPlayer(p)}
+                    className="w-full bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 p-3 rounded-lg hover:bg-red-100 active:scale-95 transition-all font-semibold text-left text-sm">
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                <span className="font-semibold text-red-600 dark:text-red-400">{outPlayer.name}</span> gaat eraf. Wie komt erin?
+              </p>
+              <div className="space-y-2 mt-3">
+                {bench.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">Geen wisselspelers beschikbaar</p>
+                ) : bench.map(p => (
+                  <button key={p.id} onClick={() => onSubstitute(outPlayer.id, p.id)}
+                    className="w-full bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 p-3 rounded-lg hover:bg-green-100 active:scale-95 transition-all font-semibold text-left text-sm">
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setOutPlayer(null)}
+                className="w-full mt-3 text-sm text-gray-500 hover:text-gray-700 py-2">
+                ← Andere speler kiezen
+              </button>
+            </>
+          )}
+          <button onClick={onClose}
+            className="w-full mt-3 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 py-2 rounded-lg hover:bg-gray-400 active:scale-95 transition-all font-medium focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            Annuleren
+          </button>
+        </div>
+      </div>
+    );
+  };
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const MatchSummaryView = () => {
     const match = currentMatch;
 
@@ -2513,6 +2654,21 @@ export default function KorfbalApp() {
               </div>
             ) : <p className="text-gray-600 dark:text-gray-400">Geen tegendoelpunten</p>}
           </div>
+          {/* Wisselingen */}
+          {(match.substitutions || []).length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">↔ Wisselingen</h2>
+              <div className="space-y-2">
+                {(match.substitutions || []).map((sub, idx) => (
+                  <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg flex items-center gap-2 text-sm">
+                    <span className="font-semibold text-red-600 dark:text-red-400">{sub.outPlayerName}</span>
+                    <span className="text-gray-400">→</span>
+                    <span className="font-semibold text-green-600 dark:text-green-400">{sub.inPlayerName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <button onClick={() => { setCurrentMatch(null); navigateTo('home'); }}
             className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             Terug naar home
@@ -2541,13 +2697,22 @@ export default function KorfbalApp() {
     const [filterSeasonId, setFilterSeasonId] = useState(null); // null = alle seizoenen
     const [filterCompetition, setFilterCompetition] = useState(null); // null = beide
 
-    // Server-side stats queries
-    const formLast5 = useQuery(api.stats.getFormLastN, currentTeamId ? { teamId: currentTeamId, n: 5 } : 'skip');
-    const opponentStats = useQuery(api.stats.getOpponentStats, currentTeamId ? { teamId: currentTeamId } : 'skip');
+    // Server-side stats queries — pass active season/competition filter
+    const statsFilter = currentTeamId
+      ? {
+          teamId: currentTeamId,
+          ...(filterSeasonId ? { seasonId: filterSeasonId } : {}),
+          ...(filterCompetition ? { competition: filterCompetition } : {}),
+        }
+      : 'skip';
+
+    const formLast5 = useQuery(api.stats.getFormLastN, statsFilter !== 'skip' ? { ...statsFilter, n: 5 } : 'skip');
+    const opponentStats = useQuery(api.stats.getOpponentStats, statsFilter);
     const playerOfMonth = useQuery(api.stats.getPlayerOfMonth, currentTeamId ? { teamId: currentTeamId } : 'skip');
-    const topPlayers = useQuery(api.stats.getTopPlayers, currentTeamId ? { teamId: currentTeamId, limit: 5 } : 'skip');
+    const topPlayers = useQuery(api.stats.getTopPlayers, statsFilter !== 'skip' ? { ...statsFilter, limit: 5 } : 'skip');
+    const currentStreak = useQuery(api.stats.getCurrentStreak, statsFilter);
     // Fase 4 — nieuwe stats
-    const trendByMonth = useQuery(api.stats.getTrendByMonth, currentTeamId ? { teamId: currentTeamId } : 'skip');
+    const trendByMonth = useQuery(api.stats.getTrendByMonth, statsFilter);
     const shotTypeTrend = useQuery(api.stats.getShotTypeTrend, currentTeamId ? { teamId: currentTeamId, n: 10 } : 'skip');
     const careerStats = useQuery(api.stats.getPlayerCareerStats, currentTeamId ? { teamId: currentTeamId } : 'skip');
 
@@ -2659,40 +2824,39 @@ export default function KorfbalApp() {
         </div>
         <div className="max-w-4xl mx-auto p-6 pb-24 space-y-6">
           {/* Seizoen / competitie filter */}
-          {seasons && seasons.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 flex flex-wrap gap-2 items-center">
-              <span className="text-sm font-semibold text-gray-600 dark:text-gray-400 mr-1">Seizoen:</span>
-              <button
-                onClick={() => { setFilterSeasonId(null); setFilterCompetition(null); }}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition ${!filterSeasonId ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
-              >
-                Alle
-              </button>
-              {seasons.map(s => (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 flex flex-wrap gap-2 items-center">
+            {seasons && seasons.length > 0 && (
+              <>
+                <span className="text-sm font-semibold text-gray-600 dark:text-gray-400 mr-1">Seizoen:</span>
                 <button
-                  key={s._id}
-                  onClick={() => { setFilterSeasonId(s._id); setFilterCompetition(null); }}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition ${filterSeasonId === s._id ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
+                  onClick={() => { setFilterSeasonId(null); setFilterCompetition(null); }}
+                  className={`px-3 py-1 rounded-full text-sm font-medium transition ${!filterSeasonId ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
                 >
-                  {s.name}
+                  Alle
                 </button>
-              ))}
-              {filterSeasonId && (
-                <>
-                  <span className="text-gray-300 dark:text-gray-600">|</span>
-                  {[null, 'veld', 'zaal'].map(type => (
-                    <button
-                      key={type ?? 'all'}
-                      onClick={() => setFilterCompetition(type)}
-                      className={`px-3 py-1 rounded-full text-sm font-medium capitalize transition ${filterCompetition === type ? 'bg-gray-700 text-white dark:bg-gray-200 dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
-                    >
-                      {type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Alle competities'}
-                    </button>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
+                {seasons.map(s => (
+                  <button
+                    key={s._id}
+                    onClick={() => { setFilterSeasonId(s._id); }}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition ${filterSeasonId === s._id ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+                <span className="text-gray-300 dark:text-gray-600">|</span>
+              </>
+            )}
+            <span className="text-sm font-semibold text-gray-600 dark:text-gray-400 mr-1">Competitie:</span>
+            {[null, 'veld', 'zaal'].map(type => (
+              <button
+                key={type ?? 'all'}
+                onClick={() => setFilterCompetition(type)}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition ${filterCompetition === type ? 'bg-gray-700 text-white dark:bg-gray-200 dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
+              >
+                {type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Alles'}
+              </button>
+            ))}
+          </div>
           {teamMatches === undefined ? (
             <>
               <SkeletonCard lines={4} />
@@ -2750,6 +2914,30 @@ export default function KorfbalApp() {
               </div>
             </div>
           </div>
+          {/* Win/verlies reeks badge */}
+          {currentStreak && currentStreak.count >= 2 && (
+            <div className={`rounded-lg shadow-lg p-4 flex items-center gap-3 ${
+              currentStreak.type === 'W'
+                ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700'
+                : currentStreak.type === 'V'
+                ? 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700'
+                : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600'
+            }`}>
+              <span className="text-3xl">
+                {currentStreak.type === 'W' ? '🔥' : currentStreak.type === 'V' ? '📉' : '➖'}
+              </span>
+              <div>
+                <p className={`font-bold text-lg ${
+                  currentStreak.type === 'W' ? 'text-green-700 dark:text-green-300'
+                  : currentStreak.type === 'V' ? 'text-red-700 dark:text-red-300'
+                  : 'text-gray-700 dark:text-gray-300'
+                }`}>
+                  {currentStreak.count} {currentStreak.type === 'W' ? 'overwinningen' : currentStreak.type === 'V' ? 'nederlagen' : 'gelijke spelen'} op rij
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Huidige reeks</p>
+              </div>
+            </div>
+          )}
           {/* Vorm-strip: laatste 5 wedstrijden */}
           {formLast5 && formLast5.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
