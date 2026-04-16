@@ -45,6 +45,15 @@ const opponentGoalValidator = v.object({
   concededBy: v.string(), // Player name
 });
 
+// Substitution validator
+const substitutionValidator = v.object({
+  outPlayerId: v.union(v.string(), v.number()),
+  outPlayerName: v.string(),
+  inPlayerId: v.union(v.string(), v.number()),
+  inPlayerName: v.string(),
+  timestamp: v.string(),
+});
+
 export default defineSchema({
   teams: defineTable({
     team_name: v.string(),
@@ -66,6 +75,7 @@ export default defineSchema({
     opponent_score: v.number(),
     opponent_goals: v.array(opponentGoalValidator),
     goals: v.optional(v.array(goalValidator)), // Chronological tracking (new feature)
+    substitutions: v.optional(v.array(substitutionValidator)), // Player substitutions
     finished: v.boolean(),
     shareable: v.optional(v.boolean()), // For public sharing
     historical: v.optional(v.boolean()), // True for manually entered past matches (no shot tracking)

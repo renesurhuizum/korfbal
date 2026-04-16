@@ -56,6 +56,7 @@ export const createMatch = mutation({
     opponentScore: v.number(),
     opponentGoals: v.optional(v.any()),
     goals: v.optional(v.any()),
+    substitutions: v.optional(v.any()),
     finished: v.optional(v.boolean()),
     shareable: v.optional(v.boolean()),
     historical: v.optional(v.boolean()),
@@ -100,6 +101,15 @@ export const createMatch = mutation({
       concededBy: g.concededBy ?? 'Onbekend',
     }));
 
+    // Normalize substitutions
+    const substitutions = ((args.substitutions as any[]) || []).map((s: any) => ({
+      outPlayerId:   s.outPlayerId,
+      outPlayerName: s.outPlayerName ?? 'Onbekend',
+      inPlayerId:    s.inPlayerId,
+      inPlayerName:  s.inPlayerName ?? 'Onbekend',
+      timestamp:     s.timestamp ?? new Date().toISOString(),
+    }));
+
     await requireMember(ctx, args.teamId);
 
     const matchId = await ctx.db.insert("matches", {
@@ -112,6 +122,7 @@ export const createMatch = mutation({
       opponent_score: args.opponentScore,
       opponent_goals: opponentGoals,
       goals,
+      ...(substitutions.length > 0 ? { substitutions } : {}),
       finished: args.finished !== false,
       shareable: args.shareable || false,
       ...(args.historical ? { historical: true } : {}),
@@ -155,11 +166,14 @@ export const deleteMatch = mutation({
   },
 });
 
-// Get single match (for detail view and sharing)
+// Get single match (requires team membership)
 export const getMatch = query({
   args: { matchId: v.id("matches") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.matchId);
+    const match = await ctx.db.get(args.matchId);
+    if (!match) return null;
+    await requireMember(ctx, match.team_id);
+    return match;
   },
 });
 

@@ -30,6 +30,7 @@ export function SettingsSheet({
 }) {
   const sheetRef = useRef(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
   const { openUserProfile } = useClerk();
 
   // Convex queries + mutations
@@ -69,6 +70,7 @@ export function SettingsSheet({
   }, [isOpen, onClose]);
 
   const handleGenerateInvite = async () => {
+    setIsGeneratingInvite(true);
     try {
       const { token } = await generateInviteMutation({ teamId: currentTeamId });
       const url = `${window.location.origin}?invite=${token}`;
@@ -77,7 +79,9 @@ export function SettingsSheet({
       setTimeout(() => setCopySuccess(false), 3000);
       onFeedback('Uitnodigingslink gekopieerd!', 'success');
     } catch (e) {
-      onFeedback(e.message || 'Fout bij genereren link', 'error');
+      onFeedback(e.message || 'Fout bij genereren uitnodigingslink', 'error');
+    } finally {
+      setIsGeneratingInvite(false);
     }
   };
 
@@ -232,14 +236,19 @@ export function SettingsSheet({
               {currentUserIsAdmin && (
                 <button
                   onClick={handleGenerateInvite}
-                  className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-lg border-2 transition text-sm font-medium ${
+                  disabled={isGeneratingInvite}
+                  className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-lg border-2 transition text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed ${
                     copySuccess
                       ? 'border-green-400 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
                       : 'border-primary text-primary hover:bg-primary hover:text-white'
                   }`}
                 >
-                  <Link className="w-4 h-4" />
-                  {copySuccess ? 'Gekopieerd! ✓' : 'Kopieer uitnodigingslink (7 dagen geldig)'}
+                  {isGeneratingInvite
+                    ? <><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Aanmaken…</>
+                    : copySuccess
+                    ? <><Link className="w-4 h-4" /> Gekopieerd! ✓</>
+                    : <><Link className="w-4 h-4" /> Kopieer uitnodigingslink (7 dagen geldig)</>
+                  }
                 </button>
               )}
             </section>
