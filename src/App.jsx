@@ -252,7 +252,7 @@ function SetupMatchView({
   seasons, seasonId, setSeasonId,
   competition, setCompetition,
   navigateTo, handleLogout,
-  setCurrentMatch, showFeedback
+  setCurrentMatch, setMatchActionHistory, resetTimer, showFeedback
 }) {
   const players = currentTeamData?.players || [];
 
@@ -312,6 +312,7 @@ function SetupMatchView({
       ...(seasonId ? { seasonId, competition } : {})
     });
     setMatchActionHistory([]);
+    resetTimer();
     setOpponent('');
     setSelectedPlayers([]);
     setWithAttempts(true);
@@ -454,7 +455,21 @@ export default function KorfbalApp() {
   const [setupMatchDate, setSetupMatchDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [setupSeasonId, setSetupSeasonId] = useState(null);   // null = geen seizoen
   const [setupCompetition, setSetupCompetition] = useState('veld');
+  // Timer state — lifted here so MatchView re-renders don't reset it
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const timerIntervalRef = useRef(null);
   const feedbackRef = useRef(null);
+
+  // Timer interval — managed at top level so MatchView re-renders don't reset it
+  useEffect(() => {
+    if (timerRunning) {
+      timerIntervalRef.current = setInterval(() => setTimerSeconds(s => s + 1), 1000);
+    } else {
+      clearInterval(timerIntervalRef.current);
+    }
+    return () => clearInterval(timerIntervalRef.current);
+  }, [timerRunning]);
 
   // Apply dark mode class to document
   useEffect(() => {
@@ -488,6 +503,11 @@ export default function KorfbalApp() {
       isOpen: true, title, message, placeholder, inputType,
       onSubmit: (val) => { setInputDialog(prev => ({ ...prev, isOpen: false })); onSubmit(val); }
     });
+  }, []);
+
+  const resetTimer = useCallback(() => {
+    setTimerSeconds(0);
+    setTimerRunning(true);
   }, []);
 
   // Enhanced navigation function with browser history support
@@ -1902,20 +1922,7 @@ export default function KorfbalApp() {
     const [scoreAnimKey, setScoreAnimKey] = useState(0);
     const [expandedPlayers, setExpandedPlayers] = useState(new Set());
 
-    // ── Live timer ──────────────────────────────────────────────────────────
-    const [timerSeconds, setTimerSeconds] = useState(0);
-    const [timerRunning, setTimerRunning] = useState(true);
-    const timerRef = useRef(null);
-
-    useEffect(() => {
-      if (timerRunning) {
-        timerRef.current = setInterval(() => setTimerSeconds(s => s + 1), 1000);
-      } else {
-        clearInterval(timerRef.current);
-      }
-      return () => clearInterval(timerRef.current);
-    }, [timerRunning]);
-
+    // ── Timer state is lifted to KorfbalApp to survive re-renders ──────────
     const formatTimer = (s) => {
       const m = Math.floor(s / 60);
       const sec = s % 60;
@@ -2095,7 +2102,7 @@ export default function KorfbalApp() {
       });
     };
 
-    const isModalOpen = showGoalModal || showAttemptModal || showOpponentModal || showOpponentPlayerModal;
+    const isModalOpen = showGoalModal || showAttemptModal || showOpponentModal || showOpponentPlayerModal || showSubstitutionModal;
 
     const PlayerRow = ({ player }) => {
       const totalGoals = SHOT_TYPES.reduce((sum, type) => sum + getStat(player, type.id).goals, 0);
@@ -2153,36 +2160,36 @@ export default function KorfbalApp() {
 
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 pb-20">
-        <div className="bg-primary text-white p-4 shadow-lg sticky top-0 z-10">
-          <div className="flex justify-between items-center text-sm mb-2">
-            <button onClick={() => navigateTo('home')} className="hover:underline min-h-[44px] px-2" aria-label="Terug naar home">← Home</button>
-            <button onClick={handleLogout} className="hover:underline min-h-[44px] px-2">Uitloggen</button>
-          </div>
-          <div className="flex justify-between items-center mb-2">
-            <h1 className="text-xl font-bold">{currentMatch.team} - {currentMatch.opponent}</h1>
-            <button
-              onClick={undoLastAction}
-              disabled={actionHistory.length === 0}
-              className="bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-lg text-sm font-semibold transition flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
-              aria-label="Laatste actie ongedaan maken"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Ongedaan
-            </button>
-          </div>
-          <div className="text-center">
-            <div key={scoreAnimKey} className="text-5xl font-bold score-pop">{currentMatch.score} - {currentMatch.opponentScore}</div>
-          </div>
-          {/* Timer */}
-          <div className="flex items-center justify-center gap-3 mt-2">
-            <span className="font-mono text-lg font-semibold opacity-90">{formatTimer(timerSeconds)}</span>
-            <button
-              onClick={() => setTimerRunning(r => !r)}
-              className="bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded-lg text-xs font-semibold transition"
-              aria-label={timerRunning ? 'Timer pauzeren' : 'Timer hervatten'}
-            >
-              {timerRunning ? '⏸ Pauze' : '▶ Verder'}
-            </button>
+        <div className="bg-primary text-white px-4 pt-2 pb-2 shadow-lg sticky top-0 z-10">
+          {/* Top row: nav + score + undo */}
+          <div className="flex items-center justify-between gap-2">
+            <button onClick={() => navigateTo('home')} className="text-sm hover:underline min-h-[36px] px-1 shrink-0" aria-label="Terug naar home">← Home</button>
+            <div className="flex-1 text-center">
+              <div key={scoreAnimKey} className="text-4xl font-bold score-pop leading-none">{currentMatch.score} - {currentMatch.opponentScore}</div>
+              <div className="text-xs opacity-75 truncate mt-0.5">{currentMatch.team} – {currentMatch.opponent}</div>
+            </div>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <button
+                onClick={undoLastAction}
+                disabled={actionHistory.length === 0}
+                className="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs font-semibold transition flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Laatste actie ongedaan maken"
+              >
+                <RotateCcw className="w-3 h-3" />
+                Ongedaan
+              </button>
+              {/* Timer inline */}
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-sm font-semibold opacity-90">{formatTimer(timerSeconds)}</span>
+                <button
+                  onClick={() => setTimerRunning(r => !r)}
+                  className="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-0.5 rounded text-xs font-semibold transition"
+                  aria-label={timerRunning ? 'Timer pauzeren' : 'Timer hervatten'}
+                >
+                  {timerRunning ? '⏸' : '▶'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <div className="max-w-4xl mx-auto p-4">
@@ -4190,6 +4197,8 @@ export default function KorfbalApp() {
                 navigateTo={navigateTo}
                 handleLogout={handleLogout}
                 setCurrentMatch={setCurrentMatch}
+                setMatchActionHistory={setMatchActionHistory}
+                resetTimer={resetTimer}
                 showFeedback={showFeedback}
               />}
               {view === 'match' && <MatchView />}
