@@ -1,6 +1,20 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 
+// Auth guard: verify Clerk identity + team membership
+async function requireMember(ctx: any, teamId: any) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Niet ingelogd — log in via je e-mailadres");
+  const member = await ctx.db
+    .query("team_members")
+    .withIndex("by_team_and_user", (q: any) =>
+      q.eq("teamId", teamId).eq("userId", identity.subject)
+    )
+    .first();
+  if (!member) throw new Error("Geen toegang tot dit team");
+  return member;
+}
+
 // Helper: calculate totals from a single match's player stats
 function matchTotals(match: any) {
   let goals = 0;
@@ -25,6 +39,7 @@ export const getTeamStats = query({
     competition: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
@@ -80,6 +95,7 @@ export const getFormLastN = query({
     competition: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_and_date", (q) => q.eq("team_id", args.teamId))
@@ -118,6 +134,7 @@ export const getTrendByMonth = query({
     competition: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
@@ -157,6 +174,7 @@ export const getTopPlayers = query({
     competition: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
@@ -210,6 +228,7 @@ export const getOpponentStats = query({
     competition: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
@@ -258,6 +277,7 @@ const ALL_SHOT_TYPES = ['distance', 'close', 'penalty', 'freeball', 'runthrough'
 export const getShotTypeTrend = query({
   args: { teamId: v.id("teams"), n: v.number() },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     const matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
@@ -314,6 +334,7 @@ export const getShotTypeTrend = query({
 export const getPlayerCareerStats = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     const matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
@@ -389,6 +410,7 @@ export const getPlayerCareerStats = query({
 export const getPlayerOfMonth = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const matches = await ctx.db
@@ -431,6 +453,7 @@ export const getCurrentStreak = query({
     competition: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     let matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))

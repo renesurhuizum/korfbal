@@ -17,10 +17,38 @@ async function requireMember(ctx: any, teamId: any, requireAdmin = false) {
   return member;
 }
 
+// God Mode guard: verify admin password server-side
+function requireGodMode(password: string) {
+  const godModePassword = process.env.CONVEX_GOD_MODE_PASSWORD;
+  if (!godModePassword) throw new Error("God Mode niet geconfigureerd");
+  if (password !== godModePassword) throw new Error("Ongeldig God Mode wachtwoord");
+}
+
+// PBKDF2 hashing for password storage
+async function hashPBKDF2(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const saltB64 = btoa(String.fromCharCode(...salt));
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const hashBuffer = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, hash: "SHA-256", iterations: 100000 },
+    keyMaterial,
+    256
+  );
+  const hashB64 = btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
+  return `pbkdf2:${saltB64}:${hashB64}`;
+}
+
 // Get all teams (God mode)
 export const getAllTeams = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { godModePassword: v.string() },
+  handler: async (ctx, args) => {
+    requireGodMode(args.godModePassword);
     return await ctx.db.query("teams").collect();
   },
 });
@@ -70,14 +98,17 @@ export const resetPassword = mutation({
   args: {
     teamId: v.id("teams"),
     newPassword: v.string(),
+    godModePassword: v.string(),
   },
   handler: async (ctx, args) => {
-    if (args.newPassword.length < 3) {
-      throw new Error("Wachtwoord moet minimaal 3 tekens zijn");
+    requireGodMode(args.godModePassword);
+    if (args.newPassword.length < 8) {
+      throw new Error("Wachtwoord moet minimaal 8 tekens zijn");
     }
     const team = await ctx.db.get(args.teamId);
     if (!team) throw new Error("Team niet gevonden");
-    await ctx.db.patch(args.teamId, { password_hash: args.newPassword });
+    const hashed = await hashPBKDF2(args.newPassword);
+    await ctx.db.patch(args.teamId, { password_hash: hashed });
   },
 });
 
@@ -86,8 +117,10 @@ export const renameTeam = mutation({
   args: {
     teamId: v.id("teams"),
     newName: v.string(),
+    godModePassword: v.string(),
   },
   handler: async (ctx, args) => {
+    requireGodMode(args.godModePassword);
     if (args.newName.length < 2) {
       throw new Error("Teamnaam moet minimaal 2 tekens zijn");
     }
@@ -120,8 +153,10 @@ export const mergeTeams = mutation({
   args: {
     targetTeamId: v.id("teams"),
     sourceTeamId: v.id("teams"),
+    godModePassword: v.string(),
   },
   handler: async (ctx, args) => {
+    requireGodMode(args.godModePassword);
     if (args.targetTeamId === args.sourceTeamId) {
       throw new Error("Kan niet samenvoegen met zichzelf");
     }
@@ -166,8 +201,9 @@ export const mergeTeams = mutation({
 
 // Clean duplicate teams: per team name, keep the one with the most matches, delete the rest
 export const cleanDuplicateTeams = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { godModePassword: v.string() },
+  handler: async (ctx, args) => {
+    requireGodMode(args.godModePassword);
     const allTeams = await ctx.db.query("teams").collect();
     const allMatches = await ctx.db.query("matches").collect();
 
@@ -210,8 +246,9 @@ export const cleanDuplicateTeams = mutation({
 
 // Delete team (God mode) - also deletes all matches, members, invites and seasons
 export const deleteTeam = mutation({
-  args: { teamId: v.id("teams") },
+  args: { teamId: v.id("teams"), godModePassword: v.string() },
   handler: async (ctx, args) => {
+    requireGodMode(args.godModePassword);
     // Delete all matches for this team first
     const matches = await ctx.db
       .query("matches")

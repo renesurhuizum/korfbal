@@ -16,7 +16,8 @@ export const login = mutation({
   },
   handler: async (ctx, args) => {
     // God Mode only — normal teams no longer use password-based login
-    const godModePassword = process.env.CONVEX_GOD_MODE_PASSWORD ?? "korfbal2026";
+    const godModePassword = process.env.CONVEX_GOD_MODE_PASSWORD;
+    if (!godModePassword) throw new Error("God Mode niet geconfigureerd");
     if (args.team_name === "ADMIN" && args.password === godModePassword) {
       return {
         teamId: "god-mode" as any,

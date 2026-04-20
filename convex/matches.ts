@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 // Auth guard: verify Clerk identity + team membership
-async function requireMember(ctx: any, teamId: any) {
+async function requireMember(ctx: any, teamId: any, requireAdmin = false) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Niet ingelogd — log in via je e-mailadres");
   const member = await ctx.db
@@ -12,13 +12,23 @@ async function requireMember(ctx: any, teamId: any) {
     )
     .first();
   if (!member) throw new Error("Geen toegang tot dit team");
+  if (requireAdmin && member.role !== "admin")
+    throw new Error("Beheerder-rechten vereist");
   return member;
+}
+
+// God Mode guard: verify admin password server-side
+function requireGodMode(password: string) {
+  const godModePassword = process.env.CONVEX_GOD_MODE_PASSWORD;
+  if (!godModePassword) throw new Error("God Mode niet geconfigureerd");
+  if (password !== godModePassword) throw new Error("Ongeldig God Mode wachtwoord");
 }
 
 // Get matches for a team
 export const getTeamMatches = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     const matches = await ctx.db
       .query("matches")
       .withIndex("by_team_id", (q) => q.eq("team_id", args.teamId))
@@ -33,8 +43,9 @@ export const getTeamMatches = query({
 
 // Get all matches (God mode)
 export const getAllMatches = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { godModePassword: v.string() },
+  handler: async (ctx, args) => {
+    requireGodMode(args.godModePassword);
     const matches = await ctx.db.query("matches").collect();
 
     // Sort by date descending

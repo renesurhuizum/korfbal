@@ -433,6 +433,7 @@ export default function KorfbalApp() {
   const [matchActionHistory, setMatchActionHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showGodMode, setShowGodMode] = useState(false);
+  const [godModePassword, setGodModePassword] = useState('');
   const [sharedMatchId, setSharedMatchId] = useState(null);
   const [pendingSavedMatch, setPendingSavedMatch] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null, variant: 'danger' });
@@ -527,14 +528,14 @@ export default function KorfbalApp() {
   );
 
   // Convex queries - only load god-mode data when needed
-  const allTeams = useQuery(api.teams.getAllTeams, showGodMode ? {} : "skip");
+  const allTeams = useQuery(api.teams.getAllTeams, showGodMode && godModePassword ? { godModePassword } : "skip");
   const teams = showGodMode ? (allTeams || []) : [];
 
   const teamMatches = useQuery(
     api.matches.getTeamMatches,
     currentTeamId && !showGodMode ? { teamId: currentTeamId } : "skip"
   );
-  const allMatches = useQuery(api.matches.getAllMatches, showGodMode ? {} : "skip");
+  const allMatches = useQuery(api.matches.getAllMatches, showGodMode && godModePassword ? { godModePassword } : "skip");
   const matches = showGodMode ? (allMatches || []) : (teamMatches || []);
 
   // Shared match query
@@ -1028,7 +1029,7 @@ export default function KorfbalApp() {
               if (!pw) return;
               try {
                 const result = await loginMutation({ team_name: 'ADMIN', password: pw });
-                if (result.isGodMode) { setShowGodMode(true); navigateTo('god-mode'); }
+                if (result.isGodMode) { setGodModePassword(pw); setShowGodMode(true); navigateTo('god-mode'); }
               } catch { /* silent fail */ }
             }}
             className="text-xs text-gray-200 dark:text-gray-700 hover:text-gray-400 dark:hover:text-gray-500 transition"
@@ -1102,7 +1103,7 @@ export default function KorfbalApp() {
         placeholder: team.team_name,
         onSubmit: async (newName) => {
           try {
-            await renameTeamMutation({ teamId: team._id, newName: newName.trim() });
+            await renameTeamMutation({ teamId: team._id, newName: newName.trim(), godModePassword });
             showFeedback(`Team hernoemd naar "${newName.trim()}"`, 'success');
           } catch (e) {
             showFeedback(e.message || 'Fout bij hernoemen', 'error');
@@ -1115,10 +1116,10 @@ export default function KorfbalApp() {
       showInput({
         title: 'Wachtwoord wijzigen',
         message: `Nieuw wachtwoord voor "${team.team_name}":`,
-        placeholder: 'Nieuw wachtwoord (min. 3 tekens)',
+        placeholder: 'Nieuw wachtwoord (min. 8 tekens)',
         onSubmit: async (newPassword) => {
           try {
-            await resetPasswordMutation({ teamId: team._id, newPassword });
+            await resetPasswordMutation({ teamId: team._id, newPassword, godModePassword });
             showFeedback('Wachtwoord gewijzigd', 'success');
           } catch (e) {
             showFeedback(e.message || 'Fout bij wijzigen wachtwoord', 'error');
@@ -1139,6 +1140,7 @@ export default function KorfbalApp() {
             const result = await mergeTeamsMutation({
               targetTeamId: targetTeam._id,
               sourceTeamId: sourceTeam._id,
+              godModePassword,
             });
             showFeedback(`Samengevoegd: ${result.matchesMoved} wedstrijden verplaatst, ${result.playersMerged} spelers toegevoegd`, 'success');
           } catch (e) {
@@ -1155,7 +1157,7 @@ export default function KorfbalApp() {
         message: `Team "${team.team_name}" verwijderen? Dit verwijdert ook ${teamMatchCount} wedstrijd(en).`,
         onConfirm: async () => {
           try {
-            await deleteTeamMutation({ teamId: team._id });
+            await deleteTeamMutation({ teamId: team._id, godModePassword });
             showFeedback('Team en wedstrijden verwijderd', 'success');
           } catch (e) {
             showFeedback('Fout bij verwijderen', 'error');
@@ -1183,6 +1185,7 @@ export default function KorfbalApp() {
             <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">God Mode</h1>
             <button onClick={() => {
               setShowGodMode(false);
+              setGodModePassword('');
               navigateTo('login');
             }} className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 px-3 py-1" aria-label="God mode sluiten">Sluiten</button>
           </div>
@@ -1217,7 +1220,7 @@ export default function KorfbalApp() {
                       confirmLabel: 'Opschonen',
                       onConfirm: async () => {
                         try {
-                          const result = await cleanDuplicateTeamsMutation({});
+                          const result = await cleanDuplicateTeamsMutation({ godModePassword });
                           showFeedback(`Opgeschoond: ${result.deletedTeams} teams en ${result.deletedMatches} wedstrijden verwijderd`, 'success');
                         } catch (e) {
                           showFeedback('Fout bij opschonen: ' + (e.message || e), 'error');
@@ -4131,7 +4134,7 @@ export default function KorfbalApp() {
                         if (!pw) return;
                         try {
                           const result = await loginMutation({ team_name: 'ADMIN', password: pw });
-                          if (result.isGodMode) { setShowGodMode(true); navigateTo('god-mode'); }
+                          if (result.isGodMode) { setGodModePassword(pw); setShowGodMode(true); navigateTo('god-mode'); }
                         } catch { /* silent fail */ }
                       }}
                       className="text-xs text-white/20 hover:text-white/40 transition"
