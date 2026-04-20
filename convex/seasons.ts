@@ -19,6 +19,7 @@ async function requireMember(ctx: any, teamId: any) {
 export const getSeasons = query({
   args: { teamId: v.id("teams") },
   handler: async (ctx, args) => {
+    await requireMember(ctx, args.teamId);
     const seasons = await ctx.db
       .query("seasons")
       .withIndex("by_team_id", (q) => q.eq("teamId", args.teamId))
