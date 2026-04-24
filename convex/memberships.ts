@@ -291,6 +291,75 @@ export const removeMember = mutation({
   },
 });
 
+// Delete own account + all associated data (GDPR)
+export const deleteSelfAndData = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await requireAuth(ctx);
+    const userId = identity.subject;
+
+    // Find all teams where user is a member
+    const memberships = await ctx.db
+      .query("team_members")
+      .withIndex("by_user_id", (q: any) => q.eq("userId", userId))
+      .collect();
+
+    for (const membership of memberships) {
+      const teamId = membership.teamId;
+
+      // Check if user is the only admin of this team
+      const allMembers = await ctx.db
+        .query("team_members")
+        .withIndex("by_team_id", (q: any) => q.eq("teamId", teamId))
+        .collect();
+      const admins = allMembers.filter((m: any) => m.role === "admin");
+      const isSoleAdmin = admins.length === 1 && admins[0].userId === userId;
+
+      if (isSoleAdmin) {
+        // Delete all team data
+        const matches = await ctx.db
+          .query("matches")
+          .withIndex("by_team_id", (q: any) => q.eq("team_id", teamId))
+          .collect();
+        for (const m of matches) await ctx.db.delete(m._id);
+
+        const seasons = await ctx.db
+          .query("seasons")
+          .withIndex("by_team_id", (q: any) => q.eq("teamId", teamId))
+          .collect();
+        for (const s of seasons) await ctx.db.delete(s._id);
+
+        const invites = await ctx.db
+          .query("team_invites")
+          .filter((q: any) => q.eq(q.field("teamId"), teamId))
+          .collect();
+        for (const i of invites) await ctx.db.delete(i._id);
+
+        const aiAdvice = await ctx.db
+          .query("ai_advice")
+          .withIndex("by_team", (q: any) => q.eq("teamId", teamId))
+          .collect();
+        for (const a of aiAdvice) await ctx.db.delete(a._id);
+
+        const subs = await ctx.db
+          .query("subscriptions")
+          .withIndex("by_team_id", (q: any) => q.eq("teamId", teamId))
+          .collect();
+        for (const s of subs) await ctx.db.delete(s._id);
+
+        // Delete all team members
+        for (const m of allMembers) await ctx.db.delete(m._id);
+
+        // Delete team itself
+        await ctx.db.delete(teamId);
+      } else {
+        // Just remove self from team
+        await ctx.db.delete(membership._id);
+      }
+    }
+  },
+});
+
 // ─── Internal: PBKDF2 verification (for claimTeam) ──────────
 
 async function verifyPBKDF2(password: string, stored: string): Promise<boolean> {

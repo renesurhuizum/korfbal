@@ -123,6 +123,22 @@ export const createMatch = mutation({
 
     await requireMember(ctx, args.teamId);
 
+    // Enforce free tier limit (20 matches)
+    const sub = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_team_id", (q: any) => q.eq("teamId", args.teamId))
+      .first();
+    const isPaid = sub && sub.status !== "free";
+    if (!isPaid) {
+      const existingMatches = await ctx.db
+        .query("matches")
+        .withIndex("by_team_id", (q: any) => q.eq("team_id", args.teamId))
+        .collect();
+      if (existingMatches.length >= 20) {
+        throw new Error("FREE_LIMIT_REACHED");
+      }
+    }
+
     const matchId = await ctx.db.insert("matches", {
       team_id: args.teamId,
       team_name: args.teamName,
