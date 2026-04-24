@@ -8,6 +8,7 @@ import { generatePlayerId } from './utils/generatePlayerId';
 import { exportMatchesCSV } from './utils/exportCSV';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { SettingsSheet } from './components/ui/SettingsSheet';
+import { LandingPage } from './components/marketing/LandingPage';
 
 // ─── AIAdviceCard ─────────────────────────────────────────────────────────────
 // Isolated component with its own error boundary so a Convex query failure
@@ -449,6 +450,8 @@ export default function KorfbalApp() {
   const [showSettings, setShowSettings] = useState(false);
   const [forceOnboarding, setForceOnboarding] = useState(false);
   const [forcePicker, setForcePicker] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [authPagePath, setAuthPagePath] = useState(window.location.pathname);
   // SetupMatchView state — lifted here to survive Convex re-renders
   const [setupOpponent, setSetupOpponent] = useState('');
   const [setupSelectedPlayers, setSetupSelectedPlayers] = useState([]);
@@ -558,6 +561,16 @@ export default function KorfbalApp() {
     currentTeamId && !showGodMode ? { teamId: currentTeamId } : "skip"
   );
 
+  // Subscription + match count for free tier enforcement
+  const subscription = useQuery(
+    api.subscriptions.getSubscription,
+    currentTeamId && !showGodMode ? { teamId: currentTeamId } : "skip"
+  );
+  const matchCountData = useQuery(
+    api.subscriptions.getMatchCount,
+    currentTeamId && !showGodMode ? { teamId: currentTeamId } : "skip"
+  );
+
   // Debounce currentMatch to reduce localStorage writes
   const debouncedMatch = useDebounce(currentMatch, 500);
 
@@ -580,6 +593,13 @@ export default function KorfbalApp() {
 
   // Views that require authentication
   const authRequiredViews = ['home', 'manage-players', 'setup-match', 'match', 'match-summary', 'statistics'];
+
+  // Keep authPagePath in sync with pathname changes (for landing/login routing)
+  useEffect(() => {
+    const update = () => setAuthPagePath(window.location.pathname);
+    window.addEventListener('popstate', update);
+    return () => window.removeEventListener('popstate', update);
+  }, []);
 
   // Browser history navigation support (back/forward buttons)
   useEffect(() => {
@@ -833,6 +853,10 @@ export default function KorfbalApp() {
       return true;
     } catch (e) {
       console.error('saveMatch fout:', e);
+      if (e.message?.includes('FREE_LIMIT_REACHED')) {
+        setShowUpgradeModal(true);
+        return false;
+      }
       showFeedback(`Fout bij opslaan: ${e.message || 'Onbekende fout'}`, 'error');
       return false;
     }
@@ -1521,6 +1545,26 @@ export default function KorfbalApp() {
               </div>
             </div>
           )}
+          {/* Free tier match count banner */}
+          {matchCountData && subscription?.status === 'free' && matchCountData.count >= 15 && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">
+                  {matchCountData.count}/{matchCountData.limit} wedstrijden gebruikt
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  {matchCountData.limit - matchCountData.count} resterend op het gratis plan
+                </p>
+              </div>
+              <button
+                onClick={() => setShowUpgradeModal(true)}
+                className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition flex-shrink-0"
+              >
+                Upgraden
+              </button>
+            </div>
+          )}
+
           <button onClick={() => navigateTo('setup-match')}
             className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             <div className="bg-primary p-3 rounded-full group-hover:bg-primary-dark transition">
@@ -4037,6 +4081,49 @@ export default function KorfbalApp() {
   return (
     <div>
       <FeedbackToast ref={feedbackRef} />
+
+      {/* Upgrade modal */}
+      {showUpgradeModal && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowUpgradeModal(false); }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <div className="text-center mb-5">
+              <div className="text-4xl mb-2">🚀</div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Je hebt de gratis limiet bereikt</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Gratis plan: max. 20 wedstrijden. Upgrade voor onbeperkte wedstrijden en AI-advies.
+              </p>
+            </div>
+            <div className="space-y-3 mb-5">
+              <div className="border-2 border-primary rounded-xl p-4">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-bold text-gray-900 dark:text-white">Starter</span>
+                  <span className="text-primary font-bold">€4,99/mo</span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Onbeperkte wedstrijden · AI-advies · Seizoensbeheer</p>
+                <button
+                  onClick={() => {
+                    setShowUpgradeModal(false);
+                    showFeedback('Koppel Stripe in de instellingen om te upgraden', 'info');
+                  }}
+                  className="mt-3 w-full bg-primary text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-primary-dark transition"
+                >
+                  Upgraden naar Starter
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              className="w-full text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+            >
+              Later misschien
+            </button>
+          </div>
+        </div>
+      )}
+
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.title}
@@ -4067,6 +4154,8 @@ export default function KorfbalApp() {
         onFeedback={showFeedback}
         onSwitchTeam={() => { setShowSettings(false); setForcePicker(true); setForceOnboarding(false); }}
         onAddTeam={() => { setShowSettings(false); setForceOnboarding(true); setForcePicker(false); }}
+        onUpgrade={() => setShowUpgradeModal(true)}
+        subscription={subscription}
       />
       <div key={view} className="page-transition">
         {/* Shared match — always public, no auth needed */}
@@ -4089,9 +4178,16 @@ export default function KorfbalApp() {
             );
           }
 
-          // Not logged in → Clerk SignIn or SignUp component
+          // Not logged in → landing page or Clerk auth components
           if (!isAuthenticated) {
-            const isSignUpPage = window.location.pathname === '/sign-up';
+            const isLoginPage = authPagePath === '/login';
+            const isSignUpPage = authPagePath === '/sign-up';
+
+            // Show landing page for root path
+            if (!isLoginPage && !isSignUpPage) {
+              return <LandingPage />;
+            }
+
             return (
               <div className="min-h-screen bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center p-4">
                 <div className="w-full max-w-md">
@@ -4110,7 +4206,7 @@ export default function KorfbalApp() {
                           headerSubtitle: 'hidden',
                         }
                       }}
-                      signInUrl="/"
+                      signInUrl="/login"
                       afterSignUpUrl="/"
                     />
                   ) : (

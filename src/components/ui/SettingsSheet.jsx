@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Moon, Sun, Users, Link, Trash2, Crown, User, RefreshCw, Plus } from 'lucide-react';
+import { X, Moon, Sun, Users, Link, Trash2, Crown, User, RefreshCw, Plus, Zap, AlertTriangle } from 'lucide-react';
 import { useMutation, useQuery } from 'convex/react';
 import { useClerk } from '@clerk/clerk-react';
 import { api } from '../../../convex/_generated/api';
@@ -27,6 +27,8 @@ export function SettingsSheet({
   onFeedback,
   onSwitchTeam,
   onAddTeam,
+  onUpgrade,
+  subscription,
 }) {
   const sheetRef = useRef(null);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -41,6 +43,8 @@ export function SettingsSheet({
   const generateInviteMutation = useMutation(api.memberships.generateInvite);
   const removeMemberMutation = useMutation(api.memberships.removeMember);
   const updateTeamThemeMutation = useMutation(api.teams.updateTeamTheme);
+  const deleteSelfMutation = useMutation(api.memberships.deleteSelfAndData);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Is current user an admin of this team?
   const currentUserIsAdmin = teamMembers?.some(m => m.isCurrentUser && m.role === 'admin');
@@ -92,6 +96,17 @@ export function SettingsSheet({
     } catch (e) {
       onFeedback(e.message || 'Fout bij verwijderen lid', 'error');
     }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteSelfMutation({});
+      onFeedback('Account en data verwijderd', 'success');
+      onClose();
+    } catch (e) {
+      onFeedback(e.message || 'Fout bij verwijderen account', 'error');
+    }
+    setShowDeleteConfirm(false);
   };
 
   if (!isOpen) return null;
@@ -281,6 +296,36 @@ export function SettingsSheet({
             </div>
           </section>
 
+          {/* Section: Abonnement */}
+          {currentTeamId && (
+            <section>
+              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <Zap className="w-4 h-4" /> Abonnement
+              </h3>
+              <div className="flex items-center justify-between mb-3 px-1">
+                <div>
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                    {subscription?.status === 'starter' ? 'Starter' : subscription?.status === 'club' ? 'Club' : 'Gratis'}
+                  </span>
+                  {subscription?.status === 'free' && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Max. 20 wedstrijden</p>
+                  )}
+                  {subscription?.cancelAtPeriodEnd && (
+                    <p className="text-xs text-amber-500">Loopt af aan het einde van de periode</p>
+                  )}
+                </div>
+                {subscription?.status === 'free' && onUpgrade && (
+                  <button
+                    onClick={() => { onUpgrade(); onClose(); }}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition"
+                  >
+                    <Zap className="w-3.5 h-3.5" /> Upgraden
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
+
           {/* Section: Account */}
           <section>
             <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
@@ -293,6 +338,40 @@ export function SettingsSheet({
               Profiel &amp; wachtwoord wijzigen →
             </button>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">Via Clerk accountbeheer</p>
+
+            {/* GDPR account deletion */}
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="mt-3 w-full text-left px-4 py-3 rounded-lg border border-red-200 dark:border-red-900 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-sm flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4 flex-shrink-0" />
+                Account + alle data verwijderen
+              </button>
+            ) : (
+              <div className="mt-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                <div className="flex items-start gap-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    Dit verwijdert je account en <strong>alle wedstrijddata</strong> van teams waar jij de enige beheerder bent. Dit is niet terug te draaien.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDeleteAccount}
+                    className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition"
+                  >
+                    Ja, alles verwijderen
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                  >
+                    Annuleren
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Section: Over de app */}

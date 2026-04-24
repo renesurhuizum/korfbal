@@ -124,4 +124,18 @@ export default defineSchema({
     generatedAt: v.number(),
     basedOnMatchCount: v.number(),
   }).index("by_team", ["teamId"]),
+
+  // === SaaS: Abonnementen (Stripe) ===
+
+  subscriptions: defineTable({
+    teamId: v.id("teams"),
+    stripeCustomerId: v.string(),
+    stripeSubscriptionId: v.optional(v.string()),
+    status: v.union(v.literal("free"), v.literal("starter"), v.literal("club")),
+    currentPeriodEnd: v.optional(v.number()),
+    cancelAtPeriodEnd: v.optional(v.boolean()),
+  })
+    .index("by_team_id", ["teamId"])
+    .index("by_stripe_customer", ["stripeCustomerId"])
+    .index("by_stripe_subscription", ["stripeSubscriptionId"]),
 });
