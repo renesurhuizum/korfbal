@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Moon, Sun, Users, Link, Trash2, Crown, User, RefreshCw, Plus, Zap, AlertTriangle } from 'lucide-react';
+import { X, Moon, Sun, Users, Link, Trash2, Crown, User, RefreshCw, Plus, Zap, AlertTriangle, Check } from 'lucide-react';
 import { useMutation, useQuery } from 'convex/react';
 import { useClerk } from '@clerk/clerk-react';
 import { api } from '../../../convex/_generated/api';
@@ -12,10 +12,6 @@ const THEMES = [
   { id: 'purple', color: '#7c3aed', label: 'Paars' },
 ];
 
-/**
- * Settings bottom sheet.
- * Sections: color theme, dark mode, team members, account, app info.
- */
 export function SettingsSheet({
   isOpen,
   onClose,
@@ -35,7 +31,6 @@ export function SettingsSheet({
   const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
   const { openUserProfile } = useClerk();
 
-  // Convex queries + mutations
   const teamMembers = useQuery(
     api.memberships.getTeamMembers,
     currentTeamId ? { teamId: currentTeamId } : 'skip'
@@ -46,10 +41,8 @@ export function SettingsSheet({
   const deleteSelfMutation = useMutation(api.memberships.deleteSelfAndData);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Is current user an admin of this team?
   const currentUserIsAdmin = teamMembers?.some(m => m.isCurrentUser && m.role === 'admin');
 
-  // Focus trap + Escape key
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
@@ -111,9 +104,12 @@ export function SettingsSheet({
 
   if (!isOpen) return null;
 
+  const planName = subscription?.status === 'starter' ? 'Starter' : subscription?.status === 'club' ? 'Club' : 'Gratis';
+  const isPaid = subscription?.status === 'starter' || subscription?.status === 'club';
+
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[60] p-0 sm:p-4"
+      className="fixed inset-0 bg-ink-900/50 flex items-end sm:items-center justify-center z-[60] p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Instellingen"
@@ -121,50 +117,56 @@ export function SettingsSheet({
     >
       <div
         ref={sheetRef}
-        className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[90vh] overflow-y-auto shadow-xl"
+        className="bg-white dark:bg-gray-900 rounded-t-[24px] sm:rounded-[24px] w-full sm:max-w-md max-h-[90vh] overflow-y-auto shadow-[-0px_-20px_40px_rgba(0,0,0,0.12)]"
       >
+        {/* Drag handle */}
+        <div className="pt-3 pb-1 flex justify-center">
+          <div className="w-10 h-1 bg-black/10 dark:bg-white/10 rounded-full" />
+        </div>
+
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-t-2xl z-10">
-          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Instellingen</h2>
+        <div className="flex items-center justify-between px-5 pt-3 pb-4 sticky top-0 bg-white dark:bg-gray-900 z-10">
+          <h2 className="font-display font-black text-[24px] tracking-tight dark:text-white">Instellingen</h2>
           <button
             data-close
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition text-gray-500 dark:text-gray-400"
+            className="w-9 h-9 bg-[#FAFAF7] dark:bg-gray-800 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
             aria-label="Sluiten"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-5 space-y-6">
+        <div className="px-5 pb-8 space-y-6">
+
           {/* Section: Kleurthema */}
           <section>
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-              Kleurthema
-            </h3>
+            <div className="stencil text-[10px] text-gray-400 mb-3">Team kleur</div>
             <div className="flex gap-3 flex-wrap">
               {THEMES.map(t => (
                 <button
                   key={t.id}
                   onClick={() => {
-                    setColorTheme(t.id); // directe visuele feedback (optimistic)
+                    setColorTheme(t.id);
                     if (currentTeamId) {
                       updateTeamThemeMutation({ teamId: currentTeamId, theme: t.id });
                     }
                   }}
                   aria-pressed={colorTheme === t.id}
                   aria-label={`Thema: ${t.label}`}
-                  className="flex flex-col items-center gap-1"
+                  className="flex flex-col items-center gap-1.5"
                 >
                   <span
-                    style={{ backgroundColor: t.color }}
-                    className={`w-10 h-10 rounded-full border-4 transition-transform hover:scale-110 active:scale-95 ${
+                    style={{ backgroundColor: t.color, outlineColor: colorTheme === t.id ? t.color : 'transparent' }}
+                    className={`w-11 h-11 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95 ${
                       colorTheme === t.id
-                        ? 'border-gray-800 dark:border-white scale-110 shadow-lg'
-                        : 'border-transparent'
+                        ? 'outline outline-2 outline-offset-2 shadow-md'
+                        : ''
                     }`}
-                  />
-                  <span className={`text-xs ${colorTheme === t.id ? 'font-semibold text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                  >
+                    {colorTheme === t.id && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                  </span>
+                  <span className={`text-[11px] font-medium ${colorTheme === t.id ? 'text-gray-800 dark:text-gray-100 font-semibold' : 'text-gray-400 dark:text-gray-500'}`}>
                     {t.label}
                   </span>
                 </button>
@@ -174,13 +176,14 @@ export function SettingsSheet({
 
           {/* Section: Weergave */}
           <section>
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-              Weergave
-            </h3>
-            <div className="flex items-center justify-between py-2">
+            <div className="stencil text-[10px] text-gray-400 mb-3">Weergave</div>
+            <div className="flex items-center justify-between py-2.5 px-4 bg-[#FAFAF7] dark:bg-gray-800 rounded-2xl">
               <div className="flex items-center gap-3">
-                {darkMode ? <Moon className="w-5 h-5 text-gray-600 dark:text-gray-300" /> : <Sun className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
-                <span className="text-gray-800 dark:text-gray-100 font-medium">
+                {darkMode
+                  ? <Moon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  : <Sun className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                }
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   {darkMode ? 'Donkere modus' : 'Lichte modus'}
                 </span>
               </div>
@@ -189,14 +192,15 @@ export function SettingsSheet({
                 aria-checked={darkMode}
                 onClick={toggleDarkMode}
                 aria-label="Donkere modus"
-                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                  darkMode ? 'bg-primary' : 'bg-gray-300'
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                  darkMode ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-600'
                 }`}
               >
                 <span
-                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
-                    darkMode ? 'translate-x-6' : 'translate-x-1'
+                  className={`inline-block h-4.5 w-4.5 rounded-full bg-white shadow transform transition-transform ${
+                    darkMode ? 'translate-x-5' : 'translate-x-1'
                   }`}
+                  style={{ width: 18, height: 18 }}
                 />
               </button>
             </div>
@@ -205,30 +209,31 @@ export function SettingsSheet({
           {/* Section: Teamleden */}
           {currentTeamId && (
             <section>
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                <Users className="w-4 h-4" /> Teamleden
-              </h3>
+              <div className="stencil text-[10px] text-gray-400 mb-3">Teamleden</div>
 
-              {/* Member list */}
               {teamMembers === undefined ? (
-                <p className="text-sm text-gray-400 dark:text-gray-500">Laden...</p>
+                <p className="text-sm text-gray-400">Laden...</p>
               ) : teamMembers.length === 0 ? (
-                <p className="text-sm text-gray-400 dark:text-gray-500">Geen leden gevonden</p>
+                <p className="text-sm text-gray-400">Geen leden gevonden</p>
               ) : (
-                <ul className="space-y-1 mb-3">
+                <ul className="space-y-1.5 mb-3">
                   {teamMembers.map((m) => (
-                    <li key={m.userId} className="flex items-center justify-between py-1.5">
+                    <li key={m.userId} className="flex items-center justify-between py-2 px-3.5 bg-[#FAFAF7] dark:bg-gray-800 rounded-xl">
                       <div className="flex items-center gap-2.5">
-                        {m.role === 'admin'
-                          ? <Crown className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-                          : <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        }
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          m.role === 'admin' ? 'bg-gold-400/20' : 'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          {m.role === 'admin'
+                            ? <Crown className="w-3.5 h-3.5 text-gold-500" />
+                            : <User className="w-3.5 h-3.5 text-gray-400" />
+                          }
+                        </div>
                         <div>
-                          <span className="text-sm text-gray-800 dark:text-gray-100">
+                          <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
                             {m.displayName}
-                            {m.isCurrentUser && <span className="ml-1.5 text-xs text-gray-400">(jij)</span>}
+                            {m.isCurrentUser && <span className="ml-1.5 text-xs text-gray-400 font-normal">(jij)</span>}
                           </span>
-                          <div className="text-xs text-gray-400">
+                          <div className="text-[11px] text-gray-400">
                             {m.role === 'admin' ? 'Beheerder' : 'Lid'}
                           </div>
                         </div>
@@ -239,7 +244,7 @@ export function SettingsSheet({
                           className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
                           aria-label={`Verwijder ${m.displayName}`}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </li>
@@ -247,22 +252,21 @@ export function SettingsSheet({
                 </ul>
               )}
 
-              {/* Invite link — admin only */}
               {currentUserIsAdmin && (
                 <button
                   onClick={handleGenerateInvite}
                   disabled={isGeneratingInvite}
-                  className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-lg border-2 transition text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed ${
+                  className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-xl border transition text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed ${
                     copySuccess
                       ? 'border-green-400 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
-                      : 'border-primary text-primary hover:bg-primary hover:text-white'
+                      : 'border-primary/30 text-primary hover:bg-primary hover:text-white hover:border-primary'
                   }`}
                 >
                   {isGeneratingInvite
                     ? <><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> Aanmaken…</>
                     : copySuccess
                     ? <><Link className="w-4 h-4" /> Gekopieerd! ✓</>
-                    : <><Link className="w-4 h-4" /> Kopieer uitnodigingslink (7 dagen geldig)</>
+                    : <><Link className="w-4 h-4" /> Kopieer uitnodigingslink (7 dagen)</>
                   }
                 </button>
               )}
@@ -271,14 +275,12 @@ export function SettingsSheet({
 
           {/* Section: Teams */}
           <section>
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-              Teams
-            </h3>
+            <div className="stencil text-[10px] text-gray-400 mb-3">Teams</div>
             <div className="space-y-2">
               {onSwitchTeam && (
                 <button
                   onClick={onSwitchTeam}
-                  className="flex items-center gap-3 w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition text-sm text-gray-700 dark:text-gray-300"
+                  className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-black/[.08] dark:border-gray-700 hover:border-primary hover:text-primary bg-white dark:bg-gray-800 transition text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
                   <RefreshCw className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   Team wisselen
@@ -287,7 +289,7 @@ export function SettingsSheet({
               {onAddTeam && (
                 <button
                   onClick={onAddTeam}
-                  className="flex items-center gap-3 w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition text-sm text-gray-700 dark:text-gray-300"
+                  className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-black/[.08] dark:border-gray-700 hover:border-primary hover:text-primary bg-white dark:bg-gray-800 transition text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
                   <Plus className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   Team toevoegen
@@ -299,27 +301,30 @@ export function SettingsSheet({
           {/* Section: Abonnement */}
           {currentTeamId && (
             <section>
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                <Zap className="w-4 h-4" /> Abonnement
-              </h3>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <div>
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                    {subscription?.status === 'starter' ? 'Starter' : subscription?.status === 'club' ? 'Club' : 'Gratis'}
-                  </span>
-                  {subscription?.status === 'free' && (
-                    <p className="text-xs text-gray-400 dark:text-gray-500">Max. 20 wedstrijden</p>
-                  )}
-                  {subscription?.cancelAtPeriodEnd && (
-                    <p className="text-xs text-amber-500">Loopt af aan het einde van de periode</p>
-                  )}
+              <div className="stencil text-[10px] text-gray-400 mb-3">Abonnement</div>
+              <div className={`rounded-2xl p-4 ${isPaid ? 'bg-gradient-to-br from-primary to-primary-dark text-white' : 'bg-[#FAFAF7] dark:bg-gray-800 border border-black/[.06] dark:border-gray-700'}`}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className={`font-display font-black text-[20px] tracking-tight ${isPaid ? 'text-white' : 'text-gray-800 dark:text-white'}`}>
+                      {planName}
+                    </div>
+                    {subscription?.status === 'free' && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Max. 20 wedstrijden</p>
+                    )}
+                    {subscription?.cancelAtPeriodEnd && (
+                      <p className={`text-xs mt-0.5 ${isPaid ? 'text-white/70' : 'text-amber-500'}`}>
+                        Loopt af aan einde periode
+                      </p>
+                    )}
+                  </div>
+                  {isPaid && <Zap className="w-5 h-5 text-white/70" />}
                 </div>
                 {subscription?.status === 'free' && onUpgrade && (
                   <button
                     onClick={() => { onUpgrade(); onClose(); }}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition"
+                    className="mt-3 flex items-center gap-1.5 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-dark transition w-full justify-center"
                   >
-                    <Zap className="w-3.5 h-3.5" /> Upgraden
+                    <Zap className="w-3.5 h-3.5" /> Upgraden naar Starter
                   </button>
                 )}
               </div>
@@ -328,60 +333,56 @@ export function SettingsSheet({
 
           {/* Section: Account */}
           <section>
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-              Account
-            </h3>
-            <button
-              onClick={() => { openUserProfile(); onClose(); }}
-              className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-gray-50 dark:hover:bg-gray-700 transition text-sm text-gray-700 dark:text-gray-300"
-            >
-              Profiel &amp; wachtwoord wijzigen →
-            </button>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">Via Clerk accountbeheer</p>
-
-            {/* GDPR account deletion */}
-            {!showDeleteConfirm ? (
+            <div className="stencil text-[10px] text-gray-400 mb-3">Account</div>
+            <div className="space-y-2">
               <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="mt-3 w-full text-left px-4 py-3 rounded-lg border border-red-200 dark:border-red-900 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-sm flex items-center gap-2"
+                onClick={() => { openUserProfile(); onClose(); }}
+                className="w-full text-left px-4 py-3 rounded-xl border border-black/[.08] dark:border-gray-700 hover:border-primary hover:text-primary bg-white dark:bg-gray-800 transition text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                <Trash2 className="w-4 h-4 flex-shrink-0" />
-                Account + alle data verwijderen
+                Profiel &amp; wachtwoord wijzigen →
               </button>
-            ) : (
-              <div className="mt-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                <div className="flex items-start gap-2 mb-3">
-                  <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-700 dark:text-red-300">
-                    Dit verwijdert je account en <strong>alle wedstrijddata</strong> van teams waar jij de enige beheerder bent. Dit is niet terug te draaien.
-                  </p>
+
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="w-full text-left px-4 py-3 rounded-xl border border-red-100 dark:border-red-900 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-sm font-medium flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4 flex-shrink-0" />
+                  Account + alle data verwijderen
+                </button>
+              ) : (
+                <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800">
+                  <div className="flex items-start gap-2 mb-3">
+                    <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      Dit verwijdert je account en <strong>alle wedstrijddata</strong> van teams waar jij de enige beheerder bent. Niet terug te draaien.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDeleteAccount}
+                      className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition"
+                    >
+                      Ja, alles verwijderen
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="flex-1 py-2.5 border border-black/[.1] dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                    >
+                      Annuleren
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleDeleteAccount}
-                    className="flex-1 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition"
-                  >
-                    Ja, alles verwijderen
-                  </button>
-                  <button
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="flex-1 py-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-                  >
-                    Annuleren
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </section>
 
           {/* Section: Over de app */}
-          <section className="border-t border-gray-100 dark:border-gray-700 pt-4">
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-              Over de app
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Korfbal Score App v2.0</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Bijhouden van korfbalstatistieken</p>
+          <section className="border-t border-black/[.06] dark:border-gray-700 pt-5">
+            <p className="text-sm text-gray-400 dark:text-gray-500 font-medium">Korfbal Score App v2.0</p>
+            <p className="text-xs text-gray-300 dark:text-gray-600 mt-0.5">Gebouwd voor Nederlandse korfbalcoaches</p>
           </section>
+
         </div>
       </div>
     </div>

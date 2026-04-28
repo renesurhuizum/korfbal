@@ -41,41 +41,108 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  @apply bg-gray-100 dark:bg-gray-900 transition-colors duration-200;
+  @apply bg-[#FAFAF7] dark:bg-gray-900 transition-colors duration-200;
 }
 
 #root {
   min-height: 100vh;
 }
 
-/* Page transition animation */
+/* ===== Display typography ===== */
+.display {
+  font-family: 'Archivo', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Sportief uppercase label met brede tracking */
+.stencil {
+  font-family: 'Archivo', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/* Hero cijfers — scoreboard */
+.score-number {
+  font-family: 'Archivo', sans-serif;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+}
+
+/* Monospace — timer */
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Achtergrondpatronen ===== */
+.field-pattern {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.03) 0 1px,
+    transparent 1px 14px
+  );
+}
+
+.field-pattern-dark {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.04) 0 1px,
+    transparent 1px 14px
+  );
+}
+
+.korf-rings {
+  background-image:
+    radial-gradient(circle, transparent 38%, rgba(255,255,255,0.08) 38.5% 39.5%, transparent 40%),
+    radial-gradient(circle, transparent 48%, rgba(255,255,255,0.06) 48.5% 49.5%, transparent 50%);
+}
+
+/* ===== Animaties ===== */
 @keyframes fadeSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .page-transition {
   animation: fadeSlideIn 0.2s ease-out;
 }
 
-/* Score pop animation */
 @keyframes scorePop {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.3); }
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.3); }
   100% { transform: scale(1); }
 }
 
 .score-pop {
   animation: scorePop 0.4s ease-out;
+}
+
+@keyframes scorePopBig {
+  0%, 100% { transform: scale(1); }
+  40%      { transform: scale(1.15); }
+}
+
+.score-pop-big {
+  animation: scorePopBig 0.5s ease-out;
+}
+
+@keyframes pulseRing {
+  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  70%  { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.pulse-ring {
+  animation: pulseRing 1.8s infinite;
 }

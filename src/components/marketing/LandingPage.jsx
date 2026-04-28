@@ -1,11 +1,11 @@
 import React from 'react';
-import { Trophy, BarChart2, Users, Zap, CheckCircle, Star } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 
 const FEATURES = [
-  { icon: Trophy, title: 'Live wedstrijden bijhouden', desc: 'Doelpunten, pogingen en wissels per speler in real-time.' },
-  { icon: BarChart2, title: 'Statistieken per seizoen', desc: 'W/D/V record, schot%, spelersprestaties en competitie-overzicht.' },
-  { icon: Users, title: 'Meerdere coaches', desc: 'Nodig teamgenoten uit via een link — iedereen kan live meekijken en invoeren.' },
-  { icon: Zap, title: 'AI trainingsadvies', desc: 'Claude geeft gepersonaliseerd trainingsadvies op basis van jullie wedstrijddata.' },
+  { n: '01', title: 'Live scoren in één tik', desc: 'Tap een speler, kies schottype. Klaar. Ook in de regen, met handschoenen.' },
+  { n: '02', title: 'Statistieken die kloppen', desc: 'Schotpercentage per type, per speler, per seizoen. Geen Excel meer.' },
+  { n: '03', title: 'Volg je club live', desc: 'Een pagina per club met alle lopende wedstrijden. Deel de link met supporters.' },
+  { n: '04', title: 'AI-coach op zondagavond', desc: 'Concrete trainingsadviezen gebaseerd op jullie eigen wedstrijddata.' },
 ];
 
 const PLANS = [
@@ -50,24 +50,25 @@ export function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen bg-[#FAFAF7] dark:bg-gray-950 text-ink-900 dark:text-gray-100">
+
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur border-b border-gray-100 dark:border-gray-800">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-bold text-primary">
-            <Trophy className="w-5 h-5" />
-            <span>Korfbal Score</span>
+      <nav className="sticky top-0 z-50 bg-[#FAFAF7]/90 dark:bg-gray-950/90 backdrop-blur border-b border-black/[.06] dark:border-gray-800">
+        <div className="max-w-2xl mx-auto px-5 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center text-white font-display font-black text-sm">K</div>
+            <span className="font-display font-black text-sm tracking-tight dark:text-white">Korfbal Score</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={goToLogin}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary transition"
+              className="px-3 py-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-primary transition"
             >
               Inloggen
             </button>
             <button
               onClick={goToSignUp}
-              className="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary-dark transition"
+              className="px-3 py-2 text-sm font-semibold bg-primary text-white rounded-lg hover:bg-primary-dark transition"
             >
               Gratis beginnen
             </button>
@@ -75,102 +76,161 @@ export function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="max-w-5xl mx-auto px-4 pt-20 pb-16 text-center">
-        <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full mb-6">
-          <Star className="w-3.5 h-3.5" /> Gebouwd door korfballers, voor korfballers
-        </div>
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4">
-          Bijhouden wat écht telt<br className="hidden sm:block" /> op het veld
-        </h1>
-        <p className="text-lg text-gray-500 dark:text-gray-400 max-w-xl mx-auto mb-8">
-          Korfbal Score is de eenvoudigste manier om wedstrijdstatistieken bij te houden — live, per speler, per schotttype.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={goToSignUp}
-            className="px-6 py-3 bg-primary text-white font-semibold rounded-xl shadow-lg hover:bg-primary-dark transition text-base"
-          >
-            Gratis beginnen — geen creditcard nodig
-          </button>
-          <button
-            onClick={goToLogin}
-            className="px-6 py-3 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:border-primary hover:text-primary transition text-base"
-          >
-            Al een account? Inloggen →
-          </button>
-        </div>
-      </section>
+      <div className="max-w-2xl mx-auto px-5">
 
-      {/* Features */}
-      <section className="bg-gray-50 dark:bg-gray-900 py-16">
-        <div className="max-w-5xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-center mb-10">Alles wat je team nodig heeft</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {FEATURES.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="bg-white dark:bg-gray-800 rounded-2xl p-6 flex gap-4 shadow-sm">
-                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Icon className="w-5 h-5 text-primary" />
+        {/* Hero */}
+        <section className="pt-10 pb-8">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white dark:bg-gray-800 border border-black/[.08] dark:border-gray-700 text-[10px] font-semibold tracking-wide uppercase mb-5">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+            Nu ook: AI coaching
+          </div>
+          <h1 className="font-display font-black text-[42px] leading-[0.95] tracking-[-0.035em] mb-4 dark:text-white">
+            Bijhouden<br />
+            wat <em className="text-primary not-italic">écht</em><br />
+            telt op<br />
+            het veld.
+          </h1>
+          <p className="text-[15px] leading-relaxed text-gray-500 dark:text-gray-400 mb-5 max-w-sm">
+            De scoring-app voor Nederlandse korfbalcoaches. Live wedstrijden, schotstatistieken, en AI-advies na elke match.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={goToSignUp}
+              className="px-5 py-3 bg-primary text-white font-semibold text-sm rounded-xl hover:bg-primary-dark transition"
+            >
+              Start gratis →
+            </button>
+            <button
+              onClick={goToLogin}
+              className="px-5 py-3 border border-black/[.12] dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold text-sm rounded-xl hover:border-primary hover:text-primary transition"
+            >
+              Inloggen
+            </button>
+          </div>
+        </section>
+
+        {/* Live scoreboard mockup */}
+        <section className="mb-10">
+          <div className="bg-ink-900 rounded-[18px] p-5 relative overflow-hidden">
+            <div className="field-pattern absolute inset-0 opacity-60" />
+            <div className="relative">
+              <div className="flex justify-between items-center mb-3.5">
+                <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/60">Live · 2e helft</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 pulse-ring" />
+                  <span className="text-[11px] font-bold text-red-300">LIVE</span>
                 </div>
-                <div>
-                  <h3 className="font-semibold mb-1">{title}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{desc}</p>
+              </div>
+              <div className="flex items-center justify-between gap-3.5 mb-4">
+                <div className="flex-1">
+                  <div className="text-[11px] font-bold text-white/70 mb-1">Klimop B1</div>
+                  <div className="score-number text-[64px] text-white">12</div>
                 </div>
+                <div className="text-[28px] font-light text-white/30 font-display">–</div>
+                <div className="flex-1 text-right">
+                  <div className="text-[11px] font-bold text-white/70 mb-1">DKOD</div>
+                  <div className="score-number text-[64px] text-white/55">09</div>
+                </div>
+              </div>
+              <div className="pt-3.5 border-t border-white/10 flex gap-4 text-[11px] font-medium text-white/80">
+                <div><span className="tabular">34:12</span> <span className="text-white/50">speeltijd</span></div>
+                <div><span className="tabular">67%</span> <span className="text-white/50">schot%</span></div>
+                <div className="text-green-300">W W G W V</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Features lijst */}
+        <section className="mb-10">
+          <div className="stencil text-[10px] text-primary mb-3.5">Wat je krijgt</div>
+          {FEATURES.map((f) => (
+            <div key={f.n} className="py-4 border-t border-black/[.08] dark:border-gray-700 flex gap-3.5">
+              <div className="display text-[22px] text-primary min-w-[30px] font-black">{f.n}</div>
+              <div>
+                <div className="font-bold text-[15px] mb-1 tracking-tight dark:text-white">{f.title}</div>
+                <div className="text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">{f.desc}</div>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* Prijzen */}
+        <section className="mb-10">
+          <div className="stencil text-[10px] text-gray-400 mb-3">Abonnementen</div>
+          <h2 className="font-display font-black text-2xl tracking-tight mb-6 dark:text-white">Eenvoudige prijzen.</h2>
+          <div className="flex flex-col gap-4">
+            {PLANS.map((plan) => (
+              <div
+                key={plan.name}
+                className={`rounded-2xl p-5 flex flex-col border transition ${
+                  plan.highlight
+                    ? 'border-primary shadow-lg shadow-primary/10 bg-primary/5 dark:bg-primary/10'
+                    : 'border-black/[.06] dark:border-gray-700 bg-white dark:bg-gray-800'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    {plan.highlight && (
+                      <div className="stencil text-[9px] text-primary mb-1">Meest gekozen</div>
+                    )}
+                    <div className="font-display font-black text-lg tracking-tight dark:text-white">{plan.name}</div>
+                    <div className="text-gray-500 dark:text-gray-400 text-xs mt-0.5">{plan.desc}</div>
+                  </div>
+                  <div className="text-right">
+                    <span className="score-number text-[28px] text-ink-900 dark:text-white">{plan.price}</span>
+                    <span className="text-gray-400 text-xs">{plan.period}</span>
+                  </div>
+                </div>
+                <ul className="space-y-1.5 mb-4">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                      <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={goToSignUp}
+                  className={`w-full py-2.5 rounded-xl font-semibold text-sm transition ${
+                    plan.highlight
+                      ? 'bg-primary text-white hover:bg-primary-dark'
+                      : 'border border-black/[.1] dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary hover:text-primary'
+                  }`}
+                >
+                  {plan.cta}
+                </button>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Pricing */}
-      <section className="max-w-5xl mx-auto px-4 py-16">
-        <h2 className="text-2xl font-bold text-center mb-2">Eenvoudige prijzen</h2>
-        <p className="text-center text-gray-500 dark:text-gray-400 mb-10 text-sm">Geen verborgen kosten. Maandelijks opzegbaar.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.name}
-              className={`rounded-2xl p-6 flex flex-col border-2 transition ${
-                plan.highlight
-                  ? 'border-primary shadow-xl shadow-primary/10 bg-primary/5 dark:bg-primary/10'
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
-              }`}
-            >
-              {plan.highlight && (
-                <div className="text-xs font-bold text-primary uppercase tracking-wide mb-2">Meest gekozen</div>
-              )}
-              <div className="mb-1 text-xl font-bold">{plan.name}</div>
-              <div className="mb-1">
-                <span className="text-3xl font-extrabold">{plan.price}</span>
-                <span className="text-gray-400 text-sm">{plan.period}</span>
+        {/* CTA sectie */}
+        <section className="mb-10">
+          <div className="bg-primary rounded-[20px] p-6 text-white relative overflow-hidden">
+            <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full border-[3px] border-white/15" />
+            <div className="absolute right-2 top-2 w-20 h-20 rounded-full border-[3px] border-white/15" />
+            <div className="relative">
+              <div className="stencil text-[10px] text-white/70 mb-2.5">Gebouwd door korfballers</div>
+              <div className="font-display font-black text-[26px] leading-[1.05] tracking-tight mb-4">
+                Begin je<br />volgende<br />wedstrijd —<br />gratis.
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">{plan.desc}</p>
-              <ul className="space-y-2 mb-6 flex-1">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
               <button
                 onClick={goToSignUp}
-                className={`w-full py-2.5 rounded-xl font-semibold text-sm transition ${
-                  plan.highlight
-                    ? 'bg-primary text-white hover:bg-primary-dark'
-                    : 'border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-primary hover:text-primary'
-                }`}
+                className="bg-white text-ink-900 font-bold text-sm px-4 py-3 rounded-xl hover:bg-gray-50 transition"
               >
-                {plan.cta}
+                Maak account →
               </button>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </section>
+
+      </div>
 
       {/* Footer */}
-      <footer className="border-t border-gray-100 dark:border-gray-800 py-8 text-center text-sm text-gray-400">
-        <p>© 2026 Korfbal Score App · <a href="/privacy" className="hover:text-primary transition">Privacybeleid</a></p>
+      <footer className="border-t border-black/[.06] dark:border-gray-800 py-6 text-center text-[11px] font-medium text-gray-400">
+        © 2026 Korfbal Score ·{' '}
+        <a href="/privacy" className="text-primary hover:underline">Privacybeleid</a>
       </footer>
     </div>
   );

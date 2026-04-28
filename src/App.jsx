@@ -260,21 +260,16 @@ function SetupMatchView({
   // Show message if no players available
   if (players.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-primary text-white p-4 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <button onClick={() => navigateTo('home')} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
-              <h1 className="text-xl font-bold">Wedstrijd instellen</h1>
-            </div>
-            <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
-          </div>
+      <div className="min-h-screen bg-[#FAFAF7] dark:bg-gray-900">
+        <div className="px-4 pt-4 pb-2 flex items-center gap-3 border-b border-black/[.06] dark:border-gray-800">
+          <button onClick={() => navigateTo('home')} className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 border border-black/[.08] flex items-center justify-center" aria-label="Terug"><ArrowLeft className="w-4 h-4" /></button>
+          <span className="font-bold text-[13px] text-ink-900 dark:text-white">Nieuwe wedstrijd</span>
         </div>
-        <div className="max-w-2xl mx-auto p-4 pb-24">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 text-center">
-            <p className="text-gray-600 mb-4">Je hebt nog geen spelers toegevoegd.</p>
+        <div className="p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-6 text-center">
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">Je hebt nog geen spelers toegevoegd.</p>
             <button onClick={() => navigateTo('manage-players')}
-              className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition">
+              className="bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-dark transition">
               Spelers toevoegen
             </button>
           </div>
@@ -325,72 +320,81 @@ function SetupMatchView({
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="bg-primary text-white p-4 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <button onClick={() => navigateTo('home')} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
-            <h1 className="text-xl font-bold">Wedstrijd instellen</h1>
-          </div>
-          <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
-        </div>
+    <div className="min-h-screen bg-[#FAFAF7] dark:bg-gray-900 flex flex-col">
+      {/* Header */}
+      <div className="px-4 py-3.5 flex items-center justify-between border-b border-black/[.06] dark:border-gray-800 bg-[#FAFAF7] dark:bg-gray-900">
+        <button onClick={() => navigateTo('home')} className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 border border-black/[.08] flex items-center justify-center" aria-label="Terug">
+          <ArrowLeft className="w-4 h-4 text-ink-900 dark:text-white" />
+        </button>
+        <span className="font-bold text-[13px] text-ink-900 dark:text-white">Nieuwe wedstrijd</span>
+        <div className="w-9" />
       </div>
-      <div className="max-w-2xl mx-auto p-4 pb-24 space-y-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Tegenstander</label>
-          <input type="text" value={opponent} onChange={(e) => setOpponent(e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base"
-            placeholder="Naam tegenstander" />
+
+      <div className="flex-1 overflow-y-auto px-4 pb-6 pt-4 space-y-3.5">
+        {/* Headline */}
+        <div>
+          <h1 className="font-display font-black text-[28px] leading-tight tracking-tight text-ink-900 dark:text-white">
+            Zet je<br />opstelling klaar.
+          </h1>
+          <p className="text-[13px] text-gray-400 mt-1">{currentTeam} · {new Date(matchDate).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Datum wedstrijd</label>
-          <input type="date" value={matchDate} onChange={(e) => setMatchDate(e.target.value)}
-            className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base" />
-          <p className="text-xs text-gray-500 mt-1">Selecteer de datum waarop de wedstrijd is/was gespeeld</p>
+
+        {/* Tegenstander + datum */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4 space-y-3">
+          <div>
+            <div className="stencil text-[10px] text-gray-400 mb-2">Tegenstander</div>
+            <input type="text" value={opponent} onChange={(e) => setOpponent(e.target.value)}
+              className="w-full px-3 py-2.5 border border-black/[.1] dark:border-gray-600 rounded-xl focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base font-semibold"
+              placeholder="Naam tegenstander" />
+          </div>
+          <div>
+            <div className="stencil text-[10px] text-gray-400 mb-2">Datum</div>
+            <input type="date" value={matchDate} onChange={(e) => setMatchDate(e.target.value)}
+              className="w-full px-3 py-2.5 border border-black/[.1] dark:border-gray-600 rounded-xl focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm" />
+          </div>
         </div>
-        {/* Pogingen bijhouden toggle */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-          <button onClick={() => setWithAttempts(!withAttempts)}
-            className="flex items-center justify-between w-full">
+
+        {/* Pogingen bijhouden */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+          <button onClick={() => setWithAttempts(!withAttempts)} className="flex items-center justify-between w-full">
             <div>
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 text-left">Pogingen bijhouden</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-left">Schot-pogingen tellen voor percentage berekening</p>
+              <p className="text-sm font-semibold text-ink-900 dark:text-gray-100 text-left">Pogingen bijhouden</p>
+              <p className="text-xs text-gray-400 text-left mt-0.5">Schot-pogingen tellen voor percentage</p>
             </div>
-            <div className={`w-11 h-6 rounded-full transition-colors ${withAttempts ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}>
+            <div className={`w-11 h-6 rounded-full transition-colors flex-shrink-0 ${withAttempts ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-600'}`}>
               <div className={`w-5 h-5 bg-white rounded-full shadow mt-0.5 transition-transform ${withAttempts ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </div>
           </button>
         </div>
+
         {/* Seizoen picker */}
         {seasons && seasons.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 space-y-3">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4 space-y-3">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Seizoen</label>
+              <div className="stencil text-[10px] text-gray-400 mb-2">Seizoen</div>
               <select
                 value={seasonId || ''}
                 onChange={e => setSeasonId(e.target.value || null)}
-                className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base"
+                className="w-full px-3 py-2.5 border border-black/[.1] dark:border-gray-600 rounded-xl focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm font-medium"
               >
                 <option value="">Geen seizoen</option>
                 {seasons.map(s => (
-                  <option key={s._id} value={s._id}>
-                    {s.name}{s.isActive ? ' (actief)' : ''}
-                  </option>
+                  <option key={s._id} value={s._id}>{s.name}{s.isActive ? ' (actief)' : ''}</option>
                 ))}
               </select>
             </div>
             {seasonId && (
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Competitie</label>
+                <div className="stencil text-[10px] text-gray-400 mb-2">Competitie</div>
                 <div className="flex gap-2">
                   {['veld', 'zaal'].map(type => (
                     <button
                       key={type}
                       onClick={() => setCompetition(type)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-semibold capitalize transition ${
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition ${
                         competition === type
-                          ? 'bg-primary text-white'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          ? 'bg-ink-900 dark:bg-white text-white dark:text-ink-900'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                       }`}
                     >
                       {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -401,25 +405,38 @@ function SetupMatchView({
             )}
           </div>
         )}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
-          <h2 className="text-base font-semibold text-gray-800 mb-3">
-            Selecteer 8 basisspelers ({selectedPlayers.length}/8)
-          </h2>
-          <div className="grid grid-cols-2 gap-2">
-            {players.map(player => (
-              <button key={player.id} onClick={() => togglePlayer(player)}
-                className={`p-3 rounded-lg font-medium transition text-sm ${
-                  selectedPlayers.find(p => p.id === player.id)
-                    ? 'bg-primary text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                }`}>
-                {player.name}
-              </button>
-            ))}
+
+        {/* Spelerselectie */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+          <div className="flex items-baseline justify-between mb-3">
+            <div className="stencil text-[10px] text-gray-400">Kies 8 spelers</div>
+            <div className={`font-display font-black text-[16px] tabular ${selectedPlayers.length === 8 ? 'text-green-600' : 'text-primary'}`}>
+              {selectedPlayers.length}<span className="text-gray-300 font-light">/8</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {players.map(player => {
+              const isSelected = !!selectedPlayers.find(p => p.id === player.id);
+              return (
+                <button key={player.id} onClick={() => togglePlayer(player)}
+                  className={`p-2.5 rounded-xl text-left text-sm font-semibold transition border ${
+                    isSelected
+                      ? 'bg-ink-900 dark:bg-white text-white dark:text-ink-900 border-ink-900 dark:border-white'
+                      : 'bg-[#FAFAF7] dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-black/[.06] dark:border-gray-600'
+                  }`}>
+                  {player.name}
+                </button>
+              );
+            })}
           </div>
         </div>
+      </div>
+
+      {/* Sticky bottom CTA */}
+      <div className="px-4 py-4 bg-white dark:bg-gray-900 border-t border-black/[.06] dark:border-gray-800">
         <button onClick={startMatch} disabled={!opponent || selectedPlayers.length !== 8}
-          className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all disabled:bg-gray-400 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-          Start wedstrijd
+          className="w-full bg-primary text-white py-3.5 rounded-2xl font-bold text-[15px] hover:bg-primary-dark active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+          Start wedstrijd →
         </button>
       </div>
     </div>
@@ -1484,145 +1501,188 @@ export default function KorfbalApp() {
       showFeedback('Opgeslagen wedstrijd verwijderd', 'success');
     };
 
+    const recentMatches = teamMatches
+      .filter(m => m.finished)
+      .sort((a, b) => (b._creationTime || 0) - (a._creationTime || 0))
+      .slice(0, 3);
+
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-primary text-white p-4 shadow-lg">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">{currentTeam}</h1>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowSettings(true)}
-                className="p-2 rounded-lg hover:bg-primary-dark transition"
-                aria-label="Instellingen openen"
-              >
-                <Cog className="w-5 h-5" />
-              </button>
-              <button onClick={handleLogout}
-                className="text-sm hover:underline min-h-[44px] px-2">Uitloggen</button>
+      <div className="min-h-screen bg-[#FAFAF7] dark:bg-gray-900">
+        {/* Header */}
+        <div className="px-5 pt-5 pb-2 flex items-center justify-between">
+          <div>
+            <div className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">
+              {new Date().toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })}
             </div>
+            <h1 className="font-display font-black text-[22px] tracking-tight text-ink-900 dark:text-white leading-tight">
+              {currentTeam} <span className="text-primary">.</span>
+            </h1>
           </div>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-black/[.08] dark:border-gray-700 flex items-center justify-center hover:border-primary transition"
+            aria-label="Instellingen openen"
+          >
+            <Cog className="w-4.5 h-4.5 text-gray-600 dark:text-gray-300" />
+          </button>
         </div>
-        <div className="max-w-4xl mx-auto p-4 pb-24 space-y-3">
+
+        <div className="px-4 pb-24 space-y-3 mt-2">
+
+          {/* Saved match banner */}
           {savedMatchInfo && (
-            <div className="bg-gradient-to-r from-yellow-400 to-orange-400 p-5 rounded-lg shadow-xl border-2 border-yellow-500">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  <div className="bg-white bg-opacity-30 p-2 rounded-full mr-3">
-                    <Trophy className="w-6 h-6 text-white" />
-                  </div>
+            <div className="bg-ink-900 rounded-2xl p-4 relative overflow-hidden">
+              <div className="field-pattern absolute inset-0 opacity-50" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="font-bold text-white text-lg">Wedstrijd bezig!</p>
-                    <p className="text-white text-sm opacity-90">
-                      {currentTeam} - {savedMatchInfo.opponent}
-                    </p>
+                    <div className="stencil text-[9px] text-amber-400 mb-1">Wedstrijd bezig!</div>
+                    <div className="font-bold text-white text-sm">{currentTeam} · {savedMatchInfo.opponent}</div>
                   </div>
+                  <div className="score-number text-[28px] text-white">{savedMatchInfo.score}–{savedMatchInfo.opponentScore}</div>
                 </div>
-                <div className="text-center bg-white bg-opacity-20 px-4 py-2 rounded-lg">
-                  <p className="text-2xl font-bold text-white">
-                    {savedMatchInfo.score} - {savedMatchInfo.opponentScore}
-                  </p>
-                  <p className="text-xs text-white opacity-75">
-                    {savedMatchInfo.hoursSince < 1
-                      ? 'Net gestart'
-                      : `${savedMatchInfo.hoursSince}u geleden`}
-                  </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleContinueSavedMatch}
+                    className="flex-1 bg-primary text-white py-2.5 rounded-xl text-sm font-bold hover:bg-primary-dark transition active:scale-95"
+                  >
+                    ▶ Verder gaan
+                  </button>
+                  <button
+                    onClick={handleDiscardSavedMatch}
+                    className="bg-white/10 text-white/70 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-white/20 transition"
+                    aria-label="Opgeslagen wedstrijd verwijderen"
+                  >
+                    ✕
+                  </button>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleContinueSavedMatch}
-                  className="flex-1 bg-white text-orange-600 py-3 rounded-lg font-bold hover:bg-gray-100 active:scale-95 transition-all shadow-md"
-                >
-                  ▶ Verder gaan
-                </button>
-                <button
-                  onClick={handleDiscardSavedMatch}
-                  className="bg-primary bg-opacity-80 text-white px-4 py-3 rounded-lg font-semibold hover:bg-opacity-100 transition"
-                  aria-label="Opgeslagen wedstrijd verwijderen"
-                >
-                  ✕
-                </button>
               </div>
             </div>
           )}
-          {/* Free tier match count banner */}
+
+          {/* Free tier banner */}
           {matchCountData && subscription?.status === 'free' && matchCountData.count >= 15 && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 flex items-center justify-between gap-3">
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3.5 flex items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">
                   {matchCountData.count}/{matchCountData.limit} wedstrijden gebruikt
                 </p>
                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                  {matchCountData.limit - matchCountData.count} resterend op het gratis plan
+                  {matchCountData.limit - matchCountData.count} resterend op gratis plan
                 </p>
               </div>
               <button
                 onClick={() => setShowUpgradeModal(true)}
-                className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition flex-shrink-0"
+                className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition flex-shrink-0"
               >
                 Upgraden
               </button>
             </div>
           )}
 
-          <button onClick={() => navigateTo('setup-match')}
-            className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-            <div className="bg-primary p-3 rounded-full group-hover:bg-primary-dark transition">
-              <Plus className="w-6 h-6 text-white" />
-            </div>
-            <div className="ml-4 text-left">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Nieuwe wedstrijd</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Start een nieuwe wedstrijd</p>
-            </div>
-          </button>
-          <button onClick={() => navigateTo('manage-players')}
-            className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-            <div className="bg-primary p-3 rounded-full group-hover:bg-primary-dark transition">
-              <Users className="w-6 h-6 text-white" />
-            </div>
-            <div className="ml-4 text-left">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Spelers beheren</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Voeg spelers toe of bewerk ze</p>
-            </div>
-          </button>
-          <button onClick={() => navigateTo('statistics')}
-            className="w-full bg-white p-4 rounded-lg shadow-lg hover:shadow-xl active:scale-[0.98] transition-all flex items-center group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-            <div className="bg-primary p-3 rounded-full group-hover:bg-primary-dark transition">
-              <BarChart3 className="w-6 h-6 text-white" />
-            </div>
-            <div className="ml-4 text-left">
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Statistieken</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{teamMatches.length} wedstrijden gespeeld</p>
+          {/* Nieuwe wedstrijd — primary CTA */}
+          <button
+            onClick={() => navigateTo('setup-match')}
+            className="w-full bg-ink-900 dark:bg-gray-800 rounded-2xl p-5 text-left relative overflow-hidden group active:scale-[0.98] transition-transform"
+          >
+            <div className="field-pattern absolute inset-0 opacity-50" />
+            <div className="relative flex items-center justify-between">
+              <div>
+                <div className="stencil text-[10px] text-white/50 mb-2">Klaar voor de volgende?</div>
+                <div className="font-display font-black text-[20px] text-white tracking-tight leading-tight">
+                  Nieuwe wedstrijd
+                </div>
+                <div className="text-white/60 text-xs mt-1 font-medium">Zet opstelling klaar →</div>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 group-hover:bg-primary-dark transition">
+                <Plus className="w-6 h-6 text-white" />
+              </div>
             </div>
           </button>
 
+          {/* Snelle navigatie */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              onClick={() => navigateTo('manage-players')}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-4 text-left border border-black/[.06] dark:border-gray-700 active:scale-[0.98] transition-transform"
+            >
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-2.5">
+                <Users className="w-4.5 h-4.5 text-primary" />
+              </div>
+              <div className="font-bold text-sm text-ink-900 dark:text-white">Spelers</div>
+              <div className="text-xs text-gray-400 mt-0.5">Beheren</div>
+            </button>
+            <button
+              onClick={() => navigateTo('statistics')}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-4 text-left border border-black/[.06] dark:border-gray-700 active:scale-[0.98] transition-transform"
+            >
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-2.5">
+                <BarChart3 className="w-4.5 h-4.5 text-primary" />
+              </div>
+              <div className="font-bold text-sm text-ink-900 dark:text-white">Statistieken</div>
+              <div className="text-xs text-gray-400 mt-0.5">{teamMatches.length} wedstrijden</div>
+            </button>
+          </div>
+
+          {/* AI Coach card */}
+          <AIAdviceCard teamId={currentTeamId} showFeedback={showFeedback} />
+
+          {/* Recente wedstrijden */}
+          {recentMatches.length > 0 && (
+            <div>
+              <div className="flex items-baseline justify-between mb-2 px-1">
+                <div className="stencil text-[10px] text-gray-400">Recente wedstrijden</div>
+                <button
+                  onClick={() => navigateTo('statistics')}
+                  className="text-[11px] font-semibold text-primary"
+                >
+                  Alles →
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {recentMatches.map(m => {
+                  const res = m.score > m.opponentScore ? 'W' : m.score < m.opponentScore ? 'V' : 'G';
+                  const resColor = res === 'W' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : res === 'V' ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';
+                  return (
+                    <div key={m._id} className="bg-white dark:bg-gray-800 rounded-xl border border-black/[.06] dark:border-gray-700 px-4 py-3.5 flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-[13px] flex-shrink-0 ${resColor}`}>{res}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-[13px] text-ink-900 dark:text-white">vs {m.opponent}</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">
+                          {m._creationTime ? new Date(m._creationTime).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}
+                        </div>
+                      </div>
+                      <div className="score-number text-[18px] text-ink-900 dark:text-white">{m.score}–{m.opponentScore}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Seizoenbeheer */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Seizoen</h2>
+              <div className="font-bold text-sm text-ink-900 dark:text-white">Seizoen</div>
               {activeSeason ? (
-                <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-2 py-1 rounded-full font-medium">
-                  Actief
-                </span>
+                <span className="stencil text-[9px] bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 px-2 py-1 rounded-full">Actief</span>
               ) : (
-                <span className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 px-2 py-1 rounded-full font-medium">
-                  Geen actief seizoen
-                </span>
+                <span className="stencil text-[9px] bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 px-2 py-1 rounded-full">Geen seizoen</span>
               )}
             </div>
             {activeSeason ? (
-              <div className="space-y-3">
-                <p className="text-gray-700 dark:text-gray-300 font-semibold">{activeSeason.name}</p>
+              <div className="space-y-2.5">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{activeSeason.name}</p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => { setShowNewSeasonForm(true); setNewSeasonName(''); }}
-                    className="flex-1 bg-primary text-white py-2 px-3 rounded-lg text-sm font-semibold hover:bg-primary-dark transition"
+                    className="flex-1 bg-primary text-white py-2 px-3 rounded-xl text-xs font-bold hover:bg-primary-dark transition"
                   >
                     Nieuw seizoen
                   </button>
                   <button
                     onClick={handleCloseSeason}
-                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 px-3 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-2 px-3 rounded-xl text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                   >
                     Afsluiten
                   </button>
@@ -1630,10 +1690,10 @@ export default function KorfbalApp() {
               </div>
             ) : (
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Start een seizoen om wedstrijden en statistieken per seizoen bij te houden.</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2.5">Start een seizoen om wedstrijden en statistieken bij te houden.</p>
                 <button
                   onClick={() => { setShowNewSeasonForm(true); setNewSeasonName(''); }}
-                  className="w-full bg-primary text-white py-2 px-3 rounded-lg text-sm font-semibold hover:bg-primary-dark transition"
+                  className="w-full bg-primary text-white py-2 px-3 rounded-xl text-xs font-bold hover:bg-primary-dark transition"
                 >
                   Nieuw seizoen starten
                 </button>
@@ -1647,19 +1707,19 @@ export default function KorfbalApp() {
                   onChange={e => setNewSeasonName(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleCreateSeason(); if (e.key === 'Escape') setShowNewSeasonForm(false); }}
                   placeholder='bijv. "2025-2026"'
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full border border-black/[.1] dark:border-gray-600 rounded-xl px-3 py-2 text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
                   autoFocus
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={handleCreateSeason}
-                    className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-semibold hover:bg-primary-dark transition"
+                    className="flex-1 bg-primary text-white py-2 rounded-xl text-xs font-bold hover:bg-primary-dark transition"
                   >
                     Starten
                   </button>
                   <button
                     onClick={() => setShowNewSeasonForm(false)}
-                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-2 rounded-xl text-xs font-bold transition"
                   >
                     Annuleren
                   </button>
@@ -2205,65 +2265,154 @@ export default function KorfbalApp() {
       );
     };
 
-    return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 pb-20">
-        <div className="bg-primary text-white px-4 pt-2 pb-2 shadow-lg sticky top-0 z-10">
-          {/* Top row: nav + score + undo */}
-          <div className="flex items-center justify-between gap-2">
-            <button onClick={() => navigateTo('home')} className="text-sm hover:underline min-h-[36px] px-1 shrink-0" aria-label="Terug naar home">← Home</button>
-            <div className="flex-1 text-center">
-              <div key={scoreAnimKey} className="text-4xl font-bold score-pop leading-none">{currentMatch.score} - {currentMatch.opponentScore}</div>
-              <div className="text-xs opacity-75 truncate mt-0.5">{currentMatch.team} – {currentMatch.opponent}</div>
+    const [posFilter, setPosFilter] = useState('alle');
+    const starters = currentMatch.players.filter(p => p.isStarter);
+    const bench = currentMatch.players.filter(p => !p.isStarter);
+    const visibleStarters = posFilter === 'alle' ? starters
+      : starters.filter(p => posFilter === 'aanval' ? p.position === 'aanval' : p.position === 'verdediging');
+
+    const PlayerCard = ({ player }) => {
+      const totalGoals = SHOT_TYPES.reduce((sum, type) => sum + getStat(player, type.id).goals, 0);
+      const totalAttempts = SHOT_TYPES.reduce((sum, type) => sum + getStat(player, type.id).attempts, 0);
+      const shotPct = totalAttempts > 0 ? Math.round((totalGoals / totalAttempts) * 100) : null;
+      const initials = player.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
+      const isAanval = player.position === 'aanval';
+
+      return (
+        <button
+          onClick={() => setShowGoalModal(player)}
+          disabled={isModalOpen}
+          className="bg-white dark:bg-gray-800 border border-black/[.06] dark:border-gray-700 rounded-2xl p-3 text-left flex flex-col gap-2.5 active:scale-[0.97] transition-transform disabled:opacity-50"
+        >
+          <div className="flex items-center gap-2">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0 ${isAanval ? 'bg-primary' : 'bg-ink-900 dark:bg-gray-600'}`}>
+              {initials}
             </div>
-            <div className="flex flex-col items-end gap-1 shrink-0">
-              <button
-                onClick={undoLastAction}
-                disabled={actionHistory.length === 0}
-                className="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1 rounded text-xs font-semibold transition flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed"
-                aria-label="Laatste actie ongedaan maken"
-              >
-                <RotateCcw className="w-3 h-3" />
-                Ongedaan
-              </button>
-              {/* Timer inline */}
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono text-sm font-semibold opacity-90">{formatTimer(timerSeconds)}</span>
-                <button
-                  onClick={() => setTimerRunning(r => !r)}
-                  className="bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-0.5 rounded text-xs font-semibold transition"
-                  aria-label={timerRunning ? 'Timer pauzeren' : 'Timer hervatten'}
-                >
-                  {timerRunning ? '⏸' : '▶'}
-                </button>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-[12px] text-ink-900 dark:text-white truncate">{player.name.split(' ')[0]}</div>
+              <div className="stencil text-[8px] text-gray-400">{isAanval ? 'Aanval' : 'Verdediging'}</div>
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-1">
+            <div>
+              <div className="score-number text-[22px] text-ink-900 dark:text-white">{totalGoals}</div>
+              <div className="stencil text-[8px] text-gray-400 mt-0.5">Doelpunten</div>
+            </div>
+            {currentMatch?.withAttempts !== false && shotPct !== null && (
+              <div className="text-right">
+                <div className={`font-bold text-[13px] tabular ${shotPct >= 60 ? 'text-green-600' : 'text-gray-500'}`}>{shotPct}%</div>
+                <div className="stencil text-[8px] text-gray-400 mt-0.5">Schot%</div>
               </div>
+            )}
+            {currentMatch?.withAttempts !== false && shotPct === null && (
+              <button
+                onClick={e => { e.stopPropagation(); setShowAttemptModal(player); }}
+                className="text-[10px] font-semibold text-gray-300 hover:text-primary transition"
+              >
+                Poging
+              </button>
+            )}
+          </div>
+        </button>
+      );
+    };
+
+    return (
+      <div className="min-h-screen bg-[#FAFAF7] dark:bg-gray-900 flex flex-col">
+        {/* Header */}
+        <div className="px-4 py-3.5 flex items-center justify-between border-b border-black/[.06] dark:border-gray-800 bg-[#FAFAF7] dark:bg-gray-900 sticky top-0 z-10">
+          <button onClick={() => navigateTo('home')} className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 border border-black/[.08] flex items-center justify-center" aria-label="Terug">
+            <ArrowLeft className="w-4 h-4 text-ink-900 dark:text-white" />
+          </button>
+          <div className="text-center">
+            <div className="font-bold text-[13px] text-ink-900 dark:text-white">vs {currentMatch.opponent}</div>
+            <div className="flex items-center justify-center gap-1 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 pulse-ring" />
+              <span className="stencil text-[9px] text-red-500">LIVE · {timerRunning ? '2E HELFT' : 'GEPAUZEERD'}</span>
             </div>
           </div>
-        </div>
-        <div className="max-w-4xl mx-auto p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-4">
-            <h2 className="font-bold text-lg mb-3 text-gray-800 dark:text-gray-100">Basisspelers</h2>
-            {currentMatch.players.filter(p => p.isStarter).map(player => <PlayerRow key={player.id} player={player} />)}
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-4">
-            <h2 className="font-bold text-lg mb-3 text-gray-800 dark:text-gray-100">Wisselspelers</h2>
-            {currentMatch.players.filter(p => !p.isStarter).map(player => <PlayerRow key={player.id} player={player} />)}
-          </div>
-          <div className="flex gap-3 mb-4">
-            <button onClick={() => setShowOpponentModal(true)}
-              className="flex-1 bg-gray-800 text-white py-4 rounded-lg font-semibold hover:bg-gray-900 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2">
-              + Tegendoelpunt
-            </button>
-            <button onClick={() => setShowSubstitutionModal(true)}
-              className="flex-1 bg-blue-700 text-white py-4 rounded-lg font-semibold hover:bg-blue-800 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-              ↔ Wissel
-            </button>
-          </div>
-          <button onClick={finishMatch}
-            className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-            Wedstrijd beëindigen
+          <button
+            onClick={undoLastAction}
+            disabled={actionHistory.length === 0}
+            className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 border border-black/[.08] flex items-center justify-center disabled:opacity-30"
+            aria-label="Ongedaan maken"
+          >
+            <RotateCcw className="w-4 h-4 text-ink-900 dark:text-white" />
           </button>
         </div>
-        {showGoalModal && <ShotTypeModal title="Doelpunt registreren"
+
+        {/* Score display */}
+        <div className="px-4 py-4 bg-white dark:bg-gray-800 border-b border-black/[.06] dark:border-gray-800">
+          <div className="grid grid-cols-3 items-center gap-2">
+            <div className="text-center">
+              <div className="stencil text-[10px] text-gray-400 mb-1">{currentMatch.team?.split(' ').slice(-1)[0] || 'Thuis'}</div>
+              <div key={scoreAnimKey} className={`score-number text-[52px] text-primary ${scoreAnimKey > 0 ? 'score-pop-big' : ''}`}>{currentMatch.score}</div>
+            </div>
+            <div className="text-center">
+              <button
+                onClick={() => setTimerRunning(r => !r)}
+                className="mono text-[12px] font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2.5 py-1.5 rounded-lg"
+                aria-label={timerRunning ? 'Timer pauzeren' : 'Timer hervatten'}
+              >
+                {formatTimer(timerSeconds)}
+              </button>
+            </div>
+            <div className="text-center">
+              <div className="stencil text-[10px] text-gray-400 mb-1">{currentMatch.opponent}</div>
+              <div className="score-number text-[52px] text-gray-300 dark:text-gray-500">{currentMatch.opponentScore}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filter + recente actie */}
+        <div className="px-4 py-2.5 flex items-center justify-between">
+          <div className="text-[11px] text-gray-400 font-medium">
+            Tap speler om te scoren
+          </div>
+          <div className="flex gap-1">
+            {[['alle','Alle'],['aanval','Aanval'],['verdediging','Verd.']].map(([val, label]) => (
+              <button key={val} onClick={() => setPosFilter(val)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition ${posFilter === val ? 'bg-ink-900 dark:bg-white text-white dark:text-ink-900' : 'text-gray-500'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Player grid */}
+        <div className="flex-1 overflow-y-auto px-3 pb-2">
+          {visibleStarters.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              {visibleStarters.map(player => <PlayerCard key={player.id} player={player} />)}
+            </div>
+          )}
+          {bench.length > 0 && (
+            <div className="mb-2">
+              <div className="stencil text-[9px] text-gray-400 px-1 mb-1.5">Wisselspelers</div>
+              <div className="grid grid-cols-2 gap-2">
+                {bench.map(player => <PlayerCard key={player.id} player={player} />)}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom bar */}
+        <div className="px-3 py-3 bg-white dark:bg-gray-900 border-t border-black/[.06] dark:border-gray-800 flex gap-2">
+          <button onClick={() => setShowOpponentModal(true)}
+            className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-3 rounded-xl text-[12px] font-bold active:scale-[0.97] transition-transform">
+            − Tegenpunt
+          </button>
+          <button onClick={() => setShowSubstitutionModal(true)}
+            className="flex-1 bg-ink-900 dark:bg-gray-700 text-white py-3 rounded-xl text-[12px] font-bold active:scale-[0.97] transition-transform">
+            Wissel
+          </button>
+          <button onClick={finishMatch}
+            className="flex-[1.3] bg-primary text-white py-3 rounded-xl text-[12px] font-bold hover:bg-primary-dark active:scale-[0.97] transition-transform">
+            Einde
+          </button>
+        </div>
+
+        {showGoalModal && <ShotTypeModal title={`Goal — ${showGoalModal.name}`}
           onSelect={(type) => addGoal(showGoalModal.id, type)} onClose={() => setShowGoalModal(null)} />}
         {showAttemptModal && <ShotTypeModal title="Schotpoging registreren"
           onSelect={(type) => addAttempt(showAttemptModal.id, type)} onClose={() => setShowAttemptModal(null)} />}
@@ -2300,20 +2449,25 @@ export default function KorfbalApp() {
     }, [onClose]);
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-        role="dialog" aria-modal="true" aria-label={title} ref={modalRef}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-sm w-full">
-          <h2 className="text-lg font-bold mb-3 text-gray-800 dark:text-gray-100">{title}</h2>
-          <div className="grid grid-cols-2 gap-2">
+      <div className="fixed inset-0 bg-ink-900/45 flex items-end z-50"
+        role="dialog" aria-modal="true" aria-label={title} onClick={onClose} ref={modalRef}>
+        <div className="w-full bg-white dark:bg-gray-900 rounded-t-[20px] p-5 pb-6" onClick={e => e.stopPropagation()}>
+          <div className="w-9 h-1 bg-black/10 rounded-full mx-auto mb-4" />
+          <div className="font-display font-black text-[20px] text-ink-900 dark:text-white mb-1 tracking-tight">{title}</div>
+          <div className="text-[12px] text-gray-400 font-medium mb-4">Welk schottype?</div>
+          <div className="grid grid-cols-2 gap-2 mb-3">
             {SHOT_TYPES.map(type => (
               <button key={type.id} onClick={() => onSelect(type.id)}
-                className="bg-primary text-white p-3 rounded-lg hover:bg-primary-dark active:scale-95 transition-all font-semibold text-sm focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2">
+                className="bg-[#FAFAF7] dark:bg-gray-800 border border-black/[.06] dark:border-gray-700 text-ink-900 dark:text-white p-3 rounded-xl active:scale-95 transition-all font-semibold text-sm text-left flex items-center gap-2.5 focus-visible:ring-2 focus-visible:ring-primary">
+                <span className="w-7 h-7 rounded-lg bg-primary text-white font-display font-black text-[10px] flex items-center justify-center flex-shrink-0">
+                  {type.short}
+                </span>
                 {type.label}
               </button>
             ))}
           </div>
           <button onClick={onClose}
-            className="w-full mt-3 bg-gray-300 dark:bg-gray-600 text-gray-800 py-2 rounded-lg hover:bg-gray-400 active:scale-95 transition-all font-medium focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            className="w-full py-3 text-sm font-semibold text-gray-400 hover:text-gray-600 transition focus-visible:ring-2 focus-visible:ring-primary">
             Annuleren
           </button>
         </div>
@@ -2857,34 +3011,37 @@ export default function KorfbalApp() {
     const isLoading = teamMatches === undefined || (teamMatches.length === 0 && !teamMatches);
 
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-primary text-white p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center">
-              <button onClick={() => navigateTo('home')} className="mr-4" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
-              <h1 className="text-2xl font-bold">Statistieken</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={exportToCSV}
-                className="bg-white text-primary px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors flex items-center space-x-2"
-              >
-                <Download className="w-5 h-5" />
-                <span>Exporteer</span>
-              </button>
-              <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
-            </div>
-          </div>
+      <div className="min-h-screen bg-[#FAFAF7] dark:bg-gray-900">
+        {/* Header */}
+        <div className="px-4 py-3.5 flex items-center justify-between border-b border-black/[.06] dark:border-gray-800 bg-[#FAFAF7] dark:bg-gray-900 sticky top-0 z-10">
+          <button onClick={() => navigateTo('home')} className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 border border-black/[.08] flex items-center justify-center" aria-label="Terug">
+            <ArrowLeft className="w-4 h-4 text-ink-900 dark:text-white" />
+          </button>
+          <span className="font-bold text-[13px] text-ink-900 dark:text-white">Statistieken</span>
+          <button
+            onClick={exportToCSV}
+            className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 border border-black/[.08] flex items-center justify-center hover:border-primary transition"
+            aria-label="Exporteer CSV"
+          >
+            <Download className="w-4 h-4 text-ink-900 dark:text-white" />
+          </button>
         </div>
-        <div className="max-w-4xl mx-auto p-6 pb-24 space-y-6">
+        <div className="max-w-4xl mx-auto px-4 pb-24 pt-4 space-y-4">
+          {/* Headline */}
+          <div>
+            <h1 className="font-display font-black text-[28px] leading-tight tracking-tight text-ink-900 dark:text-white">
+              {currentTeam}<br /><span className="text-primary">onder de loep.</span>
+            </h1>
+          </div>
+
           {/* Seizoen / competitie filter */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 flex flex-wrap gap-2 items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-3 flex flex-wrap gap-2 items-center">
             {seasons && seasons.length > 0 && (
               <>
-                <span className="text-sm font-semibold text-gray-600 dark:text-gray-400 mr-1">Seizoen:</span>
+                <span className="stencil text-[9px] text-gray-400 mr-1">Seizoen:</span>
                 <button
                   onClick={() => { setFilterSeasonId(null); setFilterCompetition(null); }}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition ${!filterSeasonId ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${!filterSeasonId ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}
                 >
                   Alle
                 </button>
@@ -2892,20 +3049,20 @@ export default function KorfbalApp() {
                   <button
                     key={s._id}
                     onClick={() => { setFilterSeasonId(s._id); }}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition ${filterSeasonId === s._id ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
+                    className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${filterSeasonId === s._id ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}
                   >
                     {s.name}
                   </button>
                 ))}
-                <span className="text-gray-300 dark:text-gray-600">|</span>
+                <span className="text-gray-200 dark:text-gray-600">|</span>
               </>
             )}
-            <span className="text-sm font-semibold text-gray-600 dark:text-gray-400 mr-1">Competitie:</span>
+            <span className="stencil text-[9px] text-gray-400 mr-1">Type:</span>
             {[null, 'veld', 'zaal'].map(type => (
               <button
                 key={type ?? 'all'}
                 onClick={() => setFilterCompetition(type)}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition ${filterCompetition === type ? 'bg-gray-700 text-white dark:bg-gray-200 dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200'}`}
+                className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${filterCompetition === type ? 'bg-ink-900 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}
               >
                 {type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Alles'}
               </button>
@@ -2918,53 +3075,59 @@ export default function KorfbalApp() {
               <SkeletonCard lines={3} />
             </>
           ) : teamMatches.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 text-center">
-              <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                {filterSeasonId ? 'Geen wedstrijden in deze selectie' : 'Nog geen statistieken'}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-8 text-center">
+              <BarChart3 className="w-12 h-12 text-gray-200 mx-auto mb-4" />
+              <h2 className="font-display font-black text-xl text-ink-900 dark:text-white mb-2">
+                {filterSeasonId ? 'Geen wedstrijden' : 'Nog geen statistieken'}
               </h2>
-              <p className="text-gray-500 mb-6">
+              <p className="text-sm text-gray-400 mb-6">
                 {filterSeasonId
-                  ? 'Er zijn geen wedstrijden gevonden voor het geselecteerde seizoen of competitie.'
-                  : 'Speel je eerste wedstrijd om statistieken te verzamelen'}
+                  ? 'Geen wedstrijden gevonden voor dit seizoen.'
+                  : 'Speel je eerste wedstrijd om statistieken te verzamelen.'}
               </p>
               {!filterSeasonId && (
                 <button onClick={() => navigateTo('setup-match')}
-                  className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-95 transition-all">
+                  className="bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-primary-dark transition">
                   Nieuwe wedstrijd starten
                 </button>
               )}
             </div>
           ) : (
           <>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Team overzicht</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-primary">{teamMatches.length}</div>
-                <div className="text-gray-600 dark:text-gray-400">Wedstrijden</div>
+          {/* Hoofd stats kaart */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-5">
+            <div className="flex justify-between items-end mb-4">
+              <div>
+                <div className="score-number text-[52px] text-ink-900 dark:text-white leading-none">
+                  {wins}<span className="font-display font-semibold text-[22px] text-gray-300 dark:text-gray-600">/{teamMatches.length}</span>
+                </div>
+                <div className="stencil text-[10px] text-gray-400 mt-1.5">Wedstrijden gewonnen</div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">{wins}</div>
-                <div className="text-gray-600 dark:text-gray-400">Gewonnen</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-gray-600 dark:text-gray-400">{draws}</div>
-                <div className="text-gray-600 dark:text-gray-400">Gelijk</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-red-800">{losses}</div>
-                <div className="text-gray-600 dark:text-gray-400">Verloren</div>
-              </div>
+              {formLast5 && formLast5.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="stencil text-[9px] text-gray-400 mr-1">Vorm</span>
+                  {formLast5.map((m, i) => (
+                    <span key={i} className={`w-5 h-5 rounded-full flex items-center justify-center font-display font-black text-[10px] text-white ${m.result === 'W' ? 'bg-green-500' : m.result === 'D' ? 'bg-gray-400' : 'bg-primary'}`}>
+                      {m.result}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="mt-6 grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 pt-4 border-t border-black/[.06] dark:border-gray-700">
               <div className="text-center">
-                <div className="text-3xl font-bold text-primary">{totalGoals}</div>
-                <div className="text-gray-600 dark:text-gray-400">Doelpunten voor</div>
+                <div className="score-number text-[22px] text-primary">{totalGoals}</div>
+                <div className="stencil text-[9px] text-gray-400 mt-1">Voor</div>
+              </div>
+              <div className="text-center border-x border-black/[.06] dark:border-gray-700">
+                <div className="score-number text-[22px] text-gray-400">{totalAgainst}</div>
+                <div className="stencil text-[9px] text-gray-400 mt-1">Tegen</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-600 dark:text-gray-400">{totalAgainst}</div>
-                <div className="text-gray-600 dark:text-gray-400">Doelpunten tegen</div>
+                <div className="score-number text-[22px] text-ink-900 dark:text-white">
+                  {totalAgainst > 0 ? (totalGoals > totalAgainst ? '+' : '') : ''}{totalGoals - totalAgainst}
+                </div>
+                <div className="stencil text-[9px] text-gray-400 mt-1">Saldo</div>
               </div>
             </div>
           </div>
