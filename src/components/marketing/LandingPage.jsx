@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle } from 'lucide-react';
+import { KorfbalLogo } from '../ui/KorfbalLogo';
 
 const FEATURES = [
   { n: '01', title: 'Live scoren in één tik', desc: 'Tap een speler, kies schottype. Klaar. Ook in de regen, met handschoenen.' },
@@ -56,7 +57,7 @@ export function LandingPage() {
       <nav className="sticky top-0 z-50 bg-[#FAFAF7]/90 dark:bg-gray-950/90 backdrop-blur border-b border-black/[.06] dark:border-gray-800">
         <div className="max-w-2xl mx-auto px-5 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center text-white font-display font-black text-sm">K</div>
+            <KorfbalLogo size={28} variant="red" />
             <span className="font-display font-black text-sm tracking-tight dark:text-white">Korfbal Score</span>
           </div>
           <div className="flex items-center gap-2">

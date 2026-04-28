@@ -58,12 +58,13 @@ body {
   letter-spacing: -0.02em;
 }
 
-/* Sportief uppercase label met brede tracking */
+/* Sportief uppercase label */
 .stencil {
-  font-family: 'Archivo', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-weight: 700;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
 }
 
 /* Hero cijfers — scoreboard */

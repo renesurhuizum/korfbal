@@ -302,27 +302,28 @@ export function SettingsSheet({
           {currentTeamId && (
             <section>
               <div className="stencil text-[10px] text-gray-400 mb-3">Abonnement</div>
-              <div className={`rounded-2xl p-4 ${isPaid ? 'bg-gradient-to-br from-primary to-primary-dark text-white' : 'bg-[#FAFAF7] dark:bg-gray-800 border border-black/[.06] dark:border-gray-700'}`}>
-                <div className="flex items-start justify-between">
+              <div className={`rounded-2xl p-4 relative overflow-hidden ${isPaid ? 'bg-ink-900' : 'bg-[#FAFAF7] dark:bg-gray-800 border border-black/[.06] dark:border-gray-700'}`}>
+                {isPaid && <div className="field-pattern absolute inset-0 opacity-40" />}
+                <div className="relative flex items-start justify-between">
                   <div>
                     <div className={`font-display font-black text-[20px] tracking-tight ${isPaid ? 'text-white' : 'text-gray-800 dark:text-white'}`}>
                       {planName}
                     </div>
                     {subscription?.status === 'free' && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Max. 20 wedstrijden</p>
+                      <p className="stencil text-gray-400 dark:text-gray-500 mt-1">Max. 20 wedstrijden</p>
                     )}
                     {subscription?.cancelAtPeriodEnd && (
-                      <p className={`text-xs mt-0.5 ${isPaid ? 'text-white/70' : 'text-amber-500'}`}>
+                      <p className={`text-xs mt-0.5 ${isPaid ? 'text-white/60' : 'text-amber-500'}`}>
                         Loopt af aan einde periode
                       </p>
                     )}
                   </div>
-                  {isPaid && <Zap className="w-5 h-5 text-white/70" />}
+                  {isPaid && <Zap className="w-5 h-5 text-primary" />}
                 </div>
                 {subscription?.status === 'free' && onUpgrade && (
                   <button
                     onClick={() => { onUpgrade(); onClose(); }}
-                    className="mt-3 flex items-center gap-1.5 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-dark transition w-full justify-center"
+                    className="relative mt-3 flex items-center gap-1.5 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-dark transition w-full justify-center"
                   >
                     <Zap className="w-3.5 h-3.5" /> Upgraden naar Starter
                   </button>

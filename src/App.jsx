@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun, Cog, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun, Cog, ChevronDown, ChevronUp, RotateCcw, Share2, X } from 'lucide-react';
 import { useMutation, useQuery, useAction, useConvexAuth } from "convex/react";
 import { useClerk, SignIn, SignUp } from "@clerk/clerk-react";
 import { api } from "../convex/_generated/api";
@@ -8,6 +8,7 @@ import { generatePlayerId } from './utils/generatePlayerId';
 import { exportMatchesCSV } from './utils/exportCSV';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { SettingsSheet } from './components/ui/SettingsSheet';
+import { KorfbalLogo } from './components/ui/KorfbalLogo';
 import { LandingPage } from './components/marketing/LandingPage';
 
 // ─── AIAdviceCard ─────────────────────────────────────────────────────────────
@@ -43,11 +44,8 @@ function AIAdviceInner({ teamId, showFeedback }) {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🤖</span>
-          <h3 className="font-bold text-gray-900 dark:text-white text-lg">Trainingsadvies</h3>
-        </div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="stencil text-ink-500">AI Trainingsadvies</div>
         <button
           onClick={async () => {
             setIsGenerating(true);
@@ -61,14 +59,14 @@ function AIAdviceInner({ teamId, showFeedback }) {
             }
           }}
           disabled={isGenerating}
-          className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="stencil text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-lg text-[10px] hover:bg-primary/15 transition disabled:opacity-50 flex items-center gap-1.5"
         >
           {isGenerating ? (
             <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
               Genereren…
             </>
-          ) : aiAdvice ? '↻ Vernieuw advies' : '✨ Genereer advies'}
+          ) : aiAdvice ? '↻ Vernieuw' : '✦ Genereer advies'}
         </button>
       </div>
 
@@ -76,15 +74,15 @@ function AIAdviceInner({ teamId, showFeedback }) {
 
       {aiAdvice && !isGenerating && (
         <div>
-          <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed text-sm">{aiAdvice.advice}</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 border-t border-gray-100 dark:border-gray-700 pt-3">
-            Gegenereerd op {new Date(aiAdvice.generatedAt).toLocaleDateString('nl-NL')} · gebaseerd op {aiAdvice.basedOnMatchCount} wedstrijden
+          <p className="text-[13px] text-ink-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{aiAdvice.advice}</p>
+          <p className="stencil text-ink-400 mt-3 pt-3 border-t border-black/[.05] dark:border-gray-700">
+            {new Date(aiAdvice.generatedAt).toLocaleDateString('nl-NL')} · {aiAdvice.basedOnMatchCount} wedstrijden
           </p>
         </div>
       )}
 
       {!aiAdvice && !isGenerating && (
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
+        <p className="text-[13px] text-ink-500 leading-relaxed">
           Klik op "Genereer advies" voor gepersonaliseerde trainingstips op basis van jullie statistieken.
         </p>
       )}
@@ -94,7 +92,7 @@ function AIAdviceInner({ teamId, showFeedback }) {
 
 function AIAdviceCard({ teamId, showFeedback }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
       <AIAdviceErrorBoundary>
         <AIAdviceInner teamId={teamId} showFeedback={showFeedback} />
       </AIAdviceErrorBoundary>
@@ -409,22 +407,31 @@ function SetupMatchView({
         {/* Spelerselectie */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
           <div className="flex items-baseline justify-between mb-3">
-            <div className="stencil text-[10px] text-gray-400">Kies 8 spelers</div>
+            <div className="stencil text-ink-500">Kies 8 spelers</div>
             <div className={`font-display font-black text-[16px] tabular ${selectedPlayers.length === 8 ? 'text-green-600' : 'text-primary'}`}>
-              {selectedPlayers.length}<span className="text-gray-300 font-light">/8</span>
+              {selectedPlayers.length}<span className="text-ink-400 font-light">/8</span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             {players.map(player => {
               const isSelected = !!selectedPlayers.find(p => p.id === player.id);
+              const isAanval = player.position === 'aanval';
+              const posLabel = isAanval ? 'A' : 'V';
               return (
                 <button key={player.id} onClick={() => togglePlayer(player)}
-                  className={`p-2.5 rounded-xl text-left text-sm font-semibold transition border ${
+                  className={`p-2.5 rounded-xl text-left transition flex items-center gap-2 ${
                     isSelected
-                      ? 'bg-ink-900 dark:bg-white text-white dark:text-ink-900 border-ink-900 dark:border-white'
-                      : 'bg-[#FAFAF7] dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-black/[.06] dark:border-gray-600'
+                      ? isAanval
+                        ? 'bg-red-50 border border-primary text-primary dark:bg-red-900/20 dark:border-red-500 dark:text-red-400'
+                        : 'bg-ink-900 border border-ink-900 text-white dark:bg-gray-700 dark:border-gray-600'
+                      : 'bg-canvas border border-black/[.06] text-ink-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400'
                   }`}>
-                  {player.name}
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-display font-black text-[9px] flex-shrink-0 ${
+                    isSelected
+                      ? isAanval ? 'bg-primary/20 text-primary' : 'bg-white/20 text-white'
+                      : 'bg-black/[.06] text-ink-500 dark:bg-gray-600 dark:text-gray-300'
+                  }`}>{posLabel}</span>
+                  <span className="font-semibold text-[12px] truncate">{player.name.split(' ')[0]}</span>
                 </button>
               );
             })}
@@ -1506,24 +1513,31 @@ export default function KorfbalApp() {
       .sort((a, b) => (b._creationTime || 0) - (a._creationTime || 0))
       .slice(0, 3);
 
+    // Quick stats for the 3-column grid
+    const finishedMatches = teamMatches.filter(m => m.finished);
+    const homeWins = finishedMatches.filter(m => m.score > m.opponent_score).length;
+    const homeGoalsFor = finishedMatches.reduce((s, m) => s + (m.score || 0), 0);
+    const homeGoalsAgainst = finishedMatches.reduce((s, m) => s + (m.opponent_score || 0), 0);
+    const homeGoalDiff = homeGoalsFor - homeGoalsAgainst;
+
     return (
-      <div className="min-h-screen bg-[#FAFAF7] dark:bg-gray-900">
+      <div className="min-h-screen bg-canvas dark:bg-gray-900">
         {/* Header */}
         <div className="px-5 pt-5 pb-2 flex items-center justify-between">
           <div>
-            <div className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">
+            <div className="text-[12px] font-medium text-ink-500 dark:text-gray-500 mb-0.5">
               {new Date().toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })}
             </div>
-            <h1 className="font-display font-black text-[22px] tracking-tight text-ink-900 dark:text-white leading-tight">
+            <h1 className="font-display font-black text-[22px] tracking-[-0.025em] text-ink-900 dark:text-white leading-tight">
               {currentTeam} <span className="text-primary">.</span>
             </h1>
           </div>
           <button
             onClick={() => setShowSettings(true)}
-            className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-black/[.08] dark:border-gray-700 flex items-center justify-center hover:border-primary transition"
+            className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-black/[.08] dark:border-gray-700 flex items-center justify-center"
             aria-label="Instellingen openen"
           >
-            <Cog className="w-4.5 h-4.5 text-gray-600 dark:text-gray-300" />
+            <Cog className="w-[18px] h-[18px] text-ink-500 dark:text-gray-300" />
           </button>
         </div>
 
@@ -1531,26 +1545,26 @@ export default function KorfbalApp() {
 
           {/* Saved match banner */}
           {savedMatchInfo && (
-            <div className="bg-ink-900 rounded-2xl p-4 relative overflow-hidden">
+            <div className="bg-ink-900 rounded-[20px] p-5 relative overflow-hidden">
               <div className="field-pattern absolute inset-0 opacity-50" />
               <div className="relative">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    <div className="stencil text-[9px] text-amber-400 mb-1">Wedstrijd bezig!</div>
-                    <div className="font-bold text-white text-sm">{currentTeam} · {savedMatchInfo.opponent}</div>
+                    <div className="stencil text-amber-400 mb-1">Wedstrijd bezig!</div>
+                    <div className="font-bold text-white text-sm">{currentTeam} vs {savedMatchInfo.opponent}</div>
                   </div>
                   <div className="score-number text-[28px] text-white">{savedMatchInfo.score}–{savedMatchInfo.opponentScore}</div>
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={handleContinueSavedMatch}
-                    className="flex-1 bg-primary text-white py-2.5 rounded-xl text-sm font-bold hover:bg-primary-dark transition active:scale-95"
+                    className="flex-1 bg-primary text-white py-3 rounded-xl text-sm font-bold active:scale-95 transition"
                   >
                     ▶ Verder gaan
                   </button>
                   <button
                     onClick={handleDiscardSavedMatch}
-                    className="bg-white/10 text-white/70 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-white/20 transition"
+                    className="bg-white/10 text-white/70 px-4 py-3 rounded-xl text-sm font-semibold"
                     aria-label="Opgeslagen wedstrijd verwijderen"
                   >
                     ✕
@@ -1562,43 +1576,83 @@ export default function KorfbalApp() {
 
           {/* Free tier banner */}
           {matchCountData && subscription?.status === 'free' && matchCountData.count >= 15 && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-3.5 flex items-center justify-between gap-3">
+            <div className="bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-700/50 rounded-2xl p-4 flex items-center justify-between gap-3">
               <div>
-                <p className="font-semibold text-amber-800 dark:text-amber-300 text-sm">
+                <p className="font-bold text-ink-900 dark:text-white text-sm">
                   {matchCountData.count}/{matchCountData.limit} wedstrijden gebruikt
                 </p>
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  {matchCountData.limit - matchCountData.count} resterend op gratis plan
+                <p className="stencil text-amber-600 dark:text-amber-400 mt-1">
+                  {matchCountData.limit - matchCountData.count} resterend · upgrade voor onbeperkt
                 </p>
               </div>
               <button
                 onClick={() => setShowUpgradeModal(true)}
-                className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition flex-shrink-0"
+                className="px-3 py-2 bg-primary text-white rounded-xl text-xs font-bold flex-shrink-0"
               >
                 Upgraden
               </button>
             </div>
           )}
 
-          {/* Nieuwe wedstrijd — primary CTA */}
+          {/* Nieuwe wedstrijd — hero card */}
           <button
             onClick={() => navigateTo('setup-match')}
-            className="w-full bg-ink-900 dark:bg-gray-800 rounded-2xl p-5 text-left relative overflow-hidden group active:scale-[0.98] transition-transform"
+            className="w-full bg-ink-900 dark:bg-gray-800 rounded-[20px] p-5 text-left relative overflow-hidden active:scale-[0.98] transition-transform"
           >
             <div className="field-pattern absolute inset-0 opacity-50" />
-            <div className="relative flex items-center justify-between">
-              <div>
-                <div className="stencil text-[10px] text-white/50 mb-2">Klaar voor de volgende?</div>
-                <div className="font-display font-black text-[20px] text-white tracking-tight leading-tight">
-                  Nieuwe wedstrijd
-                </div>
-                <div className="text-white/60 text-xs mt-1 font-medium">Zet opstelling klaar →</div>
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4">
+                <div className="stencil text-white/55">Volgende wedstrijd</div>
+                {activeSeason && (
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/20 border border-primary/30">
+                    <span className="stencil text-[9px] text-red-300">{activeSeason.name}</span>
+                  </div>
+                )}
               </div>
-              <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 group-hover:bg-primary-dark transition">
-                <Plus className="w-6 h-6 text-white" />
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mb-4">
+                <div className="text-center">
+                  <div className="w-10 h-10 rounded-xl overflow-hidden mx-auto mb-1.5">
+                    <KorfbalLogo size={40} variant="red" />
+                  </div>
+                  <div className="font-bold text-white text-[12px] truncate">{currentTeam}</div>
+                  {finishedMatches.length > 0 && (
+                    <div className="stencil text-[9px] text-white/45 mt-1">
+                      {finishedMatches.slice(-5).map(m => m.score > m.opponent_score ? 'W' : m.score < m.opponent_score ? 'V' : 'G').join('·')}
+                    </div>
+                  )}
+                </div>
+                <div className="text-[10px] font-semibold text-white/35 tracking-widest">VS</div>
+                <div className="text-center">
+                  <div className="w-10 h-10 rounded-xl bg-white/[.06] border border-white/10 text-white flex items-center justify-center font-display font-black text-lg mx-auto mb-1.5">
+                    ?
+                  </div>
+                  <div className="font-bold text-white text-[12px]">Tegenstander</div>
+                  <div className="stencil text-[9px] text-white/45 mt-1">Nog in te stellen</div>
+                </div>
+              </div>
+              <div className="w-full bg-primary text-white py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2">
+                <Plus className="w-4 h-4" /> Start wedstrijd
               </div>
             </div>
           </button>
+
+          {/* 3-kolom stat grid */}
+          {finishedMatches.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { v: `${homeWins}`, sub: `/${finishedMatches.length}`, l: 'Gewonnen' },
+                { v: String(homeGoalsFor), l: 'Doelpunten' },
+                { v: (homeGoalDiff >= 0 ? '+' : '') + homeGoalDiff, l: 'Doelsaldo' },
+              ].map(s => (
+                <div key={s.l} className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-3.5">
+                  <div className="score-number text-[26px] text-ink-900 dark:text-white leading-none">
+                    {s.v}<span className="font-sans font-medium text-[13px] text-ink-400">{s.sub || ''}</span>
+                  </div>
+                  <div className="stencil text-ink-500 mt-1.5">{s.l}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Snelle navigatie */}
           <div className="grid grid-cols-2 gap-2.5">
@@ -1607,20 +1661,20 @@ export default function KorfbalApp() {
               className="bg-white dark:bg-gray-800 rounded-2xl p-4 text-left border border-black/[.06] dark:border-gray-700 active:scale-[0.98] transition-transform"
             >
               <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-2.5">
-                <Users className="w-4.5 h-4.5 text-primary" />
+                <Users className="w-[18px] h-[18px] text-primary" />
               </div>
               <div className="font-bold text-sm text-ink-900 dark:text-white">Spelers</div>
-              <div className="text-xs text-gray-400 mt-0.5">Beheren</div>
+              <div className="stencil text-ink-500 mt-1">Beheren</div>
             </button>
             <button
               onClick={() => navigateTo('statistics')}
               className="bg-white dark:bg-gray-800 rounded-2xl p-4 text-left border border-black/[.06] dark:border-gray-700 active:scale-[0.98] transition-transform"
             >
               <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-2.5">
-                <BarChart3 className="w-4.5 h-4.5 text-primary" />
+                <BarChart3 className="w-[18px] h-[18px] text-primary" />
               </div>
               <div className="font-bold text-sm text-ink-900 dark:text-white">Statistieken</div>
-              <div className="text-xs text-gray-400 mt-0.5">{teamMatches.length} wedstrijden</div>
+              <div className="stencil text-ink-500 mt-1">{teamMatches.length} wedstrijden</div>
             </button>
           </div>
 
@@ -1630,8 +1684,8 @@ export default function KorfbalApp() {
           {/* Recente wedstrijden */}
           {recentMatches.length > 0 && (
             <div>
-              <div className="flex items-baseline justify-between mb-2 px-1">
-                <div className="stencil text-[10px] text-gray-400">Recente wedstrijden</div>
+              <div className="flex items-baseline justify-between mb-2.5 px-1">
+                <div className="stencil text-ink-500">Recente wedstrijden</div>
                 <button
                   onClick={() => navigateTo('statistics')}
                   className="text-[11px] font-semibold text-primary"
@@ -1642,17 +1696,21 @@ export default function KorfbalApp() {
               <div className="space-y-1.5">
                 {recentMatches.map(m => {
                   const res = m.score > m.opponentScore ? 'W' : m.score < m.opponentScore ? 'V' : 'G';
-                  const resColor = res === 'W' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : res === 'V' ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';
+                  const resColor = res === 'W'
+                    ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : res === 'V'
+                    ? 'bg-red-50 text-primary dark:bg-red-900/30 dark:text-red-400'
+                    : 'bg-gray-100 text-ink-500 dark:bg-gray-700 dark:text-gray-400';
                   return (
-                    <div key={m._id} className="bg-white dark:bg-gray-800 rounded-xl border border-black/[.06] dark:border-gray-700 px-4 py-3.5 flex items-center gap-3">
+                    <div key={m._id} className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 px-4 py-3.5 flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-[13px] flex-shrink-0 ${resColor}`}>{res}</div>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-[13px] text-ink-900 dark:text-white">vs {m.opponent}</div>
-                        <div className="text-[11px] text-gray-400 mt-0.5">
+                        <div className="stencil text-ink-400 mt-0.5">
                           {m._creationTime ? new Date(m._creationTime).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}
                         </div>
                       </div>
-                      <div className="score-number text-[18px] text-ink-900 dark:text-white">{m.score}–{m.opponentScore}</div>
+                      <div className="score-number text-[20px] text-ink-900 dark:text-white">{m.score}–{m.opponentScore}</div>
                     </div>
                   );
                 })}
@@ -1665,14 +1723,14 @@ export default function KorfbalApp() {
             <div className="flex items-center justify-between mb-3">
               <div className="font-bold text-sm text-ink-900 dark:text-white">Seizoen</div>
               {activeSeason ? (
-                <span className="stencil text-[9px] bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 px-2 py-1 rounded-full">Actief</span>
+                <span className="stencil bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full">Actief</span>
               ) : (
-                <span className="stencil text-[9px] bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 px-2 py-1 rounded-full">Geen seizoen</span>
+                <span className="stencil bg-gray-100 text-ink-500 dark:bg-gray-700 dark:text-gray-400 px-2 py-1 rounded-full">Geen seizoen</span>
               )}
             </div>
             {activeSeason ? (
               <div className="space-y-2.5">
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{activeSeason.name}</p>
+                <p className="text-sm font-semibold text-ink-700 dark:text-gray-300">{activeSeason.name}</p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => { setShowNewSeasonForm(true); setNewSeasonName(''); }}
@@ -1682,7 +1740,7 @@ export default function KorfbalApp() {
                   </button>
                   <button
                     onClick={handleCloseSeason}
-                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-2 px-3 rounded-xl text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-ink-500 dark:text-gray-300 py-2 px-3 rounded-xl text-xs font-bold transition"
                   >
                     Afsluiten
                   </button>
@@ -1690,7 +1748,7 @@ export default function KorfbalApp() {
               </div>
             ) : (
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2.5">Start een seizoen om wedstrijden en statistieken bij te houden.</p>
+                <p className="text-xs text-ink-500 dark:text-gray-400 mb-2.5">Start een seizoen om wedstrijden en statistieken bij te houden.</p>
                 <button
                   onClick={() => { setShowNewSeasonForm(true); setNewSeasonName(''); }}
                   className="w-full bg-primary text-white py-2 px-3 rounded-xl text-xs font-bold hover:bg-primary-dark transition"
@@ -1707,7 +1765,7 @@ export default function KorfbalApp() {
                   onChange={e => setNewSeasonName(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleCreateSeason(); if (e.key === 'Escape') setShowNewSeasonForm(false); }}
                   placeholder='bijv. "2025-2026"'
-                  className="w-full border border-black/[.1] dark:border-gray-600 rounded-xl px-3 py-2 text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full border border-black/[.1] dark:border-gray-600 rounded-xl px-3 py-2.5 text-sm font-semibold dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
                   autoFocus
                 />
                 <div className="flex gap-2">
@@ -1719,7 +1777,7 @@ export default function KorfbalApp() {
                   </button>
                   <button
                     onClick={() => setShowNewSeasonForm(false)}
-                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-2 rounded-xl text-xs font-bold transition"
+                    className="flex-1 bg-gray-100 dark:bg-gray-700 text-ink-500 dark:text-gray-300 py-2 rounded-xl text-xs font-bold transition"
                   >
                     Annuleren
                   </button>
@@ -1908,8 +1966,8 @@ export default function KorfbalApp() {
             </div>
           </div>
           <div className="max-w-2xl mx-auto p-4 pb-24">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 text-center">
-              <p className="text-gray-600 dark:text-gray-400">Laden...</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4 text-center">
+              <p className="text-[13px] text-ink-500">Laden...</p>
             </div>
           </div>
         </div>
@@ -1928,12 +1986,12 @@ export default function KorfbalApp() {
           </div>
         </div>
         <div className="max-w-2xl mx-auto p-4 pb-24">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 mb-4">
-            <div className="flex space-x-2 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4 mb-4">
+            <div className="flex gap-2 mb-4">
               <input type="text" placeholder="Naam nieuwe speler" value={newPlayerName}
                 onChange={(e) => setNewPlayerName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-                className="flex-1 px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-base" />
-              <button onClick={addPlayer} className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition" aria-label="Speler toevoegen">
+                className="flex-1 px-3 py-2.5 bg-gray-50 dark:bg-gray-700 border border-black/[.08] dark:border-gray-600 rounded-xl focus:border-primary focus:outline-none dark:text-gray-100 text-[14px]" />
+              <button onClick={addPlayer} className="bg-primary text-white px-4 py-2.5 rounded-xl hover:bg-primary-dark transition" aria-label="Speler toevoegen">
                 <Plus className="w-5 h-5" />
               </button>
             </div>
@@ -2317,18 +2375,22 @@ export default function KorfbalApp() {
       );
     };
 
+    const lastGoal = currentMatch.goals?.length > 0
+      ? currentMatch.goals[currentMatch.goals.length - 1]
+      : null;
+
     return (
-      <div className="min-h-screen bg-[#FAFAF7] dark:bg-gray-900 flex flex-col">
+      <div className="min-h-screen bg-canvas dark:bg-gray-900 flex flex-col">
         {/* Header */}
-        <div className="px-4 py-3.5 flex items-center justify-between border-b border-black/[.06] dark:border-gray-800 bg-[#FAFAF7] dark:bg-gray-900 sticky top-0 z-10">
+        <div className="px-4 py-3.5 flex items-center justify-between border-b border-black/[.06] dark:border-gray-800 bg-canvas dark:bg-gray-900 sticky top-0 z-10">
           <button onClick={() => navigateTo('home')} className="w-9 h-9 rounded-full bg-white dark:bg-gray-800 border border-black/[.08] flex items-center justify-center" aria-label="Terug">
             <ArrowLeft className="w-4 h-4 text-ink-900 dark:text-white" />
           </button>
           <div className="text-center">
             <div className="font-bold text-[13px] text-ink-900 dark:text-white">vs {currentMatch.opponent}</div>
-            <div className="flex items-center justify-center gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 pulse-ring" />
-              <span className="stencil text-[9px] text-red-500">LIVE · {timerRunning ? '2E HELFT' : 'GEPAUZEERD'}</span>
+            <div className="flex items-center justify-center gap-1.5 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-live pulse-ring flex-shrink-0" />
+              <span className="stencil text-[9px] text-live tracking-[0.12em]">LIVE · {timerRunning ? '2E HELFT' : 'GEPAUZEERD'}</span>
             </div>
           </div>
           <button
@@ -2345,34 +2407,37 @@ export default function KorfbalApp() {
         <div className="px-4 py-4 bg-white dark:bg-gray-800 border-b border-black/[.06] dark:border-gray-800">
           <div className="grid grid-cols-3 items-center gap-2">
             <div className="text-center">
-              <div className="stencil text-[10px] text-gray-400 mb-1">{currentMatch.team?.split(' ').slice(-1)[0] || 'Thuis'}</div>
-              <div key={scoreAnimKey} className={`score-number text-[52px] text-primary ${scoreAnimKey > 0 ? 'score-pop-big' : ''}`}>{currentMatch.score}</div>
+              <div className="stencil text-ink-500 mb-2">{currentMatch.team?.split(' ').slice(-1)[0] || 'Thuis'}</div>
+              <div key={scoreAnimKey} className={`score-number text-[56px] text-primary ${scoreAnimKey > 0 ? 'score-pop-big' : ''}`}>{currentMatch.score}</div>
             </div>
             <div className="text-center">
               <button
                 onClick={() => setTimerRunning(r => !r)}
-                className="mono text-[12px] font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2.5 py-1.5 rounded-lg"
+                className="font-mono text-[12px] font-bold text-ink-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2.5 py-1.5 rounded-lg tabular"
                 aria-label={timerRunning ? 'Timer pauzeren' : 'Timer hervatten'}
               >
                 {formatTimer(timerSeconds)}
               </button>
             </div>
             <div className="text-center">
-              <div className="stencil text-[10px] text-gray-400 mb-1">{currentMatch.opponent}</div>
-              <div className="score-number text-[52px] text-gray-300 dark:text-gray-500">{currentMatch.opponentScore}</div>
+              <div className="stencil text-ink-500 mb-2">{currentMatch.opponent}</div>
+              <div className="score-number text-[56px] text-ink-400 dark:text-gray-500">{currentMatch.opponentScore}</div>
             </div>
           </div>
         </div>
 
-        {/* Filter + recente actie */}
+        {/* Filter + laatste actie */}
         <div className="px-4 py-2.5 flex items-center justify-between">
-          <div className="text-[11px] text-gray-400 font-medium">
-            Tap speler om te scoren
+          <div className="text-[11px] text-ink-500 font-medium min-w-0 truncate flex-1 mr-2">
+            {lastGoal?.isOwn
+              ? <span>Laatste: <span className="font-bold text-ink-900 dark:text-white">{lastGoal.playerName?.split(' ')[0]}</span></span>
+              : <span className="text-ink-400">Tap speler om te scoren</span>
+            }
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-shrink-0">
             {[['alle','Alle'],['aanval','Aanval'],['verdediging','Verd.']].map(([val, label]) => (
               <button key={val} onClick={() => setPosFilter(val)}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition ${posFilter === val ? 'bg-ink-900 dark:bg-white text-white dark:text-ink-900' : 'text-gray-500'}`}>
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition ${posFilter === val ? 'bg-ink-900 dark:bg-white text-white dark:text-ink-900' : 'text-ink-500'}`}>
                 {label}
               </button>
             ))}
@@ -2651,23 +2716,91 @@ export default function KorfbalApp() {
     const result = match.score > match.opponentScore ? 'Gewonnen! 🎉' :
                    match.score < match.opponentScore ? 'Verloren 😔' : 'Gelijkspel';
 
+    const isWin = match.score > match.opponentScore;
+    const isLoss = match.score < match.opponentScore;
+
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-primary text-white p-6 shadow-lg">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center">
-              <button onClick={() => { setCurrentMatch(null); navigateTo('home'); }} className="mr-3" aria-label="Terug naar home"><ArrowLeft className="w-6 h-6" /></button>
-              <h1 className="text-2xl font-bold">Wedstrijd afgelopen</h1>
+      <div className="min-h-screen bg-canvas dark:bg-gray-900">
+        {/* Dark hero header */}
+        <div className="bg-ink-900 relative overflow-hidden">
+          <div className="field-pattern absolute inset-0 opacity-50" />
+          <div className="relative px-4 pt-4 pb-5">
+            <div className="flex items-center justify-between mb-5">
+              <button onClick={() => { setCurrentMatch(null); navigateTo('home'); }}
+                className="w-9 h-9 rounded-full bg-white/10 border border-white/15 flex items-center justify-center" aria-label="Terug">
+                <ArrowLeft className="w-4 h-4 text-white" />
+              </button>
+              <div className="font-bold text-[13px] text-white">Wedstrijdverslag</div>
+              <button
+                onClick={async () => {
+                  try {
+                    let matchId = match._id;
+                    if (!matchId) {
+                      const normPlayers = (match.players || []).map(p => ({
+                        id: p.id, name: p.name, isStarter: p.isStarter ?? false,
+                        stats: SHOT_TYPES.reduce((acc, type) => ({
+                          ...acc, [type.id]: { goals: Number(p.stats?.[type.id]?.goals) || 0, attempts: Number(p.stats?.[type.id]?.attempts) || 0 }
+                        }), {})
+                      })).filter(p => p.id !== undefined && p.id !== null);
+                      const normGoals = (match.goals || []).filter(g => g.playerId !== undefined).map(g => ({
+                        playerId: g.playerId, playerName: g.playerName ?? 'Onbekend',
+                        shotType: g.shotType ?? 'other', timestamp: g.timestamp ?? new Date().toISOString(), isOwn: g.isOwn ?? false,
+                      }));
+                      const normOppGoals = (match.opponentGoals || []).map(g => ({
+                        type: g.type ?? 'other', time: g.time ?? new Date().toISOString(), concededBy: g.concededBy ?? 'Onbekend',
+                      }));
+                      matchId = await createMatchMutation({
+                        teamId: currentTeamId, teamName: currentTeam ?? '', opponent: match.opponent ?? '',
+                        date: match.date ?? new Date().toISOString(), players: normPlayers,
+                        score: Number(match.score) || 0, opponentScore: Number(match.opponentScore) || 0,
+                        opponentGoals: normOppGoals, goals: normGoals, finished: true, shareable: true,
+                      });
+                      setCurrentMatch(prev => prev ? { ...prev, _id: matchId } : prev);
+                      localStorage.removeItem('korfbal_active_match');
+                    } else {
+                      await updateMatchMutation({ matchId, shareable: true });
+                    }
+                    const shareUrl = `${window.location.origin}${window.location.pathname}?match=${matchId}`;
+                    await navigator.clipboard.writeText(shareUrl);
+                    showFeedback('Deel-link gekopieerd!', 'success');
+                  } catch (error) {
+                    showFeedback(`Fout bij delen: ${error.message || 'Onbekende fout'}`, 'error');
+                  }
+                }}
+                className="stencil text-primary bg-primary/20 border border-primary/30 px-3 py-1.5 rounded-lg text-[10px]"
+              >
+                Deel
+              </button>
             </div>
-            <button onClick={handleLogout} className="text-sm hover:underline">Uitloggen</button>
-          </div>
-          <div className="text-center">
-            <div className="text-5xl font-bold mb-2">{match.score} - {match.opponentScore}</div>
-            <div className="text-xl">{match.team} vs {match.opponent}</div>
-            <div className="text-lg mt-2 font-semibold">{result}</div>
+            <div className="stencil text-white/55 mb-3">
+              {match.date ? new Date(match.date).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
+            </div>
+            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold mb-4 ${
+              isWin ? 'bg-green-500/20 border-green-500/30 text-green-300'
+              : isLoss ? 'bg-red-500/20 border-red-500/30 text-red-300'
+              : 'bg-white/10 border-white/20 text-white/70'
+            }`}>
+              {isWin ? '✓ GEWONNEN' : isLoss ? 'VERLOREN' : 'GELIJKSPEL'}
+            </div>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+              <div>
+                <div className="font-bold text-[13px] text-white">{match.team}</div>
+                <div className="stencil text-white/45 mt-1">Thuis</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="score-number text-[52px] text-white">{match.score}</div>
+                <div className="font-light text-[22px] text-white/30 font-display">–</div>
+                <div className="score-number text-[52px] text-white/55">{match.opponentScore}</div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-[13px] text-white">{match.opponent}</div>
+                <div className="stencil text-white/45 mt-1">Uit</div>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="max-w-4xl mx-auto p-6">
+
+        <div className="px-4 pb-24 space-y-3 pt-4">
           {/* Share button at top */}
           <button
             onClick={async () => {
@@ -2727,158 +2860,114 @@ export default function KorfbalApp() {
                 showFeedback(`Fout bij delen: ${error.message || 'Onbekende fout'}`, 'error');
               }
             }}
-            className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mb-6 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+            className="hidden"
           >
-            📤 Deel wedstrijd met team
           </button>
-          {/* Team Statistics */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">📊 Wedstrijdstatistieken</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              {match?.withAttempts !== false && totalAttempts > 0 && (
-                <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
-                </div>
-              )}
-              {match?.withAttempts !== false && (
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <div className="text-3xl font-bold text-blue-600">{totalAttempts}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Totaal pogingen</div>
-                </div>
-              )}
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <div className="text-3xl font-bold text-green-600">{totalGoals}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Doelpunten</div>
-              </div>
-              <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                <div className="text-3xl font-bold text-yellow-600">{match.players.length}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Spelers ingezet</div>
-              </div>
+
+          {/* Mini stats grid */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-3.5">
+              <div className="score-number text-[22px] text-ink-900 dark:text-white">{totalGoals}</div>
+              <div className="stencil text-ink-500 mt-1.5">Doelpunten</div>
             </div>
-            {bestPlayer && (
-              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-400 rounded-lg p-4 mb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-gray-600 mb-1">⭐ Top Scorer</div>
-                    <div className="text-xl font-bold text-gray-800 dark:text-gray-100">{bestPlayer.name}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-yellow-600">
-                      {SHOT_TYPES.reduce((sum, type) => sum + getStat(bestPlayer, type.id).goals, 0)}
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">doelpunten</div>
-                  </div>
-                </div>
+            {match?.withAttempts !== false && totalAttempts > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-3.5">
+                <div className="score-number text-[22px] text-ink-900 dark:text-white">{teamPercentage}%</div>
+                <div className="stencil text-ink-500 mt-1.5">Schot%</div>
               </div>
             )}
-            {shotTypeStats.length > 0 && (
-              <div>
-                <h3 className="font-semibold text-gray-700 mb-3">Schot analyse</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {shotTypeStats.map(stat => (
-                    <div key={stat.type} className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
-                      <div className="font-semibold text-sm text-gray-700">{stat.type}</div>
-                      <div className="flex justify-between items-center mt-2">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">{stat.goals}/{stat.attempts}</span>
-                        <span className={`text-lg font-bold ${
-                          stat.percentage >= 70 ? 'text-green-600' :
-                          stat.percentage >= 50 ? 'text-yellow-600' :
-                          stat.percentage >= 30 ? 'text-orange-600' : 'text-primary'
-                        }`}>{stat.percentage}%</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Scoreverloop</h2>
-            <div className="space-y-2">
-              {scoreTimeline.map((goal, idx) => {
-                const currentScore = scoreTimeline.slice(0, idx + 1).filter(g => g.isOwn).length;
-                const currentOpponentScore = scoreTimeline.slice(0, idx + 1).filter(g => !g.isOwn).length;
-                return (
-                  <div key={idx} className={`p-3 rounded-lg ${goal.isOwn ? 'bg-green-50 border-l-4 border-green-600' : 'bg-red-50 border-l-4 border-primary'}`}>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <span className="font-semibold">{goal.isOwn ? '⚽' : '🚫'} {goal.team}</span>
-                        <span className="text-sm text-gray-600 ml-2">
-                          {goal.isOwn ? `${goal.player} - ${goal.type}` : `Tegen ${goal.player} - ${goal.type}`}
-                        </span>
-                      </div>
-                      <div className="font-bold text-lg">{currentScore} - {currentOpponentScore}</div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-3.5">
+              <div className="score-number text-[22px] text-ink-900 dark:text-white">{match?.withAttempts !== false ? totalAttempts : match.players.length}</div>
+              <div className="stencil text-ink-500 mt-1.5">{match?.withAttempts !== false ? 'Pogingen' : 'Spelers'}</div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Speler statistieken</h2>
-            {[...match.players].sort((a, b) => {
-              const aGoals = SHOT_TYPES.reduce((sum, type) => sum + getStat(a, type.id).goals, 0);
-              const bGoals = SHOT_TYPES.reduce((sum, type) => sum + getStat(b, type.id).goals, 0);
-              return bGoals - aGoals;
-            }).map(player => {
-              const totalGoals = SHOT_TYPES.reduce((sum, type) => sum + getStat(player, type.id).goals, 0);
-              const totalAttempts = SHOT_TYPES.reduce((sum, type) => sum + getStat(player, type.id).attempts, 0);
-              const percentage = totalAttempts > 0 ? Math.round((totalGoals / totalAttempts) * 100) : 0;
-              return (
-                <div key={player.id} className="border-b border-gray-200 dark:border-gray-600 py-4 last:border-0">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-lg">{player.name}</span>
-                    <span className="text-gray-600 dark:text-gray-400">{totalGoals} doelpunten{match?.withAttempts !== false && totalAttempts > 0 ? ` / ${totalAttempts} pogingen (${percentage}%)` : ''}</span>
+
+          {/* Topscoorders */}
+          {bestPlayer && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-4">
+              <div className="stencil text-ink-500 mb-3">Topscoorders</div>
+              {[...match.players]
+                .map(p => ({ ...p, g: SHOT_TYPES.reduce((s, t) => s + getStat(p, t.id).goals, 0) }))
+                .sort((a, b) => b.g - a.g)
+                .filter(p => p.g > 0)
+                .slice(0, 3)
+                .map((player, i) => (
+                  <div key={player.id} className={`flex items-center gap-3 py-2.5 ${i < 2 ? 'border-b border-black/[.05] dark:border-gray-700' : ''}`}>
+                    <span className={`font-display font-black text-[14px] w-4 ${i === 0 ? 'text-gold-500' : 'text-ink-400'}`}>{i + 1}</span>
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0">
+                      {player.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 font-bold text-[13px] text-ink-900 dark:text-white">{player.name}</div>
+                    <div className="score-number text-[20px] text-ink-900 dark:text-white">{player.g}</div>
                   </div>
-                  <div className="flex flex-wrap gap-2 text-sm">
-                    {SHOT_TYPES.map(type => {
-                      const stat = getStat(player, type.id);
-                      if (stat.attempts === 0) return null;
-                      return (
-                        <span key={type.id} className="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded">
-                          {type.label}: {stat.goals}/{stat.attempts}
-                        </span>
-                      );
-                    })}
+                ))
+              }
+            </div>
+          )}
+
+          {/* Schot% per type */}
+          {shotTypeStats.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-4">
+              <div className="stencil text-ink-500 mb-3">Schot% per type</div>
+              <div className="space-y-3">
+                {shotTypeStats.map(stat => (
+                  <div key={stat.type}>
+                    <div className="flex justify-between items-baseline mb-1.5">
+                      <span className="font-semibold text-[13px] text-ink-900 dark:text-white">{stat.type}</span>
+                      <span className={`font-bold text-[13px] tabular ${stat.percentage >= 60 ? 'text-green-600' : 'text-primary'}`}>{stat.percentage}%</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${stat.percentage >= 60 ? 'bg-green-500' : 'bg-primary'}`}
+                        style={{ width: `${stat.percentage}%` }} />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Tegendoelpunten overzicht</h2>
-            {(match.opponentGoals || []).length > 0 ? (
-              <div className="space-y-2">
-                {(match.opponentGoals || []).map((goal, idx) => {
-                  const shotType = SHOT_TYPES.find(t => t.id === goal.type);
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Scoreverloop */}
+          {scoreTimeline.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-4">
+              <div className="stencil text-ink-500 mb-3">Scoreverloop</div>
+              <div className="space-y-1.5">
+                {scoreTimeline.map((goal, idx) => {
+                  const sc = scoreTimeline.slice(0, idx + 1).filter(g => g.isOwn).length;
+                  const osc = scoreTimeline.slice(0, idx + 1).filter(g => !g.isOwn).length;
                   return (
-                    <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg flex justify-between items-center">
-                      <span className="font-medium">{goal.concededBy}</span>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">{shotType?.label || 'Onbekend'}</span>
+                    <div key={idx} className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${goal.isOwn ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${goal.isOwn ? 'bg-green-500' : 'bg-primary'}`} />
+                        <span className="font-semibold text-[12px] text-ink-900 dark:text-white truncate">
+                          {goal.isOwn ? goal.player : `Tegen ${goal.player}`}
+                        </span>
+                        <span className="text-[11px] text-ink-500 flex-shrink-0">· {goal.type}</span>
+                      </div>
+                      <div className="score-number text-[16px] text-ink-900 dark:text-white flex-shrink-0 ml-2">{sc}–{osc}</div>
                     </div>
                   );
                 })}
               </div>
-            ) : <p className="text-gray-600 dark:text-gray-400">Geen tegendoelpunten</p>}
-          </div>
+            </div>
+          )}
+
           {/* Wisselingen */}
           {(match.substitutions || []).length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">↔ Wisselingen</h2>
-              <div className="space-y-2">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-4">
+              <div className="stencil text-ink-500 mb-3">Wisselingen</div>
+              <div className="space-y-1.5">
                 {(match.substitutions || []).map((sub, idx) => (
-                  <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg flex items-center gap-2 text-sm">
-                    <span className="font-semibold text-red-600 dark:text-red-400">{sub.outPlayerName}</span>
-                    <span className="text-gray-400">→</span>
-                    <span className="font-semibold text-green-600 dark:text-green-400">{sub.inPlayerName}</span>
+                  <div key={idx} className="flex items-center gap-2 py-2 border-b border-black/[.04] last:border-0 text-[13px]">
+                    <span className="font-semibold text-primary">{sub.outPlayerName}</span>
+                    <span className="text-ink-400">→</span>
+                    <span className="font-semibold text-green-600">{sub.inPlayerName}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
           <button onClick={() => { setCurrentMatch(null); navigateTo('home'); }}
-            className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            className="w-full bg-ink-900 text-white py-4 rounded-2xl font-bold text-[14px] hover:bg-ink-800 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             Terug naar home
           </button>
         </div>
@@ -3131,77 +3220,77 @@ export default function KorfbalApp() {
               </div>
             </div>
           </div>
-          {/* Win/verlies reeks badge */}
+          {/* Huidige reeks */}
           {currentStreak && currentStreak.count >= 2 && (
-            <div className={`rounded-lg shadow-lg p-4 flex items-center gap-3 ${
+            <div className={`rounded-2xl border p-4 flex items-center gap-3 ${
               currentStreak.type === 'W'
-                ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700'
+                ? 'bg-green-50 dark:bg-green-900/20 border-green-200/60 dark:border-green-700/40'
                 : currentStreak.type === 'V'
-                ? 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700'
-                : 'bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600'
+                ? 'bg-red-50 dark:bg-red-900/20 border-red-200/60 dark:border-red-700/40'
+                : 'bg-white dark:bg-gray-800 border-black/[.06] dark:border-gray-700'
             }`}>
-              <span className="text-3xl">
-                {currentStreak.type === 'W' ? '🔥' : currentStreak.type === 'V' ? '📉' : '➖'}
-              </span>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-[18px] flex-shrink-0 ${
+                currentStreak.type === 'W' ? 'bg-green-500 text-white' : currentStreak.type === 'V' ? 'bg-primary text-white' : 'bg-gray-300 text-white'
+              }`}>
+                {currentStreak.count}
+              </div>
               <div>
-                <p className={`font-bold text-lg ${
+                <div className={`font-bold text-[14px] ${
                   currentStreak.type === 'W' ? 'text-green-700 dark:text-green-300'
-                  : currentStreak.type === 'V' ? 'text-red-700 dark:text-red-300'
-                  : 'text-gray-700 dark:text-gray-300'
+                  : currentStreak.type === 'V' ? 'text-primary'
+                  : 'text-ink-900 dark:text-white'
                 }`}>
-                  {currentStreak.count} {currentStreak.type === 'W' ? 'overwinningen' : currentStreak.type === 'V' ? 'nederlagen' : 'gelijke spelen'} op rij
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Huidige reeks</p>
+                  {currentStreak.type === 'W' ? 'Overwinningen' : currentStreak.type === 'V' ? 'Nederlagen' : 'Gelijke spelen'} op rij
+                </div>
+                <div className="stencil text-ink-500 mt-0.5">Huidige reeks</div>
               </div>
             </div>
           )}
           {/* Vorm-strip: laatste 5 wedstrijden */}
           {formLast5 && formLast5.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Vorm laatste {formLast5.length} wedstrijden</h2>
-              <div className="flex items-center gap-3 flex-wrap">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+              <div className="stencil text-ink-500 mb-3">Vorm laatste {formLast5.length} wedstrijden</div>
+              <div className="flex items-center gap-2 flex-wrap">
                 {formLast5.map((m, i) => (
                   <div key={m.matchId || i} className="flex flex-col items-center gap-1">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow ${
-                      m.result === 'W' ? 'bg-green-500' : m.result === 'D' ? 'bg-gray-400' : 'bg-red-500'
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-display font-black text-[12px] text-white ${
+                      m.result === 'W' ? 'bg-green-500' : m.result === 'D' ? 'bg-gray-400' : 'bg-primary'
                     }`}>
                       {m.result}
                     </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{m.score}-{m.opponentScore}</span>
-                    <span className="text-[10px] text-gray-400 truncate max-w-[48px] text-center">{m.opponent.substring(0, 6)}</span>
+                    <span className="tabular text-[10px] text-ink-500">{m.score}-{m.opponentScore}</span>
                   </div>
                 ))}
-                <div className="ml-auto text-sm text-gray-500 dark:text-gray-400 flex gap-3">
-                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500 inline-block"></span>W</span>
-                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-gray-400 inline-block"></span>G</span>
-                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>V</span>
-                </div>
               </div>
             </div>
           )}
 
           {/* Speler van de maand */}
           {playerOfMonth && (
-            <div className="bg-gradient-to-r from-primary to-primary-dark text-white rounded-lg shadow-lg p-6">
-              <h2 className="text-lg font-bold mb-1 opacity-90">🏆 Speler van de maand</h2>
-              <p className="text-3xl font-extrabold">{playerOfMonth.name}</p>
-              <p className="text-sm opacity-80 mt-1">{playerOfMonth.goals} doelpunten in de afgelopen 30 dagen</p>
+            <div className="bg-ink-900 rounded-2xl p-4 relative overflow-hidden">
+              <div className="field-pattern absolute inset-0 opacity-40" />
+              <div className="relative">
+                <div className="stencil text-white/50 mb-2">Speler van de maand</div>
+                <div className="font-display font-black text-[22px] text-white leading-tight">{playerOfMonth.name}</div>
+                <div className="stencil text-white/60 mt-1.5">{playerOfMonth.goals} doelpunten · afgelopen 30 dagen</div>
+              </div>
             </div>
           )}
 
           {/* Beste spelers top 5 */}
           {topPlayers && topPlayers.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Top 5 scorers (dit seizoen)</h2>
-              <div className="space-y-3">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+              <div className="stencil text-ink-500 mb-3">Top scorers</div>
+              <div className="space-y-0">
                 {topPlayers.map((p, i) => (
-                  <div key={p.playerId} className="flex items-center gap-3">
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                      i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-amber-600' : 'bg-gray-300 text-gray-700'
-                    }`}>{i + 1}</span>
-                    <span className="flex-1 font-medium text-gray-800 dark:text-gray-100">{p.name}</span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">{p.goals} doelpunten</span>
-                    <span className="text-sm font-semibold text-primary">{p.percentage}%</span>
+                  <div key={p.playerId} className={`flex items-center gap-3 py-2.5 ${i < topPlayers.length - 1 ? 'border-b border-black/[.05] dark:border-gray-700' : ''}`}>
+                    <span className={`font-display font-black text-[14px] w-4 flex-shrink-0 ${i === 0 ? 'text-gold-500' : 'text-ink-400'}`}>{i + 1}</span>
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0">
+                      {p.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <span className="flex-1 font-bold text-[13px] text-ink-900 dark:text-white">{p.name}</span>
+                    <span className="tabular text-[12px] text-ink-500">{p.goals}</span>
+                    <span className="tabular text-[12px] font-bold text-primary">{p.percentage}%</span>
                   </div>
                 ))}
               </div>
@@ -3231,9 +3320,9 @@ export default function KorfbalApp() {
               ` L${xAt(n - 1)},${H - padY} Z`;
 
             return (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                <h2 className="text-xl font-bold mb-1 text-gray-800 dark:text-gray-100">Doelpunten per maand</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Gemiddeld per wedstrijd · {trendByMonth.length} maanden</p>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+                <div className="stencil text-ink-500 mb-0.5">Doelpunten per maand</div>
+                <p className="text-[11px] text-ink-400 mb-3">Gemiddeld per wedstrijd · {trendByMonth.length} maanden</p>
                 <div className="overflow-x-auto">
                   <svg viewBox={`0 0 ${W} ${H + 20}`} className="w-full max-w-xl" aria-hidden="true">
                     {/* Grid lines */}
@@ -3277,8 +3366,8 @@ export default function KorfbalApp() {
 
           {/* Tegenstander tabel */}
           {opponentStats && opponentStats.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Resultaten per tegenstander</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+              <div className="stencil text-ink-500 mb-3">Resultaten per tegenstander</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -3318,9 +3407,9 @@ export default function KorfbalApp() {
             const anyData = shotTypeTrend.some(s => s.season.attempts > 0);
             if (!anyData) return null;
             return (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                <h2 className="text-xl font-bold mb-1 text-gray-800 dark:text-gray-100">Schot-type trend</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+                <div className="stencil text-ink-500 mb-0.5">Schot-type trend</div>
+                <p className="text-[11px] text-ink-400 mb-3">
                   Laatste {usedMatches} wedstr. vs heel seizoen · {teamMatches.length} wedstrijden totaal
                 </p>
                 <div className="overflow-x-auto">
@@ -3369,8 +3458,8 @@ export default function KorfbalApp() {
 
           {/* Prestatie trend grafiek */}
           {teamMatches.length >= 2 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Prestatie per wedstrijd</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+              <div className="stencil text-ink-500 mb-3">Prestatie per wedstrijd</div>
               <div className="flex items-end gap-1 h-40 overflow-x-auto pb-2">
                 {[...teamMatches]
                   .sort((a, b) => new Date(a.date) - new Date(b.date))
@@ -3407,117 +3496,70 @@ export default function KorfbalApp() {
               </div>
             </div>
           )}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Speler statistieken</h2>
-            <div className="space-y-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+            <div className="stencil text-ink-500 mb-3">Speler statistieken</div>
+            <div className="space-y-0">
               {Object.entries(playerStats).sort(([, a], [, b]) => b.goals - a.goals).map(([name, stats], index) => {
                 const percentage = stats.attempts > 0 ? Math.round((stats.attemptGoals / stats.attempts) * 100) : 0;
                 const avgPerMatch = stats.matches > 0 ? (stats.goals / stats.matches).toFixed(1) : 0;
-
-                // Bepaal kleur op basis van percentage
-                let performanceColor = 'bg-gray-400';
-                let performanceText = 'text-gray-700';
-                if (percentage >= 70) {
-                  performanceColor = 'bg-green-500';
-                  performanceText = 'text-green-700';
-                } else if (percentage >= 50) {
-                  performanceColor = 'bg-yellow-500';
-                  performanceText = 'text-yellow-700';
-                } else if (percentage >= 30) {
-                  performanceColor = 'bg-orange-500';
-                  performanceText = 'text-orange-700';
-                } else if (stats.attempts > 0) {
-                  performanceColor = 'bg-red-500';
-                  performanceText = 'text-red-700';
-                }
-
-                // Ranking badge styling
-                let rankBadge = 'bg-gray-200 text-gray-700';
-                if (index === 0) rankBadge = 'bg-yellow-400 text-yellow-900 font-bold';
-                else if (index === 1) rankBadge = 'bg-gray-300 dark:bg-gray-600 text-gray-800 font-bold';
-                else if (index === 2) rankBadge = 'bg-orange-300 text-orange-900 font-bold';
-
                 const isExpanded = expandedPlayer === name;
                 const career = careerStats?.find(c => c.name === name);
 
                 return (
-                  <div key={name} className="border-l-4 border-primary bg-gray-50 dark:bg-gray-700 p-4 rounded-r-lg">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm ${rankBadge}`}>
-                          #{index + 1}
-                        </div>
-                        <div className="flex-1">
-                          <button
-                            className="font-bold text-lg text-left flex items-center gap-1 hover:text-primary transition-colors"
-                            onClick={() => setExpandedPlayer(isExpanded ? null : name)}
-                            aria-expanded={isExpanded}
-                          >
-                            {name}
-                            <span className={`text-xs text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
-                          </button>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 flex-wrap">
-                            <span>{stats.matches} wedstrijden • {avgPerMatch} doelpunten/wedstrijd</span>
-                            {career?.bestShotTypeLabel && (
-                              <span className="bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded font-medium">
-                                ★ {career.bestShotTypeLabel}
-                              </span>
-                            )}
-                          </div>
+                  <div key={name} className={`py-3 ${index > 0 ? 'border-t border-black/[.05] dark:border-gray-700' : ''}`}>
+                    <div className="flex items-center gap-3">
+                      <span className={`font-display font-black text-[14px] w-4 flex-shrink-0 ${index === 0 ? 'text-gold-500' : 'text-ink-400'}`}>{index + 1}</span>
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0">
+                        {name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <button
+                          className="font-bold text-[13px] text-ink-900 dark:text-white text-left flex items-center gap-1 hover:text-primary transition-colors"
+                          onClick={() => setExpandedPlayer(isExpanded ? null : name)}
+                          aria-expanded={isExpanded}
+                        >
+                          {name}
+                          <span className={`text-ink-400 transition-transform duration-200 text-[10px] ${isExpanded ? 'rotate-180' : ''}`}>▾</span>
+                        </button>
+                        <div className="text-[11px] text-ink-500 flex items-center gap-2 flex-wrap mt-0.5">
+                          <span>{stats.matches} wedstr. · {avgPerMatch}/wedstr.</span>
+                          {career?.bestShotTypeLabel && (
+                            <span className="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded font-bold">
+                              {career.bestShotTypeLabel}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-primary">{stats.goals}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">doelpunten</div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="score-number text-[20px] text-ink-900 dark:text-white">{stats.goals}</div>
+                        {stats.attempts > 0 && <div className={`text-[11px] font-bold ${percentage >= 50 ? 'text-green-600' : 'text-primary'}`}>{percentage}%</div>}
                       </div>
                     </div>
 
-                    {/* Progress bar voor score percentage */}
                     {stats.attempts > 0 && (
-                    <div className="mb-3">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-600 dark:text-gray-400">Scorepercentage</span>
-                        <span className={`font-semibold ${performanceText}`}>{percentage}%</span>
+                      <div className="mt-2 ml-11">
+                        <div className="h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${percentage >= 70 ? 'bg-green-500' : percentage >= 50 ? 'bg-yellow-400' : 'bg-primary'}`}
+                            style={{ width: `${percentage}%` }} />
+                        </div>
                       </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 overflow-hidden">
-                        <div
-                          className={`h-full ${performanceColor} transition-all duration-500 rounded-full`}
-                          style={{ width: `${percentage}%` }}
-                        ></div>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {stats.attemptGoals} van {stats.attempts} pogingen
-                      </div>
-                    </div>
                     )}
 
-                    {/* Shot type details — uitklapbaar */}
                     {isExpanded && (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm mt-1">
+                      <div className="mt-2 ml-11 grid grid-cols-3 gap-1.5">
                         {SHOT_TYPES.map(type => {
                           const typeStat = stats.byType[type.id];
                           if (typeStat.attempts === 0) return null;
                           const typePercentage = Math.round((typeStat.attemptGoals / typeStat.attempts) * 100);
-
-                          let typeColor = 'bg-gray-100 border-gray-300 dark:border-gray-600';
-                          if (typePercentage >= 70) typeColor = 'bg-green-50 border-green-300';
-                          else if (typePercentage >= 50) typeColor = 'bg-yellow-50 border-yellow-300';
-                          else if (typePercentage >= 30) typeColor = 'bg-orange-50 border-orange-300';
-                          else typeColor = 'bg-red-50 border-red-300';
-
                           return (
-                            <div key={type.id} className={`${typeColor} border px-2 py-1 rounded text-xs`}>
-                              <div className="font-semibold">{type.short}</div>
-                              <div>{typeStat.attemptGoals}/{typeStat.attempts} ({typePercentage}%)</div>
+                            <div key={type.id} className="bg-gray-50 dark:bg-gray-700 rounded-xl px-2.5 py-2">
+                              <div className="stencil text-ink-500 text-[9px]">{type.short}</div>
+                              <div className="font-bold text-[12px] text-ink-900 dark:text-white mt-0.5">{typeStat.attemptGoals}/{typeStat.attempts}</div>
+                              <div className={`text-[11px] font-bold ${typePercentage >= 50 ? 'text-green-600' : 'text-primary'}`}>{typePercentage}%</div>
                             </div>
                           );
                         })}
                       </div>
-                    )}
-                    {!isExpanded && stats.attempts > 0 && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        Klik op naam voor schottype details
-                      </p>
                     )}
                   </div>
                 );
@@ -3526,8 +3568,8 @@ export default function KorfbalApp() {
           </div>
           {/* Speler vergelijking */}
           {Object.keys(playerStats).length >= 2 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Spelers vergelijken</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+              <div className="stencil text-ink-500 mb-3">Spelers vergelijken</div>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <select value={comparePlayer1} onChange={(e) => setComparePlayer1(e.target.value)}
                   className="px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm">
@@ -3616,36 +3658,36 @@ export default function KorfbalApp() {
               )}
             </div>
           )}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Wedstrijd geschiedenis</h2>
-            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4">
+            <div className="stencil text-ink-500 mb-3">Wedstrijd geschiedenis</div>
+            <div className="flex flex-col sm:flex-row gap-2 mb-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-ink-400" />
                 <input
                   type="text"
                   placeholder="Zoek op tegenstander..."
                   value={matchSearch}
                   onChange={(e) => setMatchSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100 text-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  className="w-full pl-8 pr-3 py-2 bg-gray-50 dark:bg-gray-700 border border-black/[.08] dark:border-gray-600 rounded-xl focus:border-primary focus:outline-none dark:text-gray-100 text-[13px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 />
               </div>
               <div className="flex gap-1">
                 {[
                   { id: 'all', label: 'Alle' },
-                  { id: 'won', label: 'Gewonnen' },
-                  { id: 'draw', label: 'Gelijk' },
-                  { id: 'lost', label: 'Verloren' },
+                  { id: 'won', label: 'W' },
+                  { id: 'draw', label: 'G' },
+                  { id: 'lost', label: 'V' },
                 ].map(f => (
                   <button key={f.id} onClick={() => setMatchFilter(f.id)}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                      matchFilter === f.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    className={`px-3 py-2 rounded-xl text-[11px] font-bold transition-colors ${
+                      matchFilter === f.id ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-ink-500 hover:bg-gray-200'
                     }`}>
                     {f.label}
                   </button>
                 ))}
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-0">
               {[...teamMatches]
                 .sort((a, b) => new Date(b.date) - new Date(a.date))
                 .filter(m => {
@@ -3655,47 +3697,45 @@ export default function KorfbalApp() {
                   if (matchFilter === 'draw' && m.score !== m.opponent_score) return false;
                   return true;
                 })
-                .map((match) => (
-                <div key={match._id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex justify-between items-start gap-3">
-                    <button onClick={() => setSelectedMatch(match)} className="flex-1 text-left">
-                      <div className="font-semibold">{match.team_name} vs {match.opponent}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">{new Date(match.date).toLocaleDateString('nl-NL')}</div>
-                    </button>
-                    <div className="flex items-center gap-3">
-                      <div className={`text-xl font-bold whitespace-nowrap ${
-                        match.score > match.opponent_score ? 'text-green-600' :
-                        match.score < match.opponent_score ? 'text-primary' : 'text-gray-600'
-                      }`}>
-                        {match.score} - {match.opponent_score}
-                      </div>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            await updateMatchMutation({
-                              matchId: match._id,
-                              shareable: true,
-                            });
-                            const shareUrl = `${window.location.origin}${window.location.pathname}?match=${match._id}`;
-                            await navigator.clipboard.writeText(shareUrl);
-                            showFeedback('Deel-link gekopieerd!', 'success');
-                          } catch (error) {
-                            showFeedback('Fout bij delen', 'error');
-                          }
-                        }}
-                        className="text-green-600 hover:text-green-800 text-sm font-medium min-h-[44px] min-w-[44px] flex items-center justify-center"
-                        title="Deel wedstrijd"
-                        aria-label="Deel wedstrijd"
-                      >
-                        📤
-                      </button>
-                      {currentUserIsAdmin && (
-                        <button onClick={(e) => { e.stopPropagation(); handleDeleteMatch(match); }}
-                          className="text-primary hover:text-red-800 text-sm font-medium min-h-[44px] min-w-[44px] flex items-center justify-center" title="Verwijder wedstrijd" aria-label="Verwijder wedstrijd">✕</button>
-                      )}
-                    </div>
+                .map((match, idx, arr) => (
+                <div key={match._id} className={`flex items-center gap-3 py-2.5 ${idx < arr.length - 1 ? 'border-b border-black/[.05] dark:border-gray-700' : ''}`}>
+                  <div className={`w-1.5 h-8 rounded-full flex-shrink-0 ${
+                    match.score > match.opponent_score ? 'bg-green-500' :
+                    match.score < match.opponent_score ? 'bg-primary' : 'bg-gray-300'
+                  }`} />
+                  <button onClick={() => setSelectedMatch(match)} className="flex-1 text-left min-w-0">
+                    <div className="font-bold text-[13px] text-ink-900 dark:text-white truncate">{match.opponent}</div>
+                    <div className="text-[11px] text-ink-500">{new Date(match.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}</div>
+                  </button>
+                  <div className={`score-number text-[18px] flex-shrink-0 ${
+                    match.score > match.opponent_score ? 'text-green-600' :
+                    match.score < match.opponent_score ? 'text-primary' : 'text-ink-400'
+                  }`}>
+                    {match.score}–{match.opponent_score}
                   </div>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await updateMatchMutation({ matchId: match._id, shareable: true });
+                        const shareUrl = `${window.location.origin}${window.location.pathname}?match=${match._id}`;
+                        await navigator.clipboard.writeText(shareUrl);
+                        showFeedback('Deel-link gekopieerd!', 'success');
+                      } catch (error) {
+                        showFeedback('Fout bij delen', 'error');
+                      }
+                    }}
+                    className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0"
+                    aria-label="Deel wedstrijd"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-ink-500" />
+                  </button>
+                  {currentUserIsAdmin && (
+                    <button onClick={(e) => { e.stopPropagation(); handleDeleteMatch(match); }}
+                      className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0" aria-label="Verwijder wedstrijd">
+                      <X className="w-3.5 h-3.5 text-ink-500" />
+                    </button>
+                  )}
                 </div>
               ))}
               {teamMatches.length > 0 && [...teamMatches].filter(m => {
@@ -3705,7 +3745,7 @@ export default function KorfbalApp() {
                 if (matchFilter === 'draw' && m.score !== m.opponent_score) return false;
                 return true;
               }).length === 0 && (
-                <p className="text-center text-gray-500 py-4">Geen wedstrijden gevonden</p>
+                <p className="text-center text-ink-500 py-4 text-[13px]">Geen wedstrijden gevonden</p>
               )}
             </div>
           </div>
@@ -4015,105 +4055,157 @@ export default function KorfbalApp() {
       return { type: type.label, goals, attempts, percentage };
     }).filter(stat => stat.attempts > 0);
 
-    const result = match.score > match.opponent_score ? 'Gewonnen! 🎉' :
-                   match.score < match.opponent_score ? 'Verloren 😔' : 'Gelijkspel';
+    const isWin = match.score > match.opponent_score;
+    const isLoss = match.score < match.opponent_score;
 
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="bg-primary text-white p-6 shadow-lg">
-          <button onClick={onBack} className="mb-2 flex items-center text-white hover:underline">
-            <ArrowLeft className="w-5 h-5 mr-2" /><span>Terug</span>
-          </button>
-          <div className="text-center">
-            <div className="text-5xl font-bold mb-2">{match.score} - {match.opponent_score}</div>
-            <div className="text-xl">{match.team_name} vs {match.opponent}</div>
-            <div className="text-lg mt-2 font-semibold">{result}</div>
-            <div className="text-sm opacity-90 mt-2">
-              {new Date(match.date).toLocaleDateString('nl-NL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+      <div className="min-h-screen bg-canvas dark:bg-gray-900">
+        {/* Dark hero */}
+        <div className="bg-ink-900 relative overflow-hidden">
+          <div className="field-pattern absolute inset-0 opacity-50" />
+          <div className="relative px-4 pt-4 pb-5">
+            <div className="flex items-center justify-between mb-5">
+              <button onClick={onBack}
+                className="w-9 h-9 rounded-full bg-white/10 border border-white/15 flex items-center justify-center" aria-label="Terug">
+                <ArrowLeft className="w-4 h-4 text-white" />
+              </button>
+              <div className="font-bold text-[13px] text-white">Wedstrijddetails</div>
+              <div className="w-9" />
+            </div>
+            <div className="stencil text-white/55 mb-3">
+              {match.date ? new Date(match.date).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
+            </div>
+            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold mb-4 ${
+              isWin ? 'bg-green-500/20 border-green-500/30 text-green-300'
+              : isLoss ? 'bg-red-500/20 border-red-500/30 text-red-300'
+              : 'bg-white/10 border-white/20 text-white/70'
+            }`}>
+              {isWin ? '✓ GEWONNEN' : isLoss ? 'VERLOREN' : 'GELIJKSPEL'}
+            </div>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+              <div>
+                <div className="font-bold text-[13px] text-white">{match.team_name}</div>
+                <div className="stencil text-white/45 mt-1">Thuis</div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="score-number text-[52px] text-white">{match.score}</div>
+                <div className="font-light text-[22px] text-white/30 font-display">–</div>
+                <div className="score-number text-[52px] text-white/55">{match.opponent_score}</div>
+              </div>
+              <div className="text-right">
+                <div className="font-bold text-[13px] text-white">{match.opponent}</div>
+                <div className="stencil text-white/45 mt-1">Uit</div>
+              </div>
             </div>
           </div>
         </div>
-        <div className="max-w-4xl mx-auto p-6">
-          {/* Team Statistics */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">📊 Wedstrijdstatistieken</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              {match?.withAttempts !== false && totalAttempts > 0 && (
-                <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
-                </div>
-              )}
-              {match?.withAttempts !== false && (
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <div className="text-3xl font-bold text-blue-600">{totalAttempts}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Totaal pogingen</div>
-                </div>
-              )}
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <div className="text-3xl font-bold text-green-600">{totalGoals}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Doelpunten</div>
+
+        <div className="px-4 pb-24 space-y-3 pt-4">
+          {/* Mini stats grid */}
+          <div className="grid grid-cols-3 gap-2">
+            {match?.withAttempts !== false && totalAttempts > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-3.5">
+                <div className="score-number text-[22px] text-ink-900 dark:text-white">{teamPercentage}%</div>
+                <div className="stencil text-ink-500 mt-1.5">Schot%</div>
               </div>
-              <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                <div className="text-3xl font-bold text-yellow-600">{match.players.length}</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">Spelers ingezet</div>
-              </div>
+            )}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-3.5">
+              <div className="score-number text-[22px] text-ink-900 dark:text-white">{totalGoals}</div>
+              <div className="stencil text-ink-500 mt-1.5">Doelpunten</div>
             </div>
-            {bestPlayer && (
-              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-400 rounded-lg p-4 mb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-gray-600 mb-1">⭐ Top Scorer</div>
-                    <div className="text-xl font-bold text-gray-800 dark:text-gray-100">{bestPlayer.name}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-yellow-600">
-                      {SHOT_TYPES.reduce((sum, type) => sum + (bestPlayer.stats?.[type.id]?.goals || 0), 0)}
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">doelpunten</div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {shotTypeStats.length > 0 && (
-              <div>
-                <h3 className="font-semibold text-gray-700 mb-3">Schot analyse</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {shotTypeStats.map(stat => (
-                    <div key={stat.type} className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
-                      <div className="font-semibold text-sm text-gray-700">{stat.type}</div>
-                      <div className="flex justify-between items-center mt-2">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">{stat.goals}/{stat.attempts}</span>
-                        <span className={`text-lg font-bold ${
-                          stat.percentage >= 70 ? 'text-green-600' :
-                          stat.percentage >= 50 ? 'text-yellow-600' :
-                          stat.percentage >= 30 ? 'text-orange-600' : 'text-primary'
-                        }`}>{stat.percentage}%</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-3.5">
+              <div className="score-number text-[22px] text-ink-900 dark:text-white">{match.players.length}</div>
+              <div className="stencil text-ink-500 mt-1.5">Spelers</div>
+            </div>
           </div>
 
+          {/* Topscorer */}
+          {bestPlayer && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-4">
+              <div className="stencil text-ink-500 mb-3">Topscorer</div>
+              <div className="flex items-center gap-3">
+                <span className="font-display font-black text-[14px] text-gold-500 w-4">1</span>
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center font-display font-black text-[11px] text-white">
+                  {bestPlayer.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 font-bold text-[13px] text-ink-900 dark:text-white">{bestPlayer.name}</div>
+                <div className="score-number text-[20px] text-ink-900 dark:text-white">
+                  {SHOT_TYPES.reduce((sum, type) => sum + (bestPlayer.stats?.[type.id]?.goals || 0), 0)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Schot% per type */}
+          {shotTypeStats.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-4">
+              <div className="stencil text-ink-500 mb-3">Schot% per type</div>
+              <div className="space-y-3">
+                {shotTypeStats.map(stat => (
+                  <div key={stat.type}>
+                    <div className="flex justify-between items-baseline mb-1.5">
+                      <span className="font-semibold text-[13px] text-ink-900 dark:text-white">{stat.type}</span>
+                      <span className={`font-bold text-[13px] tabular ${stat.percentage >= 60 ? 'text-green-600' : 'text-primary'}`}>{stat.percentage}%</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${stat.percentage >= 60 ? 'bg-green-500' : 'bg-primary'}`}
+                        style={{ width: `${stat.percentage}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Scoreverloop */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Scoreverloop</h2>
-            <div className="space-y-2">
-              {scoreTimeline.map((goal, idx) => {
-                const currentScore = scoreTimeline.slice(0, idx + 1).filter(g => g.isOwn).length;
-                const currentOpponentScore = scoreTimeline.slice(0, idx + 1).filter(g => !g.isOwn).length;
-                return (
-                  <div key={idx} className={`p-3 rounded-lg ${goal.isOwn ? 'bg-green-50 border-l-4 border-green-600' : 'bg-red-50 border-l-4 border-primary'}`}>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <span className="font-semibold">{goal.isOwn ? '⚽' : '🚫'} {goal.team}</span>
-                        <span className="text-sm text-gray-600 ml-2">
-                          {goal.isOwn ? `${goal.player} - ${goal.type}` : `Tegen ${goal.player} - ${goal.type}`}
+          {scoreTimeline.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-4">
+              <div className="stencil text-ink-500 mb-3">Scoreverloop</div>
+              <div className="space-y-1.5">
+                {scoreTimeline.map((goal, idx) => {
+                  const sc = scoreTimeline.slice(0, idx + 1).filter(g => g.isOwn).length;
+                  const osc = scoreTimeline.slice(0, idx + 1).filter(g => !g.isOwn).length;
+                  return (
+                    <div key={idx} className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${goal.isOwn ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${goal.isOwn ? 'bg-green-500' : 'bg-primary'}`} />
+                        <span className="font-semibold text-[12px] text-ink-900 dark:text-white truncate">
+                          {goal.isOwn ? goal.player : `Tegen ${goal.player}`}
                         </span>
+                        <span className="text-[11px] text-ink-500 flex-shrink-0">· {goal.type}</span>
                       </div>
-                      <div className="font-bold text-lg">{currentScore} - {currentOpponentScore}</div>
+                      <div className="score-number text-[16px] text-ink-900 dark:text-white flex-shrink-0 ml-2">{sc}–{osc}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Spelerstatistieken */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-4">
+            <div className="stencil text-ink-500 mb-3">Spelerstatistieken</div>
+            <div className="space-y-0">
+              {[...match.players].sort((a, b) => {
+                const aG = SHOT_TYPES.reduce((s, t) => s + (a.stats?.[t.id]?.goals || 0), 0);
+                const bG = SHOT_TYPES.reduce((s, t) => s + (b.stats?.[t.id]?.goals || 0), 0);
+                return bG - aG;
+              }).map((player, idx, arr) => {
+                const pg = SHOT_TYPES.reduce((s, t) => s + (player.stats?.[t.id]?.goals || 0), 0);
+                const pa = SHOT_TYPES.reduce((s, t) => s + (player.stats?.[t.id]?.attempts || 0), 0);
+                const pct = pa > 0 ? Math.round((pg / pa) * 100) : 0;
+                return (
+                  <div key={player.id} className={`flex items-center gap-3 py-2.5 ${idx < arr.length - 1 ? 'border-b border-black/[.05] dark:border-gray-700' : ''}`}>
+                    <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-display font-black text-[11px] text-ink-500 flex-shrink-0">
+                      {player.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-[13px] text-ink-900 dark:text-white truncate">{player.name}</div>
+                      {pa > 0 && <div className="stencil text-ink-500 mt-0.5">{pg}/{pa} pogingen</div>}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="score-number text-[18px] text-ink-900 dark:text-white">{pg}</div>
+                      {pa > 0 && <div className={`text-[11px] font-bold ${pct >= 50 ? 'text-green-600' : 'text-primary'}`}>{pct}%</div>}
                     </div>
                   </div>
                 );
@@ -4121,86 +4213,44 @@ export default function KorfbalApp() {
             </div>
           </div>
 
-          {/* Player stats */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Speler statistieken</h2>
-            {[...match.players].sort((a, b) => {
-              const aGoals = SHOT_TYPES.reduce((sum, type) => sum + (a.stats?.[type.id]?.goals || 0), 0);
-              const bGoals = SHOT_TYPES.reduce((sum, type) => sum + (b.stats?.[type.id]?.goals || 0), 0);
-              return bGoals - aGoals;
-            }).map(player => {
-              const totalGoals = SHOT_TYPES.reduce((sum, type) => sum + (player.stats?.[type.id]?.goals || 0), 0);
-              const totalAttempts = SHOT_TYPES.reduce((sum, type) => sum + (player.stats?.[type.id]?.attempts || 0), 0);
-              const percentage = totalAttempts > 0 ? Math.round((totalGoals / totalAttempts) * 100) : 0;
-              return (
-                <div key={player.id} className="border-b border-gray-200 dark:border-gray-600 py-4 last:border-0">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-lg">{player.name}</span>
-                    <span className="text-gray-600 dark:text-gray-400">{totalGoals} doelpunten{match?.withAttempts !== false && totalAttempts > 0 ? ` / ${totalAttempts} pogingen (${percentage}%)` : ''}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-sm">
-                    {SHOT_TYPES.map(type => {
-                      const stat = player.stats?.[type.id];
-                      if (!stat || stat.attempts === 0) return null;
-                      return (
-                        <span key={type.id} className="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded">
-                          {type.label}: {stat.goals}/{stat.attempts}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Opponent goals */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Tegendoelpunten overzicht</h2>
-            {(match.opponent_goals || []).length > 0 ? (
-              <div className="space-y-2">
+          {/* Tegendoelpunten */}
+          {(match.opponent_goals || []).length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] p-4">
+              <div className="stencil text-ink-500 mb-3">Tegendoelpunten</div>
+              <div className="space-y-1.5">
                 {(match.opponent_goals || []).map((goal, idx) => {
                   const shotType = SHOT_TYPES.find(t => t.id === goal.type);
                   return (
-                    <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg flex justify-between items-center">
-                      <span className="font-medium">{goal.concededBy}</span>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">{shotType?.label || 'Onbekend'}</span>
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-black/[.04] last:border-0">
+                      <span className="font-semibold text-[13px] text-ink-900 dark:text-white">{goal.concededBy}</span>
+                      <span className="stencil text-ink-500">{shotType?.label || 'Onbekend'}</span>
                     </div>
                   );
                 })}
               </div>
-            ) : <p className="text-gray-600 dark:text-gray-400">Geen tegendoelpunten</p>}
-          </div>
+            </div>
+          )}
 
-          {/* Deel wedstrijd knop */}
+          {/* Acties */}
           <button
             onClick={async () => {
               try {
-                // Update match to be shareable
-                await updateMatchMutation({
-                  matchId: match._id,
-                  shareable: true,
-                });
-
-                // Generate shareable URL
+                await updateMatchMutation({ matchId: match._id, shareable: true });
                 const shareUrl = `${window.location.origin}${window.location.pathname}?match=${match._id}`;
-
-                // Copy to clipboard
                 await navigator.clipboard.writeText(shareUrl);
-                showFeedback('Deel-link gekopieerd! Deel deze met je team.', 'success');
+                showFeedback('Deel-link gekopieerd!', 'success');
               } catch (error) {
-                console.error('Error sharing match:', error);
                 showFeedback(`Fout bij delen: ${error.message || 'Onbekende fout'}`, 'error');
               }
             }}
-            className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2 mb-3"
+            className="w-full border border-black/[.08] dark:border-gray-700 bg-white dark:bg-gray-800 text-ink-900 dark:text-white py-3.5 rounded-2xl font-bold text-[14px] hover:border-primary hover:text-primary active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           >
-            📤 Deel wedstrijd met team
+            <Share2 className="w-4 h-4" /> Deel wedstrijd
           </button>
 
           {currentUserIsAdmin && (
             <button onClick={onDelete}
-              className="w-full bg-primary text-white py-4 rounded-lg font-semibold hover:bg-primary-dark transition">
+              className="w-full bg-red-50 dark:bg-red-900/20 border border-red-200/60 dark:border-red-700/40 text-primary py-3.5 rounded-2xl font-bold text-[14px] hover:bg-red-100 active:scale-[0.98] transition-all">
               Wedstrijd verwijderen
             </button>
           )}
@@ -4248,41 +4298,48 @@ export default function KorfbalApp() {
       {/* Upgrade modal */}
       {showUpgradeModal && (
         <div
-          className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-ink-900/70 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setShowUpgradeModal(false); }}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
-            <div className="text-center mb-5">
-              <div className="text-4xl mb-2">🚀</div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Je hebt de gratis limiet bereikt</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Gratis plan: max. 20 wedstrijden. Upgrade voor onbeperkte wedstrijden en AI-advies.
-              </p>
-            </div>
-            <div className="space-y-3 mb-5">
-              <div className="border-2 border-primary rounded-xl p-4">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-bold text-gray-900 dark:text-white">Starter</span>
-                  <span className="text-primary font-bold">€4,99/mo</span>
+          <div className="bg-white dark:bg-gray-900 rounded-t-[24px] sm:rounded-[24px] max-w-sm w-full shadow-sheet overflow-hidden">
+            {/* Dark hero */}
+            <div className="bg-ink-900 relative overflow-hidden px-6 pt-6 pb-5">
+              <div className="field-pattern absolute inset-0 opacity-40" />
+              <div className="relative">
+                <div className="stencil text-white/50 mb-2">Gratis limiet bereikt</div>
+                <div className="font-display font-black text-[22px] text-white leading-tight">
+                  Meer dan 20 wedstrijden?
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Onbeperkte wedstrijden · AI-advies · Seizoensbeheer</p>
+                <div className="text-[13px] text-white/60 mt-1.5 leading-relaxed">
+                  Upgrade voor onbeperkte wedstrijden, AI-advies en seizoensbeheer.
+                </div>
+              </div>
+            </div>
+            {/* Plan card */}
+            <div className="px-5 pt-4 pb-5">
+              <div className="border border-primary/30 bg-primary/5 rounded-2xl p-4 mb-3">
+                <div className="flex justify-between items-baseline mb-1">
+                  <span className="font-display font-black text-[18px] text-ink-900 dark:text-white">Starter</span>
+                  <span className="score-number text-[18px] text-primary">€4,99<span className="font-sans font-medium text-[12px] text-ink-500">/mo</span></span>
+                </div>
+                <div className="stencil text-ink-500 mb-3">Onbeperkt · AI-advies · Seizoensbeheer</div>
                 <button
                   onClick={() => {
                     setShowUpgradeModal(false);
                     showFeedback('Koppel Stripe in de instellingen om te upgraden', 'info');
                   }}
-                  className="mt-3 w-full bg-primary text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-primary-dark transition"
+                  className="w-full bg-primary text-white py-3 rounded-xl font-bold text-[14px] hover:bg-primary-dark active:scale-[0.98] transition-all"
                 >
                   Upgraden naar Starter
                 </button>
               </div>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="w-full text-[13px] text-ink-400 hover:text-ink-600 dark:hover:text-gray-300 transition py-2"
+              >
+                Later misschien
+              </button>
             </div>
-            <button
-              onClick={() => setShowUpgradeModal(false)}
-              className="w-full text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
-            >
-              Later misschien
-            </button>
           </div>
         </div>
       )}
