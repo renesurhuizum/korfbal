@@ -1238,7 +1238,7 @@ export default function KorfbalApp() {
             }} className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 px-3 py-1" aria-label="God mode sluiten">Sluiten</button>
           </div>
 
-          {!teams ? (
+          {allTeams === undefined ? (
             <div className="text-center py-8">
               <p className="text-gray-600 dark:text-gray-400">Laden...</p>
             </div>
@@ -1695,7 +1695,7 @@ export default function KorfbalApp() {
               </div>
               <div className="space-y-1.5">
                 {recentMatches.map(m => {
-                  const res = m.score > m.opponentScore ? 'W' : m.score < m.opponentScore ? 'V' : 'G';
+                  const res = m.score > m.opponent_score ? 'W' : m.score < m.opponent_score ? 'V' : 'G';
                   const resColor = res === 'W'
                     ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                     : res === 'V'
@@ -1710,7 +1710,7 @@ export default function KorfbalApp() {
                           {m._creationTime ? new Date(m._creationTime).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }) : ''}
                         </div>
                       </div>
-                      <div className="score-number text-[20px] text-ink-900 dark:text-white">{m.score}–{m.opponentScore}</div>
+                      <div className="score-number text-[20px] text-ink-900 dark:text-white">{m.score}–{m.opponent_score}</div>
                     </div>
                   );
                 })}
@@ -4409,19 +4409,33 @@ export default function KorfbalApp() {
             }
 
             return (
-              <div className="min-h-screen bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center p-4">
-                <div className="w-full max-w-md">
-                  <div className="text-center mb-6">
-                    <Trophy className="w-14 h-14 text-white mx-auto mb-3" />
-                    <h1 className="text-2xl font-bold text-white">Korfbal Score App</h1>
-                    <p className="text-white/70 text-sm mt-1">{isSignUpPage ? 'Maak een account aan' : 'Log in om verder te gaan'}</p>
+              <div className="min-h-screen bg-canvas dark:bg-gray-950 flex flex-col">
+                {/* Nav */}
+                <div className="px-5 h-14 flex items-center justify-between border-b border-black/[.06] dark:border-gray-800">
+                  <div className="flex items-center gap-2">
+                    <KorfbalLogo size={26} variant="red" />
+                    <span className="font-display font-black text-[13px] tracking-tight text-ink-900 dark:text-white">Korfbal Score</span>
+                  </div>
+                  <button
+                    onClick={() => { window.history.pushState({}, '', '/'); window.dispatchEvent(new PopStateEvent('popstate')); }}
+                    className="text-[12px] font-semibold text-ink-500 hover:text-ink-900 dark:hover:text-white transition"
+                  >
+                    ← Terug
+                  </button>
+                </div>
+                <div className="flex-1 flex flex-col justify-center px-5 max-w-md mx-auto w-full py-8">
+                  <div className="mb-6">
+                    <div className="stencil text-primary mb-2">{isSignUpPage ? 'Gratis aanmelden' : 'Welkom terug'}</div>
+                    <h1 className="font-display font-black text-[36px] leading-[0.95] tracking-[-0.035em] text-ink-900 dark:text-white">
+                      {isSignUpPage ? <>Maak je<br/>account aan.</> : <>Log in en<br/>pak de fluit.</>}
+                    </h1>
                   </div>
                   {isSignUpPage ? (
                     <SignUp
                       appearance={{
                         elements: {
                           rootBox: 'w-full',
-                          card: 'rounded-2xl shadow-2xl',
+                          card: 'rounded-2xl border border-black/[.06] shadow-none bg-white',
                           headerTitle: 'hidden',
                           headerSubtitle: 'hidden',
                         }
@@ -4434,7 +4448,7 @@ export default function KorfbalApp() {
                       appearance={{
                         elements: {
                           rootBox: 'w-full',
-                          card: 'rounded-2xl shadow-2xl',
+                          card: 'rounded-2xl border border-black/[.06] shadow-none bg-white',
                           headerTitle: 'hidden',
                           headerSubtitle: 'hidden',
                         }
