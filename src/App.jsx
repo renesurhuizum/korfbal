@@ -186,7 +186,7 @@ const InputDialog = ({ isOpen, title, message, placeholder, onSubmit, onCancel, 
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={placeholder}
-          className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg mb-4 dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-yellow-500 focus:outline-none"
+          className="w-full p-3 border border-black/[.1] dark:border-gray-600 rounded-xl mb-4 dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:outline-none"
         />
         <div className="flex gap-3">
           <button onClick={onCancel}
@@ -1302,7 +1302,7 @@ export default function KorfbalApp() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Zoek team..."
-                  className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-yellow-500 focus:outline-none"
+                  className="w-full p-3 border border-black/[.1] dark:border-gray-600 rounded-xl dark:bg-gray-700 dark:text-gray-100 focus:ring-2 focus:ring-primary focus:outline-none"
                 />
               </div>
 
@@ -2976,10 +2976,10 @@ export default function KorfbalApp() {
   };
 
   const SkeletonCard = ({ lines = 3 }) => (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 animate-pulse">
-      <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-black/[.06] dark:border-gray-700 p-4 animate-pulse">
+      <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded-full w-1/3 mb-4"></div>
       {Array.from({ length: lines }).map((_, i) => (
-        <div key={i} className="h-4 bg-gray-200 rounded mb-3" style={{ width: `${80 - i * 15}%` }}></div>
+        <div key={i} className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full mb-3" style={{ width: `${80 - i * 15}%` }}></div>
       ))}
     </div>
   );
@@ -3096,8 +3096,6 @@ export default function KorfbalApp() {
       return <MatchDetailView match={selectedMatch} onBack={() => setSelectedMatch(null)}
         onDelete={() => handleDeleteMatch(selectedMatch)} />;
     }
-
-    const isLoading = teamMatches === undefined || (teamMatches.length === 0 && !teamMatches);
 
     return (
       <div className="min-h-screen bg-[#FAFAF7] dark:bg-gray-900">
@@ -3858,13 +3856,13 @@ export default function KorfbalApp() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">📊 Wedstrijdstatistieken</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              {match?.withAttempts !== false && totalAttempts > 0 && (
+              {match?.with_attempts !== false && totalAttempts > 0 && (
                 <div className="text-center p-3 bg-red-50 rounded-lg">
                   <div className="text-3xl font-bold text-primary">{teamPercentage}%</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">Team schotpercentage</div>
                 </div>
               )}
-              {match?.withAttempts !== false && (
+              {match?.with_attempts !== false && (
                 <div className="text-center p-3 bg-blue-50 rounded-lg">
                   <div className="text-3xl font-bold text-blue-600">{totalAttempts}</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">Totaal pogingen</div>
