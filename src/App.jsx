@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun, Cog, ChevronDown, ChevronUp, RotateCcw, Share2, X } from 'lucide-react';
+import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun, Cog, ChevronDown, ChevronUp, RotateCcw, Share2, X, Link2, Crown, Check } from 'lucide-react';
 import { useMutation, useQuery, useAction, useConvexAuth } from "convex/react";
 import { useClerk, SignIn, SignUp } from "@clerk/clerk-react";
 import { api } from "../convex/_generated/api";
@@ -897,7 +897,7 @@ export default function KorfbalApp() {
   };
   // ─── OnboardingView: create a new team or claim an existing one ───
   const OnboardingView = () => {
-    const [mode, setMode] = useState('new'); // 'new' | 'claim'
+    const [mode, setMode] = useState(null); // null | 'new' | 'claim'
     const [teamName, setTeamName] = useState('');
     const [password, setPassword] = useState('');
     const [busy, setBusy] = useState(false);
@@ -935,142 +935,201 @@ export default function KorfbalApp() {
     };
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-          <div className="text-center mb-8">
-            <Trophy className="w-16 h-16 text-primary mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Welkom!</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">Maak een nieuw team aan of koppel een bestaand team.</p>
-          </div>
-
-          {/* Mode tabs */}
-          <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 p-1 mb-6">
-            <button
-              onClick={() => setMode('new')}
-              className={`flex-1 py-2 rounded-md text-sm font-medium transition ${mode === 'new' ? 'bg-primary text-white shadow' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-            >
-              Nieuw team
-            </button>
-            <button
-              onClick={() => setMode('claim')}
-              className={`flex-1 py-2 rounded-md text-sm font-medium transition ${mode === 'claim' ? 'bg-primary text-white shadow' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-            >
-              Bestaand team
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Teamnaam</label>
-              <input
-                type="text"
-                placeholder={mode === 'new' ? 'Bijv. KV Winnaars' : 'Naam van je huidige team'}
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && mode === 'new' && handleCreateTeam()}
-                className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100"
-                autoFocus
-              />
+      <div className="min-h-screen bg-[#FAFAF7] flex flex-col">
+        {/* Header */}
+        <div className="px-5 py-4 flex items-center justify-between border-b border-black/[.04]">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-primary rounded-[7px] flex items-center justify-center">
+              <span className="font-display font-black text-[13px] text-white leading-none">K</span>
             </div>
+            <span className="font-display font-black text-[14px] tracking-tight text-ink-900">Korfbal Score</span>
+          </div>
+          <button onClick={() => signOut()} className="text-[12px] font-semibold text-gray-400 hover:text-gray-600 transition">
+            Uitloggen
+          </button>
+        </div>
 
-            {mode === 'claim' && (
+        {mode === null ? (
+          /* Landing: kies modus */
+          <div className="flex-1 flex flex-col justify-center px-7 text-center relative overflow-hidden">
+            {/* Watermark K */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-[0.04] pointer-events-none select-none">
+              <span className="font-display font-black text-[280px] leading-none text-primary">K</span>
+            </div>
+            <div className="relative">
+              <div className="stencil text-[10px] text-primary mb-2.5">Welkom</div>
+              <h1 className="font-display font-black text-[32px] leading-[0.95] tracking-[-0.03em] text-ink-900 mb-3.5">
+                Het veld<br/>is nog leeg.
+              </h1>
+              <p className="text-[14px] leading-relaxed text-gray-500 mb-7 max-w-[280px] mx-auto">
+                Maak je eerste team aan, of koppel een bestaand team als iemand je heeft uitgenodigd.
+              </p>
+              <div className="flex flex-col gap-2.5 max-w-[280px] mx-auto">
+                <button
+                  onClick={() => setMode('new')}
+                  className="w-full bg-primary text-white py-3.5 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+                >
+                  <Plus className="w-4 h-4" /> Eerste team aanmaken
+                </button>
+                <button
+                  onClick={() => setMode('claim')}
+                  className="w-full bg-white text-ink-900 border border-black/[.1] py-3.5 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+                >
+                  <Link2 className="w-4 h-4" /> Bestaand team koppelen
+                </button>
+              </div>
+              {userTeams && userTeams.length > 0 && (
+                <button
+                  onClick={() => { setForceOnboarding(false); if (currentTeamId) navigateTo('home'); else setForcePicker(true); }}
+                  className="mt-5 text-[13px] font-semibold text-primary"
+                >
+                  ← Terug naar mijn teams
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Formulier */
+          <div className="flex-1 overflow-y-auto px-6 pb-6">
+            <button
+              onClick={() => { setMode(null); setTeamName(''); setPassword(''); }}
+              className="flex items-center gap-1.5 mt-4 mb-6 text-[13px] font-semibold text-gray-500 hover:text-ink-900 transition"
+            >
+              <ArrowLeft className="w-4 h-4" /> Terug
+            </button>
+            <div className="stencil text-[10px] text-primary mb-2">
+              {mode === 'new' ? 'Nieuw team' : 'Bestaand team koppelen'}
+            </div>
+            <h1 className="font-display font-black text-[28px] leading-tight tracking-tight text-ink-900 mb-1.5">
+              {mode === 'new' ? 'Geef je team\neen naam.' : 'Koppel je\nbestaand team.'}
+            </h1>
+            <p className="text-[13px] text-gray-400 mb-6 leading-relaxed">
+              {mode === 'new'
+                ? 'Je kunt de naam en kleur later altijd wijzigen.'
+                : 'Vul de teamnaam en het oude wachtwoord in.'}
+            </p>
+            <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Oud wachtwoord</label>
+                <div className="stencil text-[9px] text-gray-400 mb-1.5">Teamnaam</div>
                 <input
-                  type="password"
-                  placeholder="Het wachtwoord van voor de update"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleClaimTeam()}
-                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:border-primary focus:outline-none dark:bg-gray-700 dark:text-gray-100"
+                  type="text"
+                  placeholder={mode === 'new' ? 'Bijv. Klimop B1' : 'Naam van je huidige team'}
+                  value={teamName}
+                  onChange={e => setTeamName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && mode === 'new' && handleCreateTeam()}
+                  className="w-full px-3.5 py-3 border border-black/[.1] rounded-xl font-semibold text-[15px] bg-white focus:outline-none focus:border-primary transition"
+                  autoFocus
                 />
               </div>
-            )}
-
-            <button
-              onClick={mode === 'new' ? handleCreateTeam : handleClaimTeam}
-              disabled={busy}
-              className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark active:scale-95 transition-all disabled:opacity-50"
-            >
-              {busy ? 'Bezig...' : (mode === 'new' ? 'Team aanmaken' : 'Team koppelen')}
-            </button>
-          </div>
-
-<div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-center space-y-2">
-            {userTeams && userTeams.length > 0 && (
+              {mode === 'claim' && (
+                <div>
+                  <div className="stencil text-[9px] text-gray-400 mb-1.5">Oud wachtwoord</div>
+                  <input
+                    type="password"
+                    placeholder="Wachtwoord van voor de update"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleClaimTeam()}
+                    className="w-full px-3.5 py-3 border border-black/[.1] rounded-xl font-semibold text-[15px] bg-white focus:outline-none focus:border-primary transition"
+                  />
+                </div>
+              )}
               <button
-                onClick={() => {
-                  setForceOnboarding(false);
-                  if (currentTeamId) {
-                    navigateTo('home');
-                  } else {
-                    setForcePicker(true);
-                  }
-                }}
-                className="block w-full text-sm text-primary hover:underline"
+                onClick={mode === 'new' ? handleCreateTeam : handleClaimTeam}
+                disabled={busy}
+                className="w-full bg-primary text-white py-3.5 rounded-xl font-bold text-[14px] hover:bg-primary-dark active:scale-[0.98] transition-all disabled:opacity-50 mt-2"
               >
-                ← Terug naar mijn teams
+                {busy ? 'Bezig...' : (mode === 'new' ? 'Team aanmaken →' : 'Team koppelen →')}
               </button>
-            )}
-            <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-              Uitloggen
-            </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   };
 
   // ─── TeamPickerView: choose a team when user belongs to multiple ───
   const TeamPickerView = () => (
-    <div className="min-h-screen bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full">
-        <div className="text-center mb-6">
-          <Trophy className="w-12 h-12 text-primary mx-auto mb-3" />
-          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Kies een team</h1>
+    <div className="min-h-screen bg-[#FAFAF7] flex flex-col">
+      {/* Header */}
+      <div className="px-5 py-4 flex items-center justify-between border-b border-black/[.06]">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-primary rounded-[7px] flex items-center justify-center">
+            <span className="font-display font-black text-[13px] text-white leading-none">K</span>
+          </div>
+          <span className="font-display font-black text-[14px] tracking-tight text-ink-900">Korfbal Score</span>
         </div>
-        <div className="space-y-3">
-          {(userTeams || []).map((t) => (
-            <button
-              key={t.teamId}
-              onClick={() => {
-                if (t.teamId === 'god-mode') {
-                  setShowGodMode(true);
-                  setForcePicker(false);
-                  navigateTo('god-mode');
-                } else {
-                  setCurrentTeam(t.teamName);
-                  setCurrentTeamId(t.teamId);
-                  setForcePicker(false);
-                  navigateTo('home');
-                }
-              }}
-              className="w-full text-left px-5 py-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition group"
-            >
-              <div className="font-semibold text-gray-800 dark:text-gray-100 group-hover:text-primary">{t.teamName}</div>
-              <div className="text-xs text-gray-400 capitalize mt-0.5">{t.role === 'admin' ? 'Beheerder' : 'Lid'}</div>
-            </button>
-          ))}
+        {currentTeamId && (
           <button
-            onClick={() => { setForceOnboarding(true); setForcePicker(false); }}
-            className="w-full py-3 text-sm text-primary hover:underline"
+            onClick={() => { setForcePicker(false); navigateTo('home'); }}
+            className="text-[12px] font-semibold text-gray-400 hover:text-ink-900 transition"
           >
-            + Team aanmaken of bestaand team koppelen
+            ← Sluiten
           </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 pt-5 pb-8">
+        <div className="stencil text-[10px] text-gray-400 mb-3">Schakelen tussen</div>
+        <h1 className="font-display font-black text-[26px] tracking-[-0.025em] text-ink-900 mb-5">Mijn teams</h1>
+
+        <div className="space-y-2 mb-4">
+          {(userTeams || []).map((t) => {
+            const isActive = t.teamId === currentTeamId;
+            return (
+              <button
+                key={t.teamId}
+                onClick={() => {
+                  if (t.teamId === 'god-mode') {
+                    setShowGodMode(true);
+                    setForcePicker(false);
+                    navigateTo('god-mode');
+                  } else {
+                    setCurrentTeam(t.teamName);
+                    setCurrentTeamId(t.teamId);
+                    setForcePicker(false);
+                    navigateTo('home');
+                  }
+                }}
+                className={`w-full text-left px-4 py-3.5 rounded-2xl border flex items-center gap-3.5 transition active:scale-[0.98] ${
+                  isActive
+                    ? 'bg-ink-900 border-ink-900 text-white'
+                    : 'bg-white border-black/[.08] text-ink-900'
+                }`}
+              >
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center font-display font-black text-[18px] text-white flex-shrink-0"
+                  style={{ background: colorTheme === 'red' ? '#DC2626' : colorTheme === 'blue' ? '#2563EB' : colorTheme === 'green' ? '#16A34A' : colorTheme === 'orange' ? '#EA580C' : '#7C3AED' }}
+                >
+                  {t.teamName?.[0] || 'T'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-[15px] truncate">{t.teamName}</span>
+                    {t.role === 'admin' && <Crown className="w-3 h-3 flex-shrink-0" style={{ color: '#D97706' }} />}
+                  </div>
+                  <div className={`stencil text-[9px] mt-0.5 ${isActive ? 'text-white/55' : 'text-gray-400'}`}>
+                    {t.role === 'admin' ? 'Beheerder' : 'Lid'}
+                  </div>
+                </div>
+                {isActive && <Check className="w-5 h-5 flex-shrink-0 text-white" strokeWidth={3} />}
+              </button>
+            );
+          })}
         </div>
-        <div className="mt-4 text-center space-y-2">
-          {currentTeamId && (
-            <button
-              onClick={() => { setForcePicker(false); navigateTo('home'); }}
-              className="block w-full text-sm text-primary hover:underline"
-            >
-              ← Terug naar huidig team
-            </button>
-          )}
-          <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+
+        <button
+          onClick={() => { setForceOnboarding(true); setForcePicker(false); }}
+          className="w-full py-3.5 bg-[#FAFAF7] border border-dashed border-black/15 rounded-2xl font-semibold text-[13px] text-gray-500 flex items-center justify-center gap-2"
+        >
+          <Plus className="w-4 h-4" /> Nieuw team aanmaken
+        </button>
+
+        <div className="mt-5 text-center space-y-2">
+          <button onClick={() => signOut()} className="text-[12px] text-gray-400 hover:text-gray-600 transition">
             Uitloggen
           </button>
-          {/* God Mode escape hatch — hidden, for admin only */}
+          {/* God Mode — verborgen voor admin */}
           <button
             onClick={async () => {
               const pw = window.prompt('God Mode wachtwoord:');
@@ -1080,7 +1139,7 @@ export default function KorfbalApp() {
                 if (result.isGodMode) { setGodModePassword(pw); setShowGodMode(true); navigateTo('god-mode'); }
               } catch { /* silent fail */ }
             }}
-            className="text-xs text-gray-200 dark:text-gray-700 hover:text-gray-400 dark:hover:text-gray-500 transition"
+            className="block mx-auto text-[11px] text-gray-200 hover:text-gray-400 transition"
           >
             ···
           </button>
@@ -2556,20 +2615,31 @@ export default function KorfbalApp() {
     }, [onClose]);
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-        role="dialog" aria-modal="true" aria-label={title} ref={modalRef}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-sm w-full max-h-96 overflow-y-auto">
-          <h2 className="text-lg font-bold mb-3 text-gray-800 dark:text-gray-100">{title}</h2>
-          <div className="space-y-2">
-            {players.map(player => (
-              <button key={player.id} onClick={() => onSelect(player.id)}
-                className="w-full bg-primary text-white p-3 rounded-lg hover:bg-primary-dark active:scale-95 transition-all font-semibold text-left text-sm focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2">
-                {player.name}
-              </button>
-            ))}
+      <div className="fixed inset-0 bg-ink-900/45 flex items-end z-50"
+        role="dialog" aria-modal="true" aria-label={title} onClick={onClose} ref={modalRef}>
+        <div className="w-full bg-white rounded-t-[20px] p-5 pb-6 max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="w-9 h-1 bg-black/10 rounded-full mx-auto mb-4 flex-shrink-0" />
+          <div className="font-display font-black text-[20px] text-ink-900 mb-4 tracking-tight flex-shrink-0">{title}</div>
+          <div className="overflow-y-auto space-y-1.5 mb-3">
+            {players.map(player => {
+              const isAanval = player.position === 'aanval';
+              const initials = player.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
+              return (
+                <button key={player.id} onClick={() => onSelect(player.id)}
+                  className="w-full bg-[#FAFAF7] border border-black/[.06] text-ink-900 px-3.5 py-3 rounded-xl active:scale-[0.98] transition-all font-semibold text-left text-sm flex items-center gap-3 focus-visible:ring-2 focus-visible:ring-primary">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0 ${isAanval ? 'bg-primary' : 'bg-ink-900'}`}>
+                    {initials}
+                  </div>
+                  <div>
+                    <div className="font-bold text-[13px]">{player.name}</div>
+                    <div className="stencil text-[8px] text-gray-400 mt-0.5">{isAanval ? 'Aanval' : 'Verdediging'}</div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
           <button onClick={onClose}
-            className="w-full mt-3 bg-gray-300 dark:bg-gray-600 text-gray-800 py-2 rounded-lg hover:bg-gray-400 active:scale-95 transition-all font-medium focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            className="w-full py-3 text-sm font-semibold text-gray-400 hover:text-gray-600 transition flex-shrink-0 focus-visible:ring-2 focus-visible:ring-primary">
             Annuleren
           </button>
         </div>
@@ -2593,47 +2663,69 @@ export default function KorfbalApp() {
     }, [onClose]);
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-4"
-        role="dialog" aria-modal="true" aria-label="Wissel registreren" ref={modalRef}>
-        <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl p-5 max-w-sm w-full max-h-[80vh] overflow-y-auto shadow-xl">
-          <h2 className="text-lg font-bold mb-1 text-gray-800 dark:text-gray-100">↔ Wissel registreren</h2>
-          {!outPlayer ? (
-            <>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Wie gaat eraf? (basisspeler)</p>
-              <div className="space-y-2">
-                {starters.map(p => (
+      <div className="fixed inset-0 bg-ink-900/45 flex items-end z-50"
+        role="dialog" aria-modal="true" aria-label="Wissel registreren" onClick={onClose} ref={modalRef}>
+        <div className="w-full bg-white rounded-t-[20px] p-5 pb-6 max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="w-9 h-1 bg-black/10 rounded-full mx-auto mb-4 flex-shrink-0" />
+          <div className="font-display font-black text-[20px] text-ink-900 mb-1 tracking-tight flex-shrink-0">
+            Wissel registreren
+          </div>
+          <div className="text-[12px] text-gray-400 font-medium mb-4 flex-shrink-0">
+            {!outPlayer ? 'Wie gaat eraf?' : (
+              <span><span className="font-bold text-primary">{outPlayer.name}</span> gaat eraf — wie komt erin?</span>
+            )}
+          </div>
+          <div className="overflow-y-auto space-y-1.5 mb-3">
+            {!outPlayer ? (
+              starters.map(p => {
+                const isAanval = p.position === 'aanval';
+                const initials = p.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
+                return (
                   <button key={p.id} onClick={() => setOutPlayer(p)}
-                    className="w-full bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 p-3 rounded-lg hover:bg-red-100 active:scale-95 transition-all font-semibold text-left text-sm">
-                    {p.name}
+                    className="w-full bg-[#FAFAF7] border border-black/[.06] px-3.5 py-3 rounded-xl active:scale-[0.98] transition-all text-left flex items-center gap-3 focus-visible:ring-2 focus-visible:ring-primary">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0 ${isAanval ? 'bg-primary' : 'bg-ink-900'}`}>
+                      {initials}
+                    </div>
+                    <div>
+                      <div className="font-bold text-[13px] text-ink-900">{p.name}</div>
+                      <div className="stencil text-[8px] text-gray-400 mt-0.5">{isAanval ? 'Aanval' : 'Verdediging'} · Basis</div>
+                    </div>
                   </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                <span className="font-semibold text-red-600 dark:text-red-400">{outPlayer.name}</span> gaat eraf. Wie komt erin?
-              </p>
-              <div className="space-y-2 mt-3">
-                {bench.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">Geen wisselspelers beschikbaar</p>
-                ) : bench.map(p => (
+                );
+              })
+            ) : bench.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">Geen wisselspelers beschikbaar</p>
+            ) : (
+              bench.map(p => {
+                const isAanval = p.position === 'aanval';
+                const initials = p.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
+                return (
                   <button key={p.id} onClick={() => onSubstitute(outPlayer.id, p.id)}
-                    className="w-full bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 p-3 rounded-lg hover:bg-green-100 active:scale-95 transition-all font-semibold text-left text-sm">
-                    {p.name}
+                    className="w-full bg-[#FAFAF7] border border-black/[.06] px-3.5 py-3 rounded-xl active:scale-[0.98] transition-all text-left flex items-center gap-3 focus-visible:ring-2 focus-visible:ring-primary">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0 ${isAanval ? 'bg-primary' : 'bg-ink-900'}`}>
+                      {initials}
+                    </div>
+                    <div>
+                      <div className="font-bold text-[13px] text-ink-900">{p.name}</div>
+                      <div className="stencil text-[8px] text-gray-400 mt-0.5">{isAanval ? 'Aanval' : 'Verdediging'} · Wissel</div>
+                    </div>
                   </button>
-                ))}
-              </div>
+                );
+              })
+            )}
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            {outPlayer && (
               <button onClick={() => setOutPlayer(null)}
-                className="w-full mt-3 text-sm text-gray-500 hover:text-gray-700 py-2">
-                ← Andere speler kiezen
+                className="flex-1 py-3 text-sm font-semibold text-gray-400 hover:text-ink-900 transition focus-visible:ring-2 focus-visible:ring-primary">
+                ← Andere speler
               </button>
-            </>
-          )}
-          <button onClick={onClose}
-            className="w-full mt-3 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 py-2 rounded-lg hover:bg-gray-400 active:scale-95 transition-all font-medium focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-            Annuleren
-          </button>
+            )}
+            <button onClick={onClose}
+              className="flex-1 py-3 text-sm font-semibold text-gray-400 hover:text-gray-600 transition focus-visible:ring-2 focus-visible:ring-primary">
+              Annuleren
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -4310,41 +4402,81 @@ export default function KorfbalApp() {
           className="fixed inset-0 bg-ink-900/70 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setShowUpgradeModal(false); }}
         >
-          <div className="bg-white dark:bg-gray-900 rounded-t-[24px] sm:rounded-[24px] max-w-sm w-full shadow-sheet overflow-hidden">
-            {/* Dark hero */}
-            <div className="bg-ink-900 relative overflow-hidden px-6 pt-6 pb-5">
-              <div className="field-pattern absolute inset-0 opacity-40" />
+          <div className="bg-[#FAFAF7] rounded-t-[24px] sm:rounded-[24px] max-w-sm w-full shadow-sheet overflow-hidden">
+            {/* Close + header */}
+            <div className="px-5 pt-4 pb-0 flex justify-end">
+              <button onClick={() => setShowUpgradeModal(false)}
+                className="w-8 h-8 rounded-full bg-white border border-black/[.08] flex items-center justify-center">
+                <X className="w-4 h-4 text-ink-500" />
+              </button>
+            </div>
+            <div className="px-5 pb-2">
+              <div className="stencil text-[10px] text-primary mb-2">Upgrade</div>
+              <h2 className="font-display font-black text-[26px] leading-[0.95] tracking-[-0.03em] text-ink-900 mb-1.5">
+                Speel zonder<br/>limieten.
+              </h2>
+              <p className="text-[13px] text-gray-500 leading-relaxed mb-4">
+                Je zit op het gratis plan. Upgrade voor onbeperkte wedstrijden, AI-advies en meer.
+              </p>
+            </div>
+            {/* Plan cards */}
+            <div className="px-5 pb-2 space-y-2.5">
+              {/* Starter */}
               <div className="relative">
-                <div className="stencil text-white/50 mb-2">Gratis limiet bereikt</div>
-                <div className="font-display font-black text-[22px] text-white leading-tight">
-                  Meer dan 20 wedstrijden?
+                <div className="absolute -top-2 left-4 bg-amber-500 text-white font-display font-black text-[9px] px-2.5 py-0.5 rounded-full tracking-[0.06em] z-10">
+                  POPULAIR
                 </div>
-                <div className="text-[13px] text-white/60 mt-1.5 leading-relaxed">
-                  Upgrade voor onbeperkte wedstrijden, AI-advies en seizoensbeheer.
+                <div className="bg-gradient-to-br from-primary to-red-700 rounded-2xl p-4 text-white">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <div className="font-display font-black text-[18px] tracking-tight">Starter</div>
+                      <div className="text-[11px] text-white/70 mt-0.5">1 team · maandelijks opzegbaar</div>
+                    </div>
+                    <div className="score-number text-[20px]">€4,99<span className="font-sans font-medium text-[12px] text-white/70">/mo</span></div>
+                  </div>
+                  <ul className="space-y-1 mb-3">
+                    {['Onbeperkte wedstrijden', 'AI trainingsadvies', 'Seizoensbeheer', 'CSV export'].map(f => (
+                      <li key={f} className="flex items-center gap-1.5 text-[12px] font-medium text-white/90">
+                        <Check className="w-3 h-3 flex-shrink-0" strokeWidth={3} /> {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    onClick={() => { setShowUpgradeModal(false); showFeedback('Koppel Stripe in de instellingen om te upgraden', 'info'); }}
+                    className="w-full bg-white text-primary py-2.5 rounded-xl font-bold text-[13px] active:scale-[0.98] transition-all"
+                  >
+                    Upgraden naar Starter →
+                  </button>
                 </div>
               </div>
-            </div>
-            {/* Plan card */}
-            <div className="px-5 pt-4 pb-5">
-              <div className="border border-primary/30 bg-primary/5 rounded-2xl p-4 mb-3">
-                <div className="flex justify-between items-baseline mb-1">
-                  <span className="font-display font-black text-[18px] text-ink-900 dark:text-white">Starter</span>
-                  <span className="score-number text-[18px] text-primary">€4,99<span className="font-sans font-medium text-[12px] text-ink-500">/mo</span></span>
+              {/* Club */}
+              <div className="bg-ink-900 rounded-2xl p-4 text-white">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <div className="font-display font-black text-[18px] tracking-tight">Club</div>
+                    <div className="text-[11px] text-white/55 mt-0.5">Tot 3 teams · voor hele club</div>
+                  </div>
+                  <div className="score-number text-[20px] text-white/80">€12,99<span className="font-sans font-medium text-[12px] text-white/50">/mo</span></div>
                 </div>
-                <div className="stencil text-ink-500 mb-3">Onbeperkt · AI-advies · Seizoensbeheer</div>
+                <ul className="space-y-1 mb-3">
+                  {['Alles van Starter', 'Centraal cluboverzicht', 'Prioriteit support'].map(f => (
+                    <li key={f} className="flex items-center gap-1.5 text-[12px] font-medium text-white/80">
+                      <Check className="w-3 h-3 flex-shrink-0" strokeWidth={3} /> {f}
+                    </li>
+                  ))}
+                </ul>
                 <button
-                  onClick={() => {
-                    setShowUpgradeModal(false);
-                    showFeedback('Koppel Stripe in de instellingen om te upgraden', 'info');
-                  }}
-                  className="w-full bg-primary text-white py-3 rounded-xl font-bold text-[14px] hover:bg-primary-dark active:scale-[0.98] transition-all"
+                  onClick={() => { setShowUpgradeModal(false); showFeedback('Koppel Stripe in de instellingen om te upgraden', 'info'); }}
+                  className="w-full bg-white/10 border border-white/15 text-white py-2.5 rounded-xl font-bold text-[13px] active:scale-[0.98] transition-all"
                 >
-                  Upgraden naar Starter
+                  Upgraden naar Club →
                 </button>
               </div>
+            </div>
+            <div className="px-5 py-4 text-center">
               <button
                 onClick={() => setShowUpgradeModal(false)}
-                className="w-full text-[13px] text-ink-400 hover:text-ink-600 dark:hover:text-gray-300 transition py-2"
+                className="text-[12px] text-gray-400 hover:text-gray-600 transition"
               >
                 Later misschien
               </button>

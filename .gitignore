@@ -16,3 +16,4 @@ export/
 
 # OS files
 .DS_Store
+.gstack/
