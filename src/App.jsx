@@ -4361,7 +4361,7 @@ export default function KorfbalApp() {
   };
 
   // Views that show the bottom navigation bar
-  const bottomNavViews = ['home', 'manage-players', 'setup-match', 'statistics'];
+  const bottomNavViews = ['home', 'manage-players', 'statistics'];
   const showBottomNav = bottomNavViews.includes(view);
 
   const BottomNav = () => (
