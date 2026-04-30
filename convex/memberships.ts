@@ -46,6 +46,7 @@ export const getUserTeams = query({
           teamName: team.team_name,
           role: m.role,
           joinedAt: m.joinedAt,
+          colorTheme: team.color_theme || 'red',
         };
       })
     );

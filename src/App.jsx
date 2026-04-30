@@ -1099,7 +1099,7 @@ export default function KorfbalApp() {
               >
                 <div
                   className="w-11 h-11 rounded-xl flex items-center justify-center font-display font-black text-[18px] text-white flex-shrink-0"
-                  style={{ background: colorTheme === 'red' ? '#DC2626' : colorTheme === 'blue' ? '#2563EB' : colorTheme === 'green' ? '#16A34A' : colorTheme === 'orange' ? '#EA580C' : '#7C3AED' }}
+                  style={{ background: t.colorTheme === 'blue' ? '#2563EB' : t.colorTheme === 'green' ? '#16A34A' : t.colorTheme === 'orange' ? '#EA580C' : t.colorTheme === 'purple' ? '#7C3AED' : '#DC2626' }}
                 >
                   {t.teamName?.[0] || 'T'}
                 </div>
@@ -2736,11 +2736,11 @@ export default function KorfbalApp() {
     const match = currentMatch;
 
     if (!match || !match.players) {
-      return <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+      return <div className="min-h-screen bg-[#FAFAF7] flex items-center justify-center p-4">
         <div className="text-center">
           <p className="text-gray-600 mb-4">Geen wedstrijd gevonden</p>
           <button onClick={() => navigateTo('home')}
-            className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition">
+            className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:bg-primary-dark transition">
             Terug naar home
           </button>
         </div>
@@ -3852,7 +3852,7 @@ export default function KorfbalApp() {
 
     if (!match || !match.players) {
       return (
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-[#FAFAF7] flex items-center justify-center p-4">
           <div className="text-center">
             <p className="text-gray-600 mb-4">Geen wedstrijd gevonden</p>
             <button
@@ -3861,7 +3861,7 @@ export default function KorfbalApp() {
                 navigateTo('login');
                 setCurrentMatch(null);
               }}
-              className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition"
+              className="bg-primary text-white px-6 py-3 rounded-xl font-semibold hover:bg-primary-dark transition"
             >
               Ga naar login
             </button>
@@ -4426,7 +4426,7 @@ export default function KorfbalApp() {
                 <div className="absolute -top-2 left-4 bg-amber-500 text-white font-display font-black text-[9px] px-2.5 py-0.5 rounded-full tracking-[0.06em] z-10">
                   POPULAIR
                 </div>
-                <div className="bg-gradient-to-br from-primary to-red-700 rounded-2xl p-4 text-white">
+                <div className="bg-gradient-to-br from-primary to-primary-dark rounded-2xl p-4 text-white">
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <div className="font-display font-black text-[18px] tracking-tight">Starter</div>
