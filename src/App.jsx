@@ -741,15 +741,16 @@ export default function KorfbalApp() {
     // 2+ teams → TeamPickerView (handled in routing)
   }, [isAuthenticated, userTeams, currentTeamId, forcePicker, forceOnboarding]);
 
-  // Handle ?invite=TOKEN URL parameter after Clerk login
+  // Handle ?invite=TOKEN URL parameter after Clerk login (also checks localStorage for tokens saved before auth)
   useEffect(() => {
     if (!isAuthenticated) return;
     const urlParams = new URLSearchParams(window.location.search);
-    const inviteToken = urlParams.get('invite');
+    const inviteToken = urlParams.get('invite') || localStorage.getItem('korfbal_pending_invite');
     if (!inviteToken) return;
 
-    // Clear invite token from URL immediately
+    // Clear from URL and localStorage
     window.history.replaceState({}, '', window.location.pathname);
+    localStorage.removeItem('korfbal_pending_invite');
 
     acceptInviteMutation({ token: inviteToken })
       .then(({ teamId }) => {
@@ -4546,6 +4547,15 @@ export default function KorfbalApp() {
 
             // Show landing page for root path
             if (!isLoginPage && !isSignUpPage) {
+              // Preserve invite token through auth redirect
+              const urlParams = new URLSearchParams(window.location.search);
+              const pendingInvite = urlParams.get('invite');
+              if (pendingInvite) {
+                localStorage.setItem('korfbal_pending_invite', pendingInvite);
+                window.history.pushState({}, '', '/sign-up');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+                return null;
+              }
               return <LandingPage />;
             }
 
