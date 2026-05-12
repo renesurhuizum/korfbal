@@ -1550,6 +1550,7 @@ export default function KorfbalApp() {
           }
         } catch (e) {
           console.error('Error parsing saved match:', e);
+          localStorage.removeItem('korfbal_active_match');
         }
       }
     }, [currentTeamId]);
