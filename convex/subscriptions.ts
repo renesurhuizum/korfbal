@@ -80,6 +80,7 @@ export const upsertSubscription = mutation({
     status: v.union(v.literal("free"), v.literal("starter"), v.literal("club")),
     currentPeriodEnd: v.optional(v.number()),
     cancelAtPeriodEnd: v.optional(v.boolean()),
+    teamId: v.optional(v.id("teams")),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -91,6 +92,15 @@ export const upsertSubscription = mutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, {
+        stripeSubscriptionId: args.stripeSubscriptionId,
+        status: args.status,
+        currentPeriodEnd: args.currentPeriodEnd,
+        cancelAtPeriodEnd: args.cancelAtPeriodEnd,
+      });
+    } else if (args.teamId) {
+      await ctx.db.insert("subscriptions", {
+        teamId: args.teamId,
+        stripeCustomerId: args.stripeCustomerId,
         stripeSubscriptionId: args.stripeSubscriptionId,
         status: args.status,
         currentPeriodEnd: args.currentPeriodEnd,
@@ -149,7 +159,7 @@ export const createCheckoutSession = action({
       mode: "subscription",
       success_url: args.successUrl,
       cancel_url: args.cancelUrl,
-      metadata: { teamId: args.teamId },
+      metadata: { teamId: args.teamId, priceId: args.priceId },
     });
 
     return session.url!;

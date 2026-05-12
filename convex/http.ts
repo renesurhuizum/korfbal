@@ -40,8 +40,8 @@ http.route({
         const session = event.data.object;
         if (session.mode !== "subscription") break;
 
-        // Determine plan from metadata or line items
-        const priceId = session.line_items?.data?.[0]?.price?.id;
+        // Determine plan from metadata (line_items is not in webhook payload)
+        const priceId = session.metadata?.priceId;
         const plan = getPlanFromPriceId(priceId) ?? "starter";
 
         await ctx.runMutation(api.subscriptions.upsertSubscription, {
@@ -50,6 +50,7 @@ http.route({
           status: plan,
           currentPeriodEnd: undefined,
           cancelAtPeriodEnd: false,
+          teamId: session.metadata?.teamId as any,
         });
         break;
       }
