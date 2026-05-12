@@ -43,6 +43,7 @@ http.route({
         // Determine plan from metadata (line_items is not in webhook payload)
         const priceId = session.metadata?.priceId;
         const plan = getPlanFromPriceId(priceId) ?? "starter";
+        if (!getPlanFromPriceId(priceId)) console.warn(`[Stripe] onbekende priceId in webhook: ${priceId} — fallback naar starter`);
 
         await ctx.runMutation(api.subscriptions.upsertSubscription, {
           stripeCustomerId: session.customer,
