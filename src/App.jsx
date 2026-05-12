@@ -664,11 +664,13 @@ export default function KorfbalApp() {
         match: debouncedMatch,
         teamId: currentTeamId,
         teamName: currentTeam,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        timerSeconds: timerSeconds,
+        savedTimerRunning: false,  // bewust: na refresh nooit auto-starten
       };
       localStorage.setItem('korfbal_active_match', JSON.stringify(matchData));
     }
-  }, [debouncedMatch, currentTeamId, currentTeam]);
+  }, [debouncedMatch, currentTeamId, currentTeam, timerSeconds]);
 
   // Session recovery - restore match from localStorage on mount
   useEffect(() => {
@@ -699,6 +701,9 @@ export default function KorfbalApp() {
         // Only restore if less than 24 hours old
         if (hoursDiff < 24) {
           setCurrentMatch(saved.match);
+          if (saved.timerSeconds && saved.timerSeconds > 0) {
+            setTimerSeconds(saved.timerSeconds);
+          }
           navigateTo('match');
           showFeedback('Wedstrijd hersteld! Je kunt verder waar je was gebleven.', 'success');
         } else {
@@ -867,6 +872,7 @@ export default function KorfbalApp() {
         ...(normalizedSubstitutions.length > 0 ? { substitutions: normalizedSubstitutions } : {}),
         finished: true,
         shareable: false,
+        ...(match.withAttempts !== undefined ? { withAttempts: match.withAttempts } : {}),
         ...(match.seasonId ? { seasonId: match.seasonId, competition: match.competition } : {}),
       };
       const matchId = await createMatchMutation(payload);
