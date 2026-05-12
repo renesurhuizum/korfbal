@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { Trophy, Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Moon, Sun, Cog, ChevronDown, ChevronUp, RotateCcw, Share2, X, Link2, Crown, Check } from 'lucide-react';
+import { Users, BarChart3, Plus, ArrowLeft, Download, Home, Search, Cog, ChevronDown, ChevronUp, RotateCcw, Share2, X, Link2, Crown, Check } from 'lucide-react';
 import { useMutation, useQuery, useAction, useConvexAuth } from "convex/react";
 import { useClerk, SignIn, SignUp } from "@clerk/clerk-react";
 import { api } from "../convex/_generated/api";
