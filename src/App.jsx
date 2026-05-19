@@ -450,6 +450,189 @@ function SetupMatchView({
   );
 }
 
+// ─── Top-level modal components (stable references, no KorfbalApp closure) ──────
+
+function ShotTypeModal({ title, onSelect, onClose }) {
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'Tab') {
+        const focusable = modalRef.current?.querySelectorAll('button');
+        if (!focusable?.length) return;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    setTimeout(() => modalRef.current?.querySelector('button')?.focus(), 50);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-ink-900/45 flex items-end z-50"
+      role="dialog" aria-modal="true" aria-label={title} onClick={onClose} ref={modalRef}>
+      <div className="w-full bg-white dark:bg-gray-900 rounded-t-[20px] p-5 pb-6" onClick={e => e.stopPropagation()}>
+        <div className="w-9 h-1 bg-black/10 rounded-full mx-auto mb-4" />
+        <div className="font-display font-black text-[20px] text-ink-900 dark:text-white mb-1 tracking-tight">{title}</div>
+        <div className="text-[12px] text-gray-400 font-medium mb-4">Welk schottype?</div>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {SHOT_TYPES.map(type => (
+            <button key={type.id} onClick={() => onSelect(type.id)}
+              className="bg-[#FAFAF7] dark:bg-gray-800 border border-black/[.06] dark:border-gray-700 text-ink-900 dark:text-white p-3 rounded-xl active:scale-95 transition-all font-semibold text-sm text-left flex items-center gap-2.5 focus-visible:ring-2 focus-visible:ring-primary">
+              <span className="w-7 h-7 rounded-lg bg-primary text-white font-display font-black text-[10px] flex items-center justify-center flex-shrink-0">
+                {type.short}
+              </span>
+              {type.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose}
+          className="w-full py-3 text-sm font-semibold text-gray-400 hover:text-gray-600 transition focus-visible:ring-2 focus-visible:ring-primary">
+          Annuleren
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PlayerSelectModal({ title, players, onSelect, onClose }) {
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'Tab') {
+        const focusable = modalRef.current?.querySelectorAll('button');
+        if (!focusable?.length) return;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    setTimeout(() => modalRef.current?.querySelector('button')?.focus(), 50);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-ink-900/45 flex items-end z-50"
+      role="dialog" aria-modal="true" aria-label={title} onClick={onClose} ref={modalRef}>
+      <div className="w-full bg-white rounded-t-[20px] p-5 pb-6 max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="w-9 h-1 bg-black/10 rounded-full mx-auto mb-4 flex-shrink-0" />
+        <div className="font-display font-black text-[20px] text-ink-900 mb-4 tracking-tight flex-shrink-0">{title}</div>
+        <div className="overflow-y-auto space-y-1.5 mb-3">
+          {players.map(player => {
+            const isAanval = player.position === 'aanval';
+            const initials = player.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
+            return (
+              <button key={player.id} onClick={() => onSelect(player.id)}
+                className="w-full bg-[#FAFAF7] border border-black/[.06] text-ink-900 px-3.5 py-3 rounded-xl active:scale-[0.98] transition-all font-semibold text-left text-sm flex items-center gap-3 focus-visible:ring-2 focus-visible:ring-primary">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0 ${isAanval ? 'bg-primary' : 'bg-ink-900'}`}>
+                  {initials}
+                </div>
+                <div>
+                  <div className="font-bold text-[13px]">{player.name}</div>
+                  <div className="stencil text-[8px] text-gray-400 mt-0.5">{isAanval ? 'Aanval' : 'Verdediging'}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={onClose}
+          className="w-full py-3 text-sm font-semibold text-gray-400 hover:text-gray-600 transition flex-shrink-0 focus-visible:ring-2 focus-visible:ring-primary">
+          Annuleren
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SubstitutionModal({ players, onSubstitute, onClose }) {
+  const [outPlayer, setOutPlayer] = useState(null);
+  const modalRef = useRef(null);
+
+  const starters = players.filter(p => p.isStarter);
+  const bench = players.filter(p => !p.isStarter);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKeyDown);
+    setTimeout(() => modalRef.current?.querySelector('button')?.focus(), 50);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-ink-900/45 flex items-end z-50"
+      role="dialog" aria-modal="true" aria-label="Wissel registreren" onClick={onClose} ref={modalRef}>
+      <div className="w-full bg-white rounded-t-[20px] p-5 pb-6 max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="w-9 h-1 bg-black/10 rounded-full mx-auto mb-4 flex-shrink-0" />
+        <div className="font-display font-black text-[20px] text-ink-900 mb-1 tracking-tight flex-shrink-0">
+          Wissel registreren
+        </div>
+        <div className="text-[12px] text-gray-400 font-medium mb-4 flex-shrink-0">
+          {!outPlayer ? 'Wie gaat eraf?' : (
+            <span><span className="font-bold text-primary">{outPlayer.name}</span> gaat eraf — wie komt erin?</span>
+          )}
+        </div>
+        <div className="overflow-y-auto space-y-1.5 mb-3">
+          {!outPlayer ? (
+            starters.map(p => {
+              const isAanval = p.position === 'aanval';
+              const initials = p.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
+              return (
+                <button key={p.id} onClick={() => setOutPlayer(p)}
+                  className="w-full bg-[#FAFAF7] border border-black/[.06] px-3.5 py-3 rounded-xl active:scale-[0.98] transition-all text-left flex items-center gap-3 focus-visible:ring-2 focus-visible:ring-primary">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0 ${isAanval ? 'bg-primary' : 'bg-ink-900'}`}>
+                    {initials}
+                  </div>
+                  <div>
+                    <div className="font-bold text-[13px] text-ink-900">{p.name}</div>
+                    <div className="stencil text-[8px] text-gray-400 mt-0.5">{isAanval ? 'Aanval' : 'Verdediging'} · Basis</div>
+                  </div>
+                </button>
+              );
+            })
+          ) : bench.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Geen wisselspelers beschikbaar</p>
+          ) : (
+            bench.map(p => {
+              const isAanval = p.position === 'aanval';
+              const initials = p.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
+              return (
+                <button key={p.id} onClick={() => onSubstitute(outPlayer.id, p.id)}
+                  className="w-full bg-[#FAFAF7] border border-black/[.06] px-3.5 py-3 rounded-xl active:scale-[0.98] transition-all text-left flex items-center gap-3 focus-visible:ring-2 focus-visible:ring-primary">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0 ${isAanval ? 'bg-primary' : 'bg-ink-900'}`}>
+                    {initials}
+                  </div>
+                  <div>
+                    <div className="font-bold text-[13px] text-ink-900">{p.name}</div>
+                    <div className="stencil text-[8px] text-gray-400 mt-0.5">{isAanval ? 'Aanval' : 'Verdediging'} · Wissel</div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          {outPlayer && (
+            <button onClick={() => setOutPlayer(null)}
+              className="flex-1 py-3 text-sm font-semibold text-gray-400 hover:text-ink-900 transition focus-visible:ring-2 focus-visible:ring-primary">
+              ← Andere speler
+            </button>
+          )}
+          <button onClick={onClose}
+            className="flex-1 py-3 text-sm font-semibold text-gray-400 hover:text-gray-600 transition focus-visible:ring-2 focus-visible:ring-primary">
+            Annuleren
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function KorfbalApp() {
   const [view, setView] = useState('login');
   const [currentTeam, setCurrentTeam] = useState(null);
@@ -488,6 +671,13 @@ export default function KorfbalApp() {
   const [timerRunning, setTimerRunning] = useState(false);
   const timerIntervalRef = useRef(null);
   const feedbackRef = useRef(null);
+  // MatchView modal state — lifted here to survive Convex re-renders
+  const [showGoalModal, setShowGoalModal] = useState(null);
+  const [showAttemptModal, setShowAttemptModal] = useState(null);
+  const [showOpponentModal, setShowOpponentModal] = useState(false);
+  const [showOpponentPlayerModal, setShowOpponentPlayerModal] = useState(null);
+  const [showSubstitutionModal, setShowSubstitutionModal] = useState(false);
+  const [scoreAnimKey, setScoreAnimKey] = useState(0);
 
   // Timer interval — managed at top level so MatchView re-renders don't reset it
   useEffect(() => {
@@ -2139,15 +2329,124 @@ export default function KorfbalApp() {
   // SetupMatchView is defined as a top-level component above KorfbalApp
   // It receives all needed state as props (keyboard bug fix)
 
+  // MatchView action functions — lifted here so modals in KorfbalApp render can call them
+  const addGoal = (playerId, shotType) => {
+    if (navigator.vibrate) navigator.vibrate(50);
+    setMatchActionHistory(prev => [...prev, { type: 'goal', match: currentMatch }]);
+    setCurrentMatch(prevMatch => {
+      const updatedPlayers = prevMatch.players.map(p => {
+        if (p.id === playerId) {
+          const newStats = {
+            ...p.stats,
+            [shotType]: {
+              goals: p.stats[shotType].goals + 1,
+              attempts: p.stats[shotType].attempts + 1
+            }
+          };
+          return { ...p, stats: newStats };
+        }
+        return p;
+      });
+      const player = prevMatch.players.find(p => p.id === playerId);
+      const shotTypeName = SHOT_TYPES.find(t => t.id === shotType)?.label || shotType;
+      showFeedback(`⚽ Goal voor ${player?.name || 'Onbekend'} (${shotTypeName})`, 'success');
+      const newScore = prevMatch.score + 1;
+      const newGoals = [...(prevMatch.goals || []), {
+        playerId,
+        playerName: player?.name || 'Onbekend',
+        shotType,
+        timestamp: new Date().toISOString(),
+        isOwn: true
+      }];
+      return { ...prevMatch, players: updatedPlayers, score: newScore, goals: newGoals };
+    });
+    setScoreAnimKey(k => k + 1);
+    setShowGoalModal(null);
+  };
+
+  const addAttempt = (playerId, shotType) => {
+    setMatchActionHistory(prev => [...prev, { type: 'attempt', match: currentMatch }]);
+    setCurrentMatch(prevMatch => {
+      const updatedPlayers = prevMatch.players.map(p => {
+        if (p.id === playerId) {
+          const newStats = {
+            ...p.stats,
+            [shotType]: {
+              ...p.stats[shotType],
+              attempts: p.stats[shotType].attempts + 1
+            }
+          };
+          return { ...p, stats: newStats };
+        }
+        return p;
+      });
+      const player = prevMatch.players.find(p => p.id === playerId);
+      showFeedback(`Poging geregistreerd voor ${player?.name || 'Onbekend'}`, 'success');
+      return { ...prevMatch, players: updatedPlayers };
+    });
+    setShowAttemptModal(null);
+  };
+
+  const addOpponentGoal = (shotType) => {
+    setShowOpponentPlayerModal(shotType);
+    setShowOpponentModal(false);
+  };
+
+  const addOpponentGoalWithPlayer = (playerId, shotType) => {
+    if (navigator.vibrate) navigator.vibrate([30, 30, 30]);
+    setMatchActionHistory(prev => [...prev, { type: 'opponent_goal', match: currentMatch }]);
+    setCurrentMatch(prevMatch => {
+      const player = prevMatch.players.find(p => p.id === playerId);
+      showFeedback(`Tegendoelpunt tegen ${player?.name || 'Onbekend'}`, 'error');
+      const newGoals = [...(prevMatch.goals || []), {
+        playerId,
+        playerName: player?.name || 'Onbekend',
+        shotType,
+        timestamp: new Date().toISOString(),
+        isOwn: false
+      }];
+      return {
+        ...prevMatch,
+        opponentScore: prevMatch.opponentScore + 1,
+        opponentGoals: [...(prevMatch.opponentGoals || []), { type: shotType, time: new Date().toISOString(), concededBy: player?.name || 'Onbekend' }],
+        goals: newGoals
+      };
+    });
+    setScoreAnimKey(k => k + 1);
+    setShowOpponentPlayerModal(null);
+  };
+
+  const registerSubstitution = (outPlayerId, inPlayerId) => {
+    setMatchActionHistory(prev => [...prev, { type: 'substitution', match: currentMatch }]);
+    setCurrentMatch(prevMatch => {
+      const outPlayer = prevMatch.players.find(p => p.id === outPlayerId);
+      const inPlayer = prevMatch.players.find(p => p.id === inPlayerId);
+      if (!outPlayer || !inPlayer) return prevMatch;
+      const updatedPlayers = prevMatch.players.map(p => {
+        if (p.id === outPlayerId) return { ...p, isStarter: false };
+        if (p.id === inPlayerId) return { ...p, isStarter: true };
+        return p;
+      });
+      const newSubstitution = {
+        outPlayerId,
+        outPlayerName: outPlayer.name,
+        inPlayerId,
+        inPlayerName: inPlayer.name,
+        timestamp: new Date().toISOString(),
+      };
+      showFeedback(`Wissel: ${inPlayer.name} vervangt ${outPlayer.name}`, 'success');
+      return {
+        ...prevMatch,
+        players: updatedPlayers,
+        substitutions: [...(prevMatch.substitutions || []), newSubstitution],
+      };
+    });
+    setShowSubstitutionModal(false);
+  };
+
   const MatchView = () => {
-    const [showGoalModal, setShowGoalModal] = useState(null);
-    const [showAttemptModal, setShowAttemptModal] = useState(null);
-    const [showOpponentModal, setShowOpponentModal] = useState(false);
-    const [showOpponentPlayerModal, setShowOpponentPlayerModal] = useState(null);
-    const [showSubstitutionModal, setShowSubstitutionModal] = useState(false);
     const actionHistory = matchActionHistory;
     const setActionHistory = setMatchActionHistory;
-    const [scoreAnimKey, setScoreAnimKey] = useState(0);
     const [expandedPlayers, setExpandedPlayers] = useState(new Set());
 
     // ── Timer state is lifted to KorfbalApp to survive re-renders ──────────
@@ -2179,99 +2478,6 @@ export default function KorfbalApp() {
       </div>;
     }
 
-    const addGoal = (playerId, shotType) => {
-      // Haptic feedback on supported devices
-      if (navigator.vibrate) navigator.vibrate(50);
-      setActionHistory(prev => [...prev, { type: 'goal', match: currentMatch }]);
-      setCurrentMatch(prevMatch => {
-        const updatedPlayers = prevMatch.players.map(p => {
-          if (p.id === playerId) {
-            const newStats = {
-              ...p.stats,
-              [shotType]: {
-                goals: p.stats[shotType].goals + 1,
-                attempts: p.stats[shotType].attempts + 1
-              }
-            };
-            return { ...p, stats: newStats };
-          }
-          return p;
-        });
-        const player = prevMatch.players.find(p => p.id === playerId);
-        const shotTypeName = SHOT_TYPES.find(t => t.id === shotType)?.label || shotType;
-        showFeedback(`⚽ Goal voor ${player?.name || 'Onbekend'} (${shotTypeName})`, 'success');
-        const newScore = prevMatch.score + 1;
-
-        // Add timestamp to goals for chronological order
-        const newGoals = [...(prevMatch.goals || []), {
-          playerId,
-          playerName: player?.name || 'Onbekend',
-          shotType,
-          timestamp: new Date().toISOString(),
-          isOwn: true
-        }];
-
-        return { ...prevMatch, players: updatedPlayers, score: newScore, goals: newGoals };
-      });
-      setScoreAnimKey(k => k + 1);
-      setShowGoalModal(null);
-    };
-
-    const addAttempt = (playerId, shotType) => {
-      setActionHistory(prev => [...prev, { type: 'attempt', match: currentMatch }]);
-      setCurrentMatch(prevMatch => {
-        const updatedPlayers = prevMatch.players.map(p => {
-          if (p.id === playerId) {
-            const newStats = {
-              ...p.stats,
-              [shotType]: {
-                ...p.stats[shotType],
-                attempts: p.stats[shotType].attempts + 1
-              }
-            };
-            return { ...p, stats: newStats };
-          }
-          return p;
-        });
-        const player = prevMatch.players.find(p => p.id === playerId);
-        showFeedback(`Poging geregistreerd voor ${player?.name || 'Onbekend'}`, 'success');
-        return { ...prevMatch, players: updatedPlayers };
-      });
-      setShowAttemptModal(null);
-    };
-
-    const addOpponentGoal = (shotType) => {
-      setShowOpponentPlayerModal(shotType);
-      setShowOpponentModal(false);
-    };
-
-    const addOpponentGoalWithPlayer = (playerId, shotType) => {
-      if (navigator.vibrate) navigator.vibrate([30, 30, 30]);
-      setActionHistory(prev => [...prev, { type: 'opponent_goal', match: currentMatch }]);
-      setCurrentMatch(prevMatch => {
-        const player = prevMatch.players.find(p => p.id === playerId);
-        showFeedback(`Tegendoelpunt tegen ${player?.name || 'Onbekend'}`, 'error');
-
-        // Add to chronological goals list
-        const newGoals = [...(prevMatch.goals || []), {
-          playerId,
-          playerName: player?.name || 'Onbekend',
-          shotType,
-          timestamp: new Date().toISOString(),
-          isOwn: false
-        }];
-
-        return {
-          ...prevMatch,
-          opponentScore: prevMatch.opponentScore + 1,
-          opponentGoals: [...(prevMatch.opponentGoals || []), { type: shotType, time: new Date().toISOString(), concededBy: player?.name || 'Onbekend' }],
-          goals: newGoals
-        };
-      });
-      setScoreAnimKey(k => k + 1);
-      setShowOpponentPlayerModal(null);
-    };
-
     const undoLastAction = () => {
       if (actionHistory.length === 0) {
         showFeedback('Geen acties om ongedaan te maken', 'error');
@@ -2281,34 +2487,6 @@ export default function KorfbalApp() {
       setCurrentMatch(lastAction.match);
       setActionHistory(prev => prev.slice(0, -1));
       showFeedback('Actie ongedaan gemaakt', 'success');
-    };
-
-    const registerSubstitution = (outPlayerId, inPlayerId) => {
-      setActionHistory(prev => [...prev, { type: 'substitution', match: currentMatch }]);
-      setCurrentMatch(prevMatch => {
-        const outPlayer = prevMatch.players.find(p => p.id === outPlayerId);
-        const inPlayer = prevMatch.players.find(p => p.id === inPlayerId);
-        if (!outPlayer || !inPlayer) return prevMatch;
-        const updatedPlayers = prevMatch.players.map(p => {
-          if (p.id === outPlayerId) return { ...p, isStarter: false };
-          if (p.id === inPlayerId) return { ...p, isStarter: true };
-          return p;
-        });
-        const newSubstitution = {
-          outPlayerId,
-          outPlayerName: outPlayer.name,
-          inPlayerId,
-          inPlayerName: inPlayer.name,
-          timestamp: new Date().toISOString(),
-        };
-        showFeedback(`Wissel: ${inPlayer.name} vervangt ${outPlayer.name}`, 'success');
-        return {
-          ...prevMatch,
-          players: updatedPlayers,
-          substitutions: [...(prevMatch.substitutions || []), newSubstitution],
-        };
-      });
-      setShowSubstitutionModal(false);
     };
 
     const finishMatch = () => {
@@ -2540,205 +2718,9 @@ export default function KorfbalApp() {
           </button>
         </div>
 
-        {showGoalModal && <ShotTypeModal title={`Goal — ${showGoalModal.name}`}
-          onSelect={(type) => addGoal(showGoalModal.id, type)} onClose={() => setShowGoalModal(null)} />}
-        {showAttemptModal && <ShotTypeModal title="Schotpoging registreren"
-          onSelect={(type) => addAttempt(showAttemptModal.id, type)} onClose={() => setShowAttemptModal(null)} />}
-        {showOpponentModal && <ShotTypeModal title="Tegendoelpunt type"
-          onSelect={addOpponentGoal} onClose={() => setShowOpponentModal(false)} />}
-        {showOpponentPlayerModal && <PlayerSelectModal title="Wie kreeg doelpunt tegen?" players={currentMatch.players}
-          onSelect={(playerId) => addOpponentGoalWithPlayer(playerId, showOpponentPlayerModal)}
-          onClose={() => setShowOpponentPlayerModal(null)} />}
-        {showSubstitutionModal && <SubstitutionModal
-          players={currentMatch.players}
-          onSubstitute={registerSubstitution}
-          onClose={() => setShowSubstitutionModal(false)} />}
       </div>
     );
   };
-
-  const ShotTypeModal = ({ title, onSelect, onClose }) => {
-    const modalRef = useRef(null);
-
-    useEffect(() => {
-      const handleKeyDown = (e) => {
-        if (e.key === 'Escape') onClose();
-        if (e.key === 'Tab') {
-          const focusable = modalRef.current?.querySelectorAll('button');
-          if (!focusable?.length) return;
-          const first = focusable[0], last = focusable[focusable.length - 1];
-          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-          else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-        }
-      };
-      document.addEventListener('keydown', handleKeyDown);
-      setTimeout(() => modalRef.current?.querySelector('button')?.focus(), 50);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
-
-    return (
-      <div className="fixed inset-0 bg-ink-900/45 flex items-end z-50"
-        role="dialog" aria-modal="true" aria-label={title} onClick={onClose} ref={modalRef}>
-        <div className="w-full bg-white dark:bg-gray-900 rounded-t-[20px] p-5 pb-6" onClick={e => e.stopPropagation()}>
-          <div className="w-9 h-1 bg-black/10 rounded-full mx-auto mb-4" />
-          <div className="font-display font-black text-[20px] text-ink-900 dark:text-white mb-1 tracking-tight">{title}</div>
-          <div className="text-[12px] text-gray-400 font-medium mb-4">Welk schottype?</div>
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {SHOT_TYPES.map(type => (
-              <button key={type.id} onClick={() => onSelect(type.id)}
-                className="bg-[#FAFAF7] dark:bg-gray-800 border border-black/[.06] dark:border-gray-700 text-ink-900 dark:text-white p-3 rounded-xl active:scale-95 transition-all font-semibold text-sm text-left flex items-center gap-2.5 focus-visible:ring-2 focus-visible:ring-primary">
-                <span className="w-7 h-7 rounded-lg bg-primary text-white font-display font-black text-[10px] flex items-center justify-center flex-shrink-0">
-                  {type.short}
-                </span>
-                {type.label}
-              </button>
-            ))}
-          </div>
-          <button onClick={onClose}
-            className="w-full py-3 text-sm font-semibold text-gray-400 hover:text-gray-600 transition focus-visible:ring-2 focus-visible:ring-primary">
-            Annuleren
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const PlayerSelectModal = ({ title, players, onSelect, onClose }) => {
-    const modalRef = useRef(null);
-
-    useEffect(() => {
-      const handleKeyDown = (e) => {
-        if (e.key === 'Escape') onClose();
-        if (e.key === 'Tab') {
-          const focusable = modalRef.current?.querySelectorAll('button');
-          if (!focusable?.length) return;
-          const first = focusable[0], last = focusable[focusable.length - 1];
-          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-          else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-        }
-      };
-      document.addEventListener('keydown', handleKeyDown);
-      setTimeout(() => modalRef.current?.querySelector('button')?.focus(), 50);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
-
-    return (
-      <div className="fixed inset-0 bg-ink-900/45 flex items-end z-50"
-        role="dialog" aria-modal="true" aria-label={title} onClick={onClose} ref={modalRef}>
-        <div className="w-full bg-white rounded-t-[20px] p-5 pb-6 max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}>
-          <div className="w-9 h-1 bg-black/10 rounded-full mx-auto mb-4 flex-shrink-0" />
-          <div className="font-display font-black text-[20px] text-ink-900 mb-4 tracking-tight flex-shrink-0">{title}</div>
-          <div className="overflow-y-auto space-y-1.5 mb-3">
-            {players.map(player => {
-              const isAanval = player.position === 'aanval';
-              const initials = player.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
-              return (
-                <button key={player.id} onClick={() => onSelect(player.id)}
-                  className="w-full bg-[#FAFAF7] border border-black/[.06] text-ink-900 px-3.5 py-3 rounded-xl active:scale-[0.98] transition-all font-semibold text-left text-sm flex items-center gap-3 focus-visible:ring-2 focus-visible:ring-primary">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0 ${isAanval ? 'bg-primary' : 'bg-ink-900'}`}>
-                    {initials}
-                  </div>
-                  <div>
-                    <div className="font-bold text-[13px]">{player.name}</div>
-                    <div className="stencil text-[8px] text-gray-400 mt-0.5">{isAanval ? 'Aanval' : 'Verdediging'}</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-          <button onClick={onClose}
-            className="w-full py-3 text-sm font-semibold text-gray-400 hover:text-gray-600 transition flex-shrink-0 focus-visible:ring-2 focus-visible:ring-primary">
-            Annuleren
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // ─── SubstitutionModal ────────────────────────────────────────────────────────
-  const SubstitutionModal = ({ players, onSubstitute, onClose }) => {
-    const [outPlayer, setOutPlayer] = useState(null);
-    const modalRef = useRef(null);
-
-    const starters = players.filter(p => p.isStarter);
-    const bench = players.filter(p => !p.isStarter);
-
-    useEffect(() => {
-      const handleKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
-      document.addEventListener('keydown', handleKeyDown);
-      setTimeout(() => modalRef.current?.querySelector('button')?.focus(), 50);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
-
-    return (
-      <div className="fixed inset-0 bg-ink-900/45 flex items-end z-50"
-        role="dialog" aria-modal="true" aria-label="Wissel registreren" onClick={onClose} ref={modalRef}>
-        <div className="w-full bg-white rounded-t-[20px] p-5 pb-6 max-h-[75vh] flex flex-col" onClick={e => e.stopPropagation()}>
-          <div className="w-9 h-1 bg-black/10 rounded-full mx-auto mb-4 flex-shrink-0" />
-          <div className="font-display font-black text-[20px] text-ink-900 mb-1 tracking-tight flex-shrink-0">
-            Wissel registreren
-          </div>
-          <div className="text-[12px] text-gray-400 font-medium mb-4 flex-shrink-0">
-            {!outPlayer ? 'Wie gaat eraf?' : (
-              <span><span className="font-bold text-primary">{outPlayer.name}</span> gaat eraf — wie komt erin?</span>
-            )}
-          </div>
-          <div className="overflow-y-auto space-y-1.5 mb-3">
-            {!outPlayer ? (
-              starters.map(p => {
-                const isAanval = p.position === 'aanval';
-                const initials = p.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
-                return (
-                  <button key={p.id} onClick={() => setOutPlayer(p)}
-                    className="w-full bg-[#FAFAF7] border border-black/[.06] px-3.5 py-3 rounded-xl active:scale-[0.98] transition-all text-left flex items-center gap-3 focus-visible:ring-2 focus-visible:ring-primary">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0 ${isAanval ? 'bg-primary' : 'bg-ink-900'}`}>
-                      {initials}
-                    </div>
-                    <div>
-                      <div className="font-bold text-[13px] text-ink-900">{p.name}</div>
-                      <div className="stencil text-[8px] text-gray-400 mt-0.5">{isAanval ? 'Aanval' : 'Verdediging'} · Basis</div>
-                    </div>
-                  </button>
-                );
-              })
-            ) : bench.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">Geen wisselspelers beschikbaar</p>
-            ) : (
-              bench.map(p => {
-                const isAanval = p.position === 'aanval';
-                const initials = p.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
-                return (
-                  <button key={p.id} onClick={() => onSubstitute(outPlayer.id, p.id)}
-                    className="w-full bg-[#FAFAF7] border border-black/[.06] px-3.5 py-3 rounded-xl active:scale-[0.98] transition-all text-left flex items-center gap-3 focus-visible:ring-2 focus-visible:ring-primary">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display font-black text-[11px] text-white flex-shrink-0 ${isAanval ? 'bg-primary' : 'bg-ink-900'}`}>
-                      {initials}
-                    </div>
-                    <div>
-                      <div className="font-bold text-[13px] text-ink-900">{p.name}</div>
-                      <div className="stencil text-[8px] text-gray-400 mt-0.5">{isAanval ? 'Aanval' : 'Verdediging'} · Wissel</div>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-          <div className="flex gap-2 flex-shrink-0">
-            {outPlayer && (
-              <button onClick={() => setOutPlayer(null)}
-                className="flex-1 py-3 text-sm font-semibold text-gray-400 hover:text-ink-900 transition focus-visible:ring-2 focus-visible:ring-primary">
-                ← Andere speler
-              </button>
-            )}
-            <button onClick={onClose}
-              className="flex-1 py-3 text-sm font-semibold text-gray-400 hover:text-gray-600 transition focus-visible:ring-2 focus-visible:ring-primary">
-              Annuleren
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-  // ─────────────────────────────────────────────────────────────────────────────
 
   const MatchSummaryView = () => {
     const match = currentMatch;
@@ -4700,6 +4682,19 @@ export default function KorfbalApp() {
         })()}
       </div>
       {showBottomNav && <BottomNav />}
+      {showGoalModal && <ShotTypeModal title={`Goal — ${showGoalModal.name}`}
+        onSelect={(type) => addGoal(showGoalModal.id, type)} onClose={() => setShowGoalModal(null)} />}
+      {showAttemptModal && <ShotTypeModal title="Schotpoging registreren"
+        onSelect={(type) => addAttempt(showAttemptModal.id, type)} onClose={() => setShowAttemptModal(null)} />}
+      {showOpponentModal && <ShotTypeModal title="Tegendoelpunt type"
+        onSelect={addOpponentGoal} onClose={() => setShowOpponentModal(false)} />}
+      {showOpponentPlayerModal && currentMatch && <PlayerSelectModal title="Wie kreeg doelpunt tegen?" players={currentMatch.players}
+        onSelect={(playerId) => addOpponentGoalWithPlayer(playerId, showOpponentPlayerModal)}
+        onClose={() => setShowOpponentPlayerModal(null)} />}
+      {showSubstitutionModal && currentMatch && <SubstitutionModal
+        players={currentMatch.players}
+        onSubstitute={registerSubstitution}
+        onClose={() => setShowSubstitutionModal(false)} />}
     </div>
   );
 }
