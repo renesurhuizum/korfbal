@@ -51,6 +51,9 @@ export const getTeamStats = query({
     let totalWins = 0, totalDraws = 0, totalLosses = 0;
     let totalGoalsFor = 0, totalGoalsAgainst = 0;
     let totalAttempts = 0;
+    // Goals from non-historical matches only — used as the shot% numerator so
+    // it stays in sync with totalAttempts (historical matches have no attempts).
+    let totalAttemptGoals = 0;
 
     for (const match of matches) {
       totalGoalsFor += match.score;
@@ -60,6 +63,7 @@ export const getTeamStats = query({
       if (!match.historical) {
         const { attempts } = matchTotals(match);
         totalAttempts += attempts;
+        totalAttemptGoals += match.score;
       }
 
       if (match.score > match.opponent_score) totalWins++;
@@ -69,7 +73,7 @@ export const getTeamStats = query({
 
     const totalMatches = matches.length;
     const shotPercentage = totalAttempts > 0
-      ? Math.round((totalGoalsFor / totalAttempts) * 100)
+      ? Math.round((totalAttemptGoals / totalAttempts) * 100)
       : 0;
 
     return {
@@ -183,22 +187,24 @@ export const getTopPlayers = query({
     if (args.seasonId) matches = matches.filter((m) => m.season_id === args.seasonId);
     if (args.competition) matches = matches.filter((m) => m.competition === args.competition);
 
-    const playerStats: Record<string, { name: string; goals: number; attempts: number; matches: number }> = {};
+    const playerStats: Record<string, { name: string; goals: number; attempts: number; attemptGoals: number; matches: number }> = {};
 
     for (const match of matches) {
       for (const player of match.players || []) {
         const id = String(player.id);
         if (!playerStats[id]) {
-          playerStats[id] = { name: player.name, goals: 0, attempts: 0, matches: 0 };
+          playerStats[id] = { name: player.name, goals: 0, attempts: 0, attemptGoals: 0, matches: 0 };
         }
         playerStats[id].matches++;
         for (const shotType of ['distance', 'close', 'penalty', 'freeball', 'runthrough', 'outstart', 'other']) {
           const stat = player.stats?.[shotType];
           if (stat) {
             playerStats[id].goals += stat.goals || 0;
-            // Exclude attempts from historical matches (no shot tracking)
+            // Exclude attempts from historical matches (no shot tracking).
+            // attemptGoals tracks the matching goals so shot% stays consistent.
             if (!match.historical) {
               playerStats[id].attempts += stat.attempts || 0;
+              playerStats[id].attemptGoals += stat.goals || 0;
             }
           }
         }
@@ -212,7 +218,7 @@ export const getTopPlayers = query({
         goals: s.goals,
         attempts: s.attempts,
         matches: s.matches,
-        percentage: s.attempts > 0 ? Math.round((s.goals / s.attempts) * 100) : 0,
+        percentage: s.attempts > 0 ? Math.round((s.attemptGoals / s.attempts) * 100) : 0,
         goalsPerMatch: s.matches > 0 ? Math.round((s.goals / s.matches) * 10) / 10 : 0,
       }))
       .sort((a, b) => b.goals - a.goals)
@@ -341,8 +347,10 @@ export const getPlayerCareerStats = query({
       .filter((q) => q.eq(q.field("finished"), true))
       .collect();
 
-    type ByType = Record<string, { goals: number; attempts: number }>;
-    const players: Record<string, { name: string; goals: number; attempts: number; matches: number; byType: ByType }> = {};
+    // attemptGoals = goals from non-historical matches only; used as the shot%
+    // numerator so it stays in sync with attempts (historical = no attempts).
+    type ByType = Record<string, { goals: number; attempts: number; attemptGoals: number }>;
+    const players: Record<string, { name: string; goals: number; attempts: number; attemptGoals: number; matches: number; byType: ByType }> = {};
 
     for (const match of matches) {
       for (const player of match.players || []) {
@@ -352,8 +360,9 @@ export const getPlayerCareerStats = query({
             name: player.name,
             goals: 0,
             attempts: 0,
+            attemptGoals: 0,
             matches: 0,
-            byType: Object.fromEntries(ALL_SHOT_TYPES.map((st) => [st, { goals: 0, attempts: 0 }])),
+            byType: Object.fromEntries(ALL_SHOT_TYPES.map((st) => [st, { goals: 0, attempts: 0, attemptGoals: 0 }])),
           };
         }
         players[id].matches++;
@@ -365,7 +374,9 @@ export const getPlayerCareerStats = query({
             // Exclude attempts from historical matches (no shot tracking)
             if (!(match as any).historical) {
               players[id].attempts += s.attempts || 0;
+              players[id].attemptGoals += s.goals || 0;
               players[id].byType[st].attempts += s.attempts || 0;
+              players[id].byType[st].attemptGoals += s.goals || 0;
             }
           }
         }
@@ -380,7 +391,7 @@ export const getPlayerCareerStats = query({
             {
               ...p.byType[st],
               percentage: p.byType[st].attempts > 0
-                ? Math.round((p.byType[st].goals / p.byType[st].attempts) * 100) : 0,
+                ? Math.round((p.byType[st].attemptGoals / p.byType[st].attempts) * 100) : 0,
             },
           ])
         );
@@ -395,7 +406,7 @@ export const getPlayerCareerStats = query({
           goals: p.goals,
           attempts: p.attempts,
           matches: p.matches,
-          percentage: p.attempts > 0 ? Math.round((p.goals / p.attempts) * 100) : 0,
+          percentage: p.attempts > 0 ? Math.round((p.attemptGoals / p.attempts) * 100) : 0,
           goalsPerMatch: p.matches > 0 ? Math.round((p.goals / p.matches) * 10) / 10 : 0,
           byType: byTypeWithPct,
           bestShotType,
